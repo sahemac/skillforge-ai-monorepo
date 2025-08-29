@@ -3,6 +3,7 @@
 name: "Deploy - User Service"
 
 on:
+  workflow_dispatch:  # <--- LIGNE AJOUTÉE ICI
   push:
     branches:
       - 'develop'
