@@ -1,9 +1,6 @@
-# .github/workflows/deploy-user-service.yml
-
 name: "Deploy - User Service"
-
 on:
-  workflow_dispatch:  # <--- LIGNE AJOUTÉE ICI
+  workflow_dispatch:
   push:
     branches:
       - 'develop'
@@ -11,41 +8,32 @@ on:
       - 'apps/backend/user-service/**'
 
 jobs:
-  test-and-deploy-staging:
-    name: Test and Deploy to Staging
-    runs-on: ubuntu-latest
-    
-    permissions:
-      contents: read
-      id-token: write
+  test:
+    name: Run Unit Tests
+    uses: ./.github/workflows/run-python-tests.yml
+    with:
+      service-directory: 'apps/backend/user-service'
+    secrets: inherit
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  build:
+    name: Build, Scan & Push Docker Image
+    needs: test  # Attend que le job "test" soit terminé avec succès
+    uses: ./.github/workflows/build-push-docker.yml
+    with:
+      image_name: 'skillforge-docker-repo-staging/user-service'
+      dockerfile_path: 'apps/backend/user-service/Dockerfile'
+      gcp_workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+      gcp_service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+    secrets: inherit
 
-      - name: Run Unit Tests
-        id: test # Donnons un id à cette étape pour y faire référence
-        uses: ./.github/workflows/run-python-tests.yml
-        with:
-          service-directory: 'apps/backend/user-service'
-
-      - name: Build, Scan & Push Docker Image
-        id: build
-        # L'étape de build dépend implicitement du succès de l'étape de test
-        uses: ./.github/workflows/build-push-docker.yml
-        with:
-          image_name: 'skillforge-docker-repo-staging/user-service'
-          dockerfile_path: 'apps/backend/user-service/Dockerfile'
-          gcp_workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          gcp_service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-
-      - name: Deploy to Cloud Run
-        id: deploy
-        # L'étape de déploiement dépend implicitement du succès de l'étape de build
-        uses: ./.github/workflows/deploy-to-cloud-run.yml
-        with:
-          image_uri: ${{ steps.build.outputs.image_uri }}
-          service_name: 'user-service-staging'
-          gcp_region: 'europe-west1'
-          gcp_workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          gcp_service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+  deploy:
+    name: Deploy to Cloud Run
+    needs: build  # Attend que le job "build" soit terminé avec succès
+    uses: ./.github/workflows/deploy-to-cloud-run.yml
+    with:
+      image_uri: ${{ needs.build.outputs.image_uri }}  # Récupère la sortie du job "build"
+      service_name: 'user-service-staging'
+      gcp_region: 'europe-west1'
+      gcp_workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+      gcp_service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+    secrets: inherit
