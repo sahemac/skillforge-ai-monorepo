@@ -17,23 +17,28 @@ jobs:
 
   build:
     name: Build, Scan & Push Docker Image
-    needs: test  # Attend que le job "test" soit terminé avec succès
+    needs: test
     uses: ./.github/workflows/build-push-docker.yml
     with:
       image_name: 'skillforge-docker-repo-staging/user-service'
       dockerfile_path: 'apps/backend/user-service/Dockerfile'
       gcp_workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
       gcp_service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-    secrets: inherit
+    secrets:
+      GCP_WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
+      GCP_CICD_SERVICE_ACCOUNT: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
 
   deploy:
     name: Deploy to Cloud Run
-    needs: build  # Attend que le job "build" soit terminé avec succès
+    needs: build
     uses: ./.github/workflows/deploy-to-cloud-run.yml
     with:
-      image_uri: ${{ needs.build.outputs.image_uri }}  # Récupère la sortie du job "build"
+      image_uri: ${{ needs.build.outputs.image_uri }}
       service_name: 'user-service-staging'
       gcp_region: 'europe-west1'
       gcp_workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
       gcp_service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-    secrets: inherit
+    secrets:
+      GCP_WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
+      GCP_CICD_SERVICE_ACCOUNT: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
