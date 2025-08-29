@@ -5,16 +5,15 @@ name: "Deploy - User Service"
 on:
   push:
     branches:
-      - 'develop' # Déclenche sur push vers la branche de staging
+      - 'develop'
     paths:
-      - 'apps/backend/user-service/**' # Ne se déclenche que si le code de ce service change
+      - 'apps/backend/user-service/**'
 
 jobs:
   test-and-deploy-staging:
     name: Test and Deploy to Staging
     runs-on: ubuntu-latest
     
-    # Permissions nécessaires pour l'authentification OIDC avec GCP
     permissions:
       contents: read
       id-token: write
@@ -24,27 +23,27 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Unit Tests
+        id: test # Donnons un id à cette étape pour y faire référence
         uses: ./.github/workflows/run-python-tests.yml
         with:
           service-directory: 'apps/backend/user-service'
 
       - name: Build, Scan & Push Docker Image
         id: build
+        # L'étape de build dépend implicitement du succès de l'étape de test
         uses: ./.github/workflows/build-push-docker.yml
         with:
           image_name: 'skillforge-docker-repo-staging/user-service'
           dockerfile_path: 'apps/backend/user-service/Dockerfile'
-          # Ces secrets doivent être configurés dans les "Actions secrets" du dépôt GitHub
           gcp_workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           gcp_service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
 
       - name: Deploy to Cloud Run
-        # S'assure que l'étape de build est terminée
-        needs: build
+        id: deploy
+        # L'étape de déploiement dépend implicitement du succès de l'étape de build
         uses: ./.github/workflows/deploy-to-cloud-run.yml
         with:
-          # Utilise l'URI de l'image retournée par l'étape de build
-          image_uri: ${{ needs.build.outputs.image_uri }}
+          image_uri: ${{ steps.build.outputs.image_uri }}
           service_name: 'user-service-staging'
           gcp_region: 'europe-west1'
           gcp_workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
