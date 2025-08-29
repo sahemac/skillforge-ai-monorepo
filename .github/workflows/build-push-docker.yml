@@ -1,64 +1,53 @@
+# .github/workflows/build-push-docker.yml
 name: "Reusable - Build, Scan, and Push Docker Image"
 on:
   workflow_call:
     inputs:
       image_name:
-        description: 'The name of the docker image without the tag'
         required: true
         type: string
       dockerfile_path:
-        description: 'The path to the Dockerfile'
         required: true
         type: string
       gcp_workload_identity_provider:
-        description: 'The WIF provider from GCP'
         required: true
         type: string
       gcp_service_account:
-        description: 'The GCP service account to impersonate'
         required: true
         type: string
-    secrets:
+    secrets: # <-- DÉCLARATION DES SECRETS REÇUS
       GCP_PROJECT_ID:
         required: true
-      GCP_WIF_PROVIDER:
-        required: true
-      GCP_CICD_SERVICE_ACCOUNT:
-        required: true
-
+    outputs:
+      image_uri:
+        description: "The full URI of the pushed image"
+        value: ${{ jobs.build-scan-push.outputs.image_uri }}
 jobs:
   build-scan-push:
     name: Build, Scan & Push
     runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
     outputs:
       image_uri: ${{ steps.push.outputs.image_uri }}
-
-    permissions:
-      contents: read
-      id-token: write
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Authenticate to Google Cloud
-        id: auth
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ inputs.gcp_workload_identity_provider }}
           service_account: ${{ inputs.gcp_service_account }}
-
-      - name: Configure Docker to use gcloud
+      - name: Configure Docker
         run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
-
       - name: Build Docker Image
         id: build
         run: |
           IMAGE_URI="europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ inputs.image_name }}:${{ github.sha }}"
           docker build -t ${IMAGE_URI} -f ${{ inputs.dockerfile_path }} .
           echo "image_uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
-
-      - name: Scan Docker Image for Vulnerabilities
+      - name: Scan Docker Image
         uses: aquasecurity/trivy-action@0.20.0
         with:
           image-ref: ${{ steps.build.outputs.image_uri }}
@@ -67,8 +56,7 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'HIGH,CRITICAL'
-
-      - name: Push Docker Image to Artifact Registry
+      - name: Push Docker Image
         id: push
         run: |
           docker push ${{ steps.build.outputs.image_uri }}
