@@ -1,0 +1,54 @@
+# .github/workflows/deploy-to-cloud-run.yml
+
+name: "Reusable - Deploy to Cloud Run"
+
+on:
+  workflow_call:
+    inputs:
+      image_uri:
+        description: 'The full URI of the docker image to deploy'
+        required: true
+        type: string
+      service_name:
+        description: 'The name of the Cloud Run service to deploy to'
+        required: true
+        type: string
+      gcp_region:
+        description: 'The GCP region where the service is located'
+        required: true
+        type: string
+      gcp_workload_identity_provider:
+        description: 'The WIF provider from GCP'
+        required: true
+        type: string
+      gcp_service_account:
+        description: 'The GCP service account to impersonate'
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ inputs.gcp_workload_identity_provider }}
+          service_account: ${{ inputs.gcp_service_account }}
+
+      - name: Deploy new revision to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ inputs.service_name }}
+          image: ${{ inputs.image_uri }}
+          region: ${{ inputs.gcp_region }}
+          # Déploie 100% du trafic sur la nouvelle révision immédiatement
+          no-traffic: false
