@@ -9,33 +9,37 @@ on:
       - 'apps/backend/user-service/**'
 
 jobs:
-  test:
-    name: Run Unit Tests
-    uses: ./.github/workflows/run-python-tests.yml
-    with:
-      service-directory: 'apps/backend/user-service'
-    # Ce job n'a pas besoin de secrets
+  test-build-deploy:
+    name: Test, Build and Deploy to Staging
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
 
-  build:
-    name: Build, Scan & Push Docker Image
-    needs: test
-    uses: ./.github/workflows/build-push-docker.yml
-    with:
-      image_name: 'skillforge-docker-repo-staging/user-service'
-      dockerfile_path: 'apps/backend/user-service/Dockerfile'
-      gcp_workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-      gcp_service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-    secrets: # <-- ON PASSE LES SECRETS NÉCESSAIRES ICI
-      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+    steps:
+      # Étape 1: Tester le code
+      - name: Run Unit Tests
+        uses: ./.github/workflows/run-python-tests.yml
+        with:
+          service-directory: 'apps/backend/user-service'
 
-  deploy:
-    name: Deploy to Cloud Run
-    needs: build
-    uses: ./.github/workflows/deploy-to-cloud-run.yml
-    with:
-      image_uri: ${{ needs.build.outputs.image_uri }}
-      service_name: 'user-service-staging'
-      gcp_region: 'europe-west1'
-      gcp_workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-      gcp_service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-    # Ce job n'a pas besoin de secrets car tout est passé via 'with'
+      # Étape 2: Construire l'image si les tests réussissent
+      - name: Build, Scan & Push Docker Image
+        id: build
+        uses: ./.github/workflows/build-push-docker.yml
+        with:
+          image_name: 'skillforge-docker-repo-staging/user-service'
+          dockerfile_path: 'apps/backend/user-service/Dockerfile'
+          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+          gcp_workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          gcp_service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+
+      # Étape 3: Déployer l'image si la construction réussit
+      - name: Deploy to Cloud Run
+        uses: ./.github/workflows/deploy-to-cloud-run.yml
+        with:
+          image_uri: ${{ steps.build.outputs.image_uri }}
+          service_name: 'user-service-staging'
+          gcp_region: 'europe-west1'
+          gcp_workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          gcp_service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
