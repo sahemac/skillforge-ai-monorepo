@@ -1,11 +1,6 @@
-# .github/workflows/build-push-docker.yml
-
 name: "Reusable - Build, Scan, and Push Docker Image"
-
 on:
-  # Définit ce workflow comme étant appelable par d'autres workflows.
   workflow_call:
-    # Définit les paramètres (entrées) que le workflow appelant doit fournir.
     inputs:
       image_name:
         description: 'The name of the docker image without the tag'
@@ -23,11 +18,13 @@ on:
         description: 'The GCP service account to impersonate'
         required: true
         type: string
-    # Définit les données que ce workflow peut retourner à l'appelant.
-    outputs:
-      image_uri:
-        description: "The full URI of the pushed image"
-        value: ${{ jobs.build-scan-push.outputs.image_uri }}
+    secrets:
+      GCP_PROJECT_ID:
+        required: true
+      GCP_WIF_PROVIDER:
+        required: true
+      GCP_CICD_SERVICE_ACCOUNT:
+        required: true
 
 jobs:
   build-scan-push:
@@ -35,8 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       image_uri: ${{ steps.push.outputs.image_uri }}
-    
-    # Permissions nécessaires pour l'authentification OIDC avec GCP
+
     permissions:
       contents: read
       id-token: write
@@ -67,12 +63,11 @@ jobs:
         with:
           image-ref: ${{ steps.build.outputs.image_uri }}
           format: 'table'
-          # Fait échouer le pipeline si des vulnérabilités de sévérité HAUTE ou CRITIQUE sont trouvées.
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'HIGH,CRITICAL'
-      
+
       - name: Push Docker Image to Artifact Registry
         id: push
         run: |
