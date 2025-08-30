@@ -44,7 +44,7 @@ resource "google_cloud_run_v2_service" "service" {
         name = "JWT_SECRET_KEY"
         value_source {
           secret_key_ref {
-            secret  = "projects/${var.project_number}/secrets/jwt-secret-key-staging"
+            secret  = "projects/${var.project_id}/secrets/jwt-secret-key-staging"
             version = "latest"
           }
         }
