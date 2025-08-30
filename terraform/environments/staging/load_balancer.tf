@@ -25,7 +25,7 @@ resource "google_compute_region_network_endpoint_group" "user_service_neg" {
   }
 }
 
-# Backend service pointant vers Cloud Run
+# Backend service pointant vers Cloud Run (IAP configuré manuellement)
 resource "google_compute_backend_service" "user_service_backend" {
   name        = "user-service-backend"
   protocol    = "HTTP"
@@ -35,6 +35,9 @@ resource "google_compute_backend_service" "user_service_backend" {
   backend {
     group = google_compute_region_network_endpoint_group.user_service_neg.id
   }
+
+  # IAP sera configuré manuellement via la console
+  # Une fois configuré, Terraform l'importera automatiquement
 }
 
 # URL Map pour le routing
@@ -93,7 +96,7 @@ resource "google_compute_global_forwarding_rule" "skillforge_http_forwarding" {
   ip_address = data.google_compute_global_address.skillforge_ip.address
 }
 
-# Output de l'IP pour configuration DNS
+# Outputs
 output "load_balancer_ip" {
   description = "IP address of the load balancer"
   value       = data.google_compute_global_address.skillforge_ip.address

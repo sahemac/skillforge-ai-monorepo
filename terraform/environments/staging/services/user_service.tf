@@ -26,7 +26,6 @@ resource "google_secret_manager_secret_iam_member" "jwt_access" {
 resource "google_cloud_run_v2_service" "service" {
   name     = "${var.service_name}-staging"
   location = var.region
-  # Ajouter cette ligne pour permettre la suppression
   deletion_protection = false
 
   template {
@@ -35,7 +34,6 @@ resource "google_cloud_run_v2_service" "service" {
     containers {
       image = "europe-west1-docker.pkg.dev/${var.project_id}/skillforge-docker-repo-staging/${var.service_name}:latest"
 
-      # Configuration pour Load Balancer
       ports {
         container_port = 8000
       }
@@ -44,7 +42,7 @@ resource "google_cloud_run_v2_service" "service" {
         name = "JWT_SECRET_KEY"
         value_source {
           secret_key_ref {
-            secret  = "projects/${var.project_id}/secrets/jwt-secret-key-staging"
+            secret  = "jwt-secret-key-staging"
             version = "latest"
           }
         }
@@ -63,6 +61,4 @@ resource "google_cloud_run_v2_service" "service" {
   }
 }
 
-# ✅ SUPPRIMÉ : La ressource IAM "allUsers" qui causait l'erreur
-# L'accès se fera uniquement via le Load Balancer
-# Ceci est plus sécurisé et respecte les politiques organisationnelles
+# Pas de binding IAM ici - l'authentification se fait via IAP sur le Load Balancer
