@@ -34,10 +34,10 @@ jobs:
     with:
       image_name: 'skillforge-docker-repo-staging/user-service'
       dockerfile_path: 'apps/backend/user-service/Dockerfile'
-      gcp_workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-      gcp_service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
     secrets:
       GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
+      GCP_CICD_SERVICE_ACCOUNT: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
 
   migrate:
     name: Run Database Migration
@@ -71,8 +71,9 @@ jobs:
       image_uri: ${{ needs.build.outputs.image_uri }}
       service_name: 'user-service-staging'
       gcp_region: 'europe-west1'
-      gcp_workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-      gcp_service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+    secrets:
+      GCP_WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
+      GCP_CICD_SERVICE_ACCOUNT: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
 
   notify:
     name: Send Notifications

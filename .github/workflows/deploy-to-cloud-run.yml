@@ -12,12 +12,11 @@ on:
       gcp_region:
         required: true
         type: string
-      gcp_workload_identity_provider:
+    secrets:
+      GCP_WIF_PROVIDER:
         required: true
-        type: string
-      gcp_service_account:
+      GCP_CICD_SERVICE_ACCOUNT:
         required: true
-        type: string
 jobs:
   deploy:
     name: Deploy to Cloud Run
@@ -29,8 +28,8 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ inputs.gcp_workload_identity_provider }}
-          service_account: ${{ inputs.gcp_service_account }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
       - name: Deploy new revision to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:

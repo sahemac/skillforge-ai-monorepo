@@ -9,14 +9,12 @@ on:
       dockerfile_path:
         required: true
         type: string
-      gcp_workload_identity_provider:
-        required: true
-        type: string
-      gcp_service_account:
-        required: true
-        type: string
     secrets:
       GCP_PROJECT_ID:
+        required: true
+      GCP_WIF_PROVIDER:
+        required: true
+      GCP_CICD_SERVICE_ACCOUNT:
         required: true
     outputs:
       image_uri:
@@ -37,8 +35,8 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ inputs.gcp_workload_identity_provider }}
-          service_account: ${{ inputs.gcp_service_account }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
       - name: Configure Docker
         run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
       - name: Build Docker Image
