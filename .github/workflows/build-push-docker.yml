@@ -15,7 +15,7 @@ on:
       gcp_service_account:
         required: true
         type: string
-    secrets: # <-- DÉCLARATION DES SECRETS REÇUS
+    secrets:
       GCP_PROJECT_ID:
         required: true
     outputs:

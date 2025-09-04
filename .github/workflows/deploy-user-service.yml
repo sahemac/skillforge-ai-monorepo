@@ -2,6 +2,18 @@
 name: "Deploy - User Service"
 on:
   workflow_dispatch:
+    inputs:
+      skip_migration:
+        description: 'Skip database migration'
+        type: boolean
+        default: false
+      environment:
+        description: 'Target environment'
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
   push:
     branches:
       - 'develop'
@@ -9,8 +21,8 @@ on:
       - 'apps/backend/user-service/**'
 
 jobs:
-  test-build-deploy:
-    name: Test, Build and Deploy to Staging
+  test-build-migrate-deploy:
+    name: Test, Build, Migrate & Deploy to Staging
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
@@ -30,12 +42,27 @@ jobs:
         with:
           image_name: 'skillforge-docker-repo-staging/user-service'
           dockerfile_path: 'apps/backend/user-service/Dockerfile'
-          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
           gcp_workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           gcp_service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+        secrets:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
 
-      # Étape 3: Déployer l'image si la construction réussit
+      # Étape 3: Migrer la base de données avant déploiement
+      - name: Run Database Migration
+        id: migration
+        if: ${{ !inputs.skip_migration }}
+        uses: ./.github/workflows/run-alembic-migration.yml
+        with:
+          service_name: 'user-service'
+          environment: ${{ inputs.environment || 'staging' }}
+          service_url: 'https://user-service-staging-123456789.europe-west1.run.app'
+        secrets:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+
+      # Étape 4: Déployer l'image si la construction ET la migration réussissent
       - name: Deploy to Cloud Run
+        if: ${{ success() && (steps.migration.outputs.migration_status == 'success' || inputs.skip_migration) }}
         uses: ./.github/workflows/deploy-to-cloud-run.yml
         with:
           image_uri: ${{ steps.build.outputs.image_uri }}
@@ -43,3 +70,43 @@ jobs:
           gcp_region: 'europe-west1'
           gcp_workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           gcp_service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+
+      # Étape 5: Notification en cas d'échec de migration
+      - name: Migration Failed Notification
+        if: ${{ failure() && steps.migration.outcome == 'failure' }}
+        run: |
+          echo "## ❌ Migration Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The database migration for user-service failed. Deployment has been aborted." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**What happened:**" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Unit tests passed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Docker image built and pushed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ Database migration failed" >> $GITHUB_STEP_SUMMARY
+          echo "- ⏹️ Deployment skipped for safety" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Check the migration logs in the artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "2. Review database changes and fix any issues" >> $GITHUB_STEP_SUMMARY
+          echo "3. Test migration locally before pushing again" >> $GITHUB_STEP_SUMMARY
+          echo "4. Consider running with \`skip_migration: true\` if migration is not needed" >> $GITHUB_STEP_SUMMARY
+          
+      # Étape 6: Notification de succès
+      - name: Deployment Success Summary
+        if: ${{ success() }}
+        run: |
+          echo "## ✅ Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Service:** user-service" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.environment || 'staging' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ steps.build.outputs.image_uri }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Pipeline Steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Unit tests passed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Docker image built and security scanned" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ inputs.skip_migration }}" == "true" ]]; then
+            echo "- ⏭️ Database migration skipped" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ✅ Database migration completed" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "- ✅ Deployed to Cloud Run successfully" >> $GITHUB_STEP_SUMMARY

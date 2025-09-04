@@ -1,0 +1,183 @@
+# .github/workflows/run-alembic-migration.yml
+name: "Reusable - Run Alembic Migration"
+
+on:
+  workflow_call:
+    inputs:
+      service_name:
+        description: "Name of the microservice (e.g., user-service)"
+        required: true
+        type: string
+      environment:
+        description: "Target environment (staging, production)"
+        required: false
+        type: string
+        default: "staging"
+      service_url:
+        description: "Service URL for health checks"
+        required: false
+        type: string
+      python_version:
+        description: "Python version to use"
+        required: false
+        type: string
+        default: "3.11"
+    secrets:
+      DATABASE_URL:
+        description: "PostgreSQL connection string"
+        required: true
+      GCP_PROJECT_ID:
+        description: "Google Cloud Project ID"
+        required: false
+    outputs:
+      migration_status:
+        description: "Migration status (success/failed)"
+        value: ${{ jobs.migrate.outputs.status }}
+      migration_log:
+        description: "Migration log file path"
+        value: ${{ jobs.migrate.outputs.log_file }}
+
+jobs:
+  migrate:
+    name: Run Database Migration
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.migration.outputs.status }}
+      log_file: ${{ steps.migration.outputs.log_file }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ inputs.python_version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client curl
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install alembic asyncpg python-dotenv
+
+      - name: Validate service directory
+        run: |
+          SERVICE_DIR="apps/backend/${{ inputs.service_name }}"
+          if [[ ! -d "$SERVICE_DIR" ]]; then
+            echo "❌ Service directory not found: $SERVICE_DIR"
+            echo "Available services:"
+            ls -la apps/backend/ || echo "No backend services found"
+            exit 1
+          fi
+          
+          if [[ ! -f "$SERVICE_DIR/alembic.ini" ]]; then
+            echo "❌ Alembic configuration not found: $SERVICE_DIR/alembic.ini"
+            echo "Directory contents:"
+            ls -la "$SERVICE_DIR/"
+            exit 1
+          fi
+          
+          echo "✅ Service validation passed"
+          echo "service_dir=$SERVICE_DIR" >> $GITHUB_ENV
+
+      - name: Test database connectivity
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "🔍 Testing database connectivity..."
+          
+          python3 -c "
+          import asyncio
+          import asyncpg
+          import sys
+          from urllib.parse import urlparse
+          
+          async def test_connection():
+              try:
+                  url = '${{ secrets.DATABASE_URL }}'
+                  parsed = urlparse(url)
+                  
+                  conn = await asyncpg.connect(
+                      host=parsed.hostname,
+                      port=parsed.port or 5432,
+                      database=parsed.path[1:],
+                      user=parsed.username,
+                      password=parsed.password
+                  )
+                  
+                  result = await conn.fetchval('SELECT version();')
+                  print(f'✅ Database connection successful')
+                  print(f'PostgreSQL version: {result[:50]}...')
+                  
+                  await conn.close()
+                  return True
+              except Exception as e:
+                  print(f'❌ Database connection failed: {e}')
+                  return False
+          
+          if not asyncio.run(test_connection()):
+              sys.exit(1)
+          "
+
+      - name: Run Alembic Migration
+        id: migration
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SERVICE_URL: ${{ inputs.service_url }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          
+          # Set log file path
+          LOG_FILE="/tmp/migrate-${{ inputs.service_name }}-$(date +%Y%m%d-%H%M%S).log"
+          echo "log_file=$LOG_FILE" >> $GITHUB_OUTPUT
+          
+          # Make migration script executable
+          chmod +x scripts/migrate.sh
+          
+          echo "🚀 Starting migration for ${{ inputs.service_name }}..."
+          
+          # Run migration script
+          if ./scripts/migrate.sh "${{ inputs.service_name }}" "${{ inputs.environment }}"; then
+            echo "✅ Migration completed successfully"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Migration failed"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            
+            # Show log file contents on failure
+            echo "📋 Migration log:"
+            if [[ -f "$LOG_FILE" ]]; then
+              cat "$LOG_FILE"
+            fi
+            
+            exit 1
+          fi
+
+      - name: Upload migration logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-logs-${{ inputs.service_name }}-${{ github.run_number }}
+          path: /tmp/migrate-*.log
+          retention-days: 30
+
+      - name: Post-migration summary
+        if: always()
+        run: |
+          echo "## 📊 Migration Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service**: ${{ inputs.service_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ steps.migration.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp**: $(date)" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ steps.migration.outputs.status }}" == "success" ]]; then
+            echo "- **Result**: ✅ Migration completed successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Result**: ❌ Migration failed" >> $GITHUB_STEP_SUMMARY
+            echo "- **Log**: Check uploaded artifacts for detailed logs" >> $GITHUB_STEP_SUMMARY
+          fi

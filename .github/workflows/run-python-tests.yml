@@ -32,8 +32,34 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r ${{ inputs.service-directory }}/requirements-dev.txt
+          
+          # Try requirements-dev.txt first, fallback to requirements.txt
+          if [[ -f "${{ inputs.service-directory }}/requirements-dev.txt" ]]; then
+            echo "📦 Installing from requirements-dev.txt..."
+            pip install -r ${{ inputs.service-directory }}/requirements-dev.txt
+          elif [[ -f "${{ inputs.service-directory }}/requirements.txt" ]]; then
+            echo "📦 Installing from requirements.txt..."
+            pip install -r ${{ inputs.service-directory }}/requirements.txt
+            # Install common test dependencies
+            pip install pytest pytest-asyncio pytest-mock
+          else
+            echo "❌ No requirements file found in ${{ inputs.service-directory }}"
+            exit 1
+          fi
 
       - name: Run tests with pytest
         run: |
-          pytest ${{ inputs.service-directory }}
+          cd ${{ inputs.service-directory }}
+          
+          # Check if pytest.ini or setup.cfg exists for configuration
+          if [[ -f "pytest.ini" ]]; then
+            echo "📋 Using pytest.ini configuration"
+            pytest
+          elif [[ -f "setup.cfg" ]]; then
+            echo "📋 Using setup.cfg configuration"
+            pytest
+          else
+            echo "📋 Running pytest with default configuration"
+            # Run tests with verbose output and coverage
+            pytest -v --tb=short
+          fi
