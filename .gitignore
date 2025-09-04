@@ -3,6 +3,12 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# CRITICAL: GitHub Secrets files - NEVER commit these
+.env.github-secrets
+GITHUB_SECRETS_EXACT_VALUES.md
+*secrets*.env
+*credentials*.json
+
 # C extensions
 *.so
 
