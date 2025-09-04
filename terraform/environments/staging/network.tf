@@ -2,21 +2,21 @@
 
 # Crée le réseau VPC principal
 resource "google_compute_network" "vpc_main" {
-  name                    = "skillforge-vpc-staging"
+  name                    = local.vpc_name
   auto_create_subnetworks = false # Nous gérons les sous-réseaux manuellement
 }
 
-# Crée un sous-réseau dans la région europe-west1
+# Crée un sous-réseau dans la région principale
 resource "google_compute_subnetwork" "subnet_main" {
-  name          = "skillforge-subnet-staging"
-  ip_cidr_range = "10.0.0.0/24"
-  region        = "europe-west1"
+  name          = local.subnet_name
+  ip_cidr_range = var.vpc_cidr
+  region        = var.region
   network       = google_compute_network.vpc_main.id
 }
 
 # Règle de pare-feu pour autoriser tout le trafic interne au VPC
 resource "google_compute_firewall" "allow_internal" {
-  name    = "allow-internal-traffic"
+  name    = "allow-internal-traffic-${var.environment}"
   network = google_compute_network.vpc_main.name
 
   allow {
@@ -33,15 +33,15 @@ resource "google_compute_firewall" "allow_internal" {
     protocol = "icmp"
   }
 
-  source_ranges = ["10.0.0.0/24"] # Autorise le trafic depuis notre propre sous-réseau
+  source_ranges = [var.vpc_cidr] # Autorise le trafic depuis notre propre sous-réseau
 }
 
 # Crée le connecteur qui fait le pont entre Cloud Run et notre VPC.
 resource "google_vpc_access_connector" "main_connector" {
-  name             = "vpc-connector-staging"
-  region           = "europe-west1"
+  name             = local.vpc_connector_name
+  region           = var.region
   network          = google_compute_network.vpc_main.name
-  ip_cidr_range    = "10.8.0.0/28"
-  min_throughput   = 200 # <--- LIGNE AJOUTÉE ICI
-  max_throughput   = 300 # <--- LIGNE AJOUTÉE ICI
+  ip_cidr_range    = var.vpc_connector_cidr
+  min_throughput   = 200
+  max_throughput   = 300
 }

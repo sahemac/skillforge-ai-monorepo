@@ -1,0 +1,1245 @@
+# data.google_compute_global_address.skillforge_ip:
+data "google_compute_global_address" "skillforge_ip" {
+    address       = "34.149.174.205"
+    address_type  = "EXTERNAL"
+    id            = "projects/skillforge-ai-mvp-25/global/addresses/skillforge-global-ip"
+    name          = "skillforge-global-ip"
+    network       = [90mnull[0m[0m
+    network_tier  = "PREMIUM"
+    prefix_length = 0
+    project       = "skillforge-ai-mvp-25"
+    purpose       = [90mnull[0m[0m
+    self_link     = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/addresses/skillforge-global-ip"
+    status        = "IN_USE"
+    subnetwork    = [90mnull[0m[0m
+}
+
+# data.google_secret_manager_secret_version.postgres_password:
+data "google_secret_manager_secret_version" "postgres_password" {
+    create_time           = "2025-08-29T13:48:02.550912Z"
+    enabled               = true
+    fetch_secret_data     = true
+    id                    = "projects/584748485117/secrets/postgres-password-staging/versions/1"
+    is_secret_data_base64 = false
+    name                  = "projects/584748485117/secrets/postgres-password-staging/versions/1"
+    project               = "skillforge-ai-mvp-25"
+    secret                = "postgres-password-staging"
+    secret_data           = (sensitive value)
+    version               = "1"
+}
+
+# google_artifact_registry_repository.docker_repo:
+resource "google_artifact_registry_repository" "docker_repo" {
+    cleanup_policy_dry_run = false
+    create_time            = "2025-08-29T13:42:18.435127Z"
+    description            = "Docker repository for SkillForge staging environment"
+    effective_labels       = {
+        "environment"                = "staging"
+        "goog-terraform-provisioned" = "true"
+        "managed_by"                 = "terraform"
+        "project"                    = "skillforge"
+    }
+    format                 = "DOCKER"
+    id                     = "projects/skillforge-ai-mvp-25/locations/europe-west1/repositories/skillforge-docker-repo-staging"
+    kms_key_name           = [90mnull[0m[0m
+    labels                 = {
+        "environment" = "staging"
+        "managed_by"  = "terraform"
+        "project"     = "skillforge"
+    }
+    location               = "europe-west1"
+    mode                   = "STANDARD_REPOSITORY"
+    name                   = "skillforge-docker-repo-staging"
+    project                = "skillforge-ai-mvp-25"
+    registry_uri           = "europe-west1-docker.pkg.dev/skillforge-ai-mvp-25/skillforge-docker-repo-staging"
+    repository_id          = "skillforge-docker-repo-staging"
+    terraform_labels       = {
+        "environment"                = "staging"
+        "goog-terraform-provisioned" = "true"
+        "managed_by"                 = "terraform"
+        "project"                    = "skillforge"
+    }
+    update_time            = "2025-09-03T21:52:11.087075Z"
+
+    vulnerability_scanning_config {
+        enablement_config       = [90mnull[0m[0m
+        enablement_state        = "SCANNING_DISABLED"
+        enablement_state_reason = "API containerscanning.googleapis.com is not enabled."
+    }
+}
+
+# google_compute_backend_service.user_service_backend:
+resource "google_compute_backend_service" "user_service_backend" {
+    affinity_cookie_ttl_sec                       = 0
+    compression_mode                              = [90mnull[0m[0m
+    connection_draining_timeout_sec               = 300
+    creation_timestamp                            = "2025-09-03T15:11:39.171-07:00"
+    description                                   = [90mnull[0m[0m
+    edge_security_policy                          = [90mnull[0m[0m
+    enable_cdn                                    = false
+    external_managed_migration_state              = [90mnull[0m[0m
+    external_managed_migration_testing_percentage = 0
+    fingerprint                                   = "RT2xVQlNIEk="
+    generated_id                                  = 4861992837137630196
+    id                                            = "projects/skillforge-ai-mvp-25/global/backendServices/user-service-backend-staging"
+    ip_address_selection_policy                   = [90mnull[0m[0m
+    load_balancing_scheme                         = "EXTERNAL"
+    locality_lb_policy                            = [90mnull[0m[0m
+    name                                          = "user-service-backend-staging"
+    port_name                                     = "http"
+    project                                       = "skillforge-ai-mvp-25"
+    protocol                                      = "HTTP"
+    security_policy                               = [90mnull[0m[0m
+    self_link                                     = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/user-service-backend-staging"
+    service_lb_policy                             = [90mnull[0m[0m
+    session_affinity                              = "NONE"
+    timeout_sec                                   = 30
+
+    backend {
+        balancing_mode               = "UTILIZATION"
+        capacity_scaler              = 1
+        description                  = [90mnull[0m[0m
+        group                        = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/regions/europe-west1/networkEndpointGroups/user-service-neg-staging"
+        max_connections              = 0
+        max_connections_per_endpoint = 0
+        max_connections_per_instance = 0
+        max_rate                     = 0
+        max_rate_per_endpoint        = 0
+        max_rate_per_instance        = 0
+        max_utilization              = 0
+        preference                   = [90mnull[0m[0m
+    }
+
+    log_config {
+        enable        = true
+        optional_mode = "EXCLUDE_ALL_OPTIONAL"
+        sample_rate   = 1
+    }
+}
+
+# google_compute_firewall.allow_internal:
+resource "google_compute_firewall" "allow_internal" {
+    creation_timestamp      = "2025-09-03T14:52:22.916-07:00"
+    description             = [90mnull[0m[0m
+    destination_ranges      = []
+    direction               = "INGRESS"
+    disabled                = false
+    id                      = "projects/skillforge-ai-mvp-25/global/firewalls/allow-internal-traffic-staging"
+    name                    = "allow-internal-traffic-staging"
+    network                 = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/networks/skillforge-vpc-staging"
+    priority                = 1000
+    project                 = "skillforge-ai-mvp-25"
+    self_link               = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/firewalls/allow-internal-traffic-staging"
+    source_ranges           = [
+        "10.0.0.0/24",
+    ]
+    source_service_accounts = []
+    source_tags             = []
+    target_service_accounts = []
+    target_tags             = []
+
+    allow {
+        ports    = [
+            "0-65535",
+        ]
+        protocol = "tcp"
+    }
+    allow {
+        ports    = [
+            "0-65535",
+        ]
+        protocol = "udp"
+    }
+    allow {
+        ports    = []
+        protocol = "icmp"
+    }
+}
+
+# google_compute_global_address.private_service_access:
+resource "google_compute_global_address" "private_service_access" {
+    address            = "10.14.0.0"
+    address_type       = "INTERNAL"
+    creation_timestamp = "2025-08-29T06:53:59.664-07:00"
+    description        = [90mnull[0m[0m
+    effective_labels   = {
+        "goog-terraform-provisioned" = "true"
+    }
+    id                 = "projects/skillforge-ai-mvp-25/global/addresses/private-service-access-staging"
+    ip_version         = [90mnull[0m[0m
+    label_fingerprint  = "vezUS-42LLM="
+    labels             = {}
+    name               = "private-service-access-staging"
+    network            = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/networks/skillforge-vpc-staging"
+    prefix_length      = 16
+    project            = "skillforge-ai-mvp-25"
+    purpose            = "VPC_PEERING"
+    self_link          = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/addresses/private-service-access-staging"
+    terraform_labels   = {
+        "goog-terraform-provisioned" = "true"
+    }
+}
+
+# google_compute_global_forwarding_rule.skillforge_http_forwarding:
+resource "google_compute_global_forwarding_rule" "skillforge_http_forwarding" {
+    base_forwarding_rule                                         = [90mnull[0m[0m
+    description                                                  = [90mnull[0m[0m
+    effective_labels                                             = {}
+    external_managed_backend_bucket_migration_state              = [90mnull[0m[0m
+    external_managed_backend_bucket_migration_testing_percentage = 0
+    forwarding_rule_id                                           = 8756167202552743487
+    id                                                           = "projects/skillforge-ai-mvp-25/global/forwardingRules/skillforge-http-forwarding-staging"
+    ip_address                                                   = "34.149.174.205"
+    ip_protocol                                                  = "TCP"
+    ip_version                                                   = [90mnull[0m[0m
+    label_fingerprint                                            = "42WmSpB8rSM="
+    labels                                                       = {}
+    load_balancing_scheme                                        = "EXTERNAL"
+    name                                                         = "skillforge-http-forwarding-staging"
+    network                                                      = [90mnull[0m[0m
+    network_tier                                                 = "PREMIUM"
+    port_range                                                   = "80-80"
+    project                                                      = "skillforge-ai-mvp-25"
+    psc_connection_id                                            = [90mnull[0m[0m
+    psc_connection_status                                        = [90mnull[0m[0m
+    self_link                                                    = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/forwardingRules/skillforge-http-forwarding-staging"
+    source_ip_ranges                                             = []
+    subnetwork                                                   = [90mnull[0m[0m
+    target                                                       = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/targetHttpProxies/skillforge-http-proxy-staging"
+    terraform_labels                                             = {}
+}
+
+# google_compute_global_forwarding_rule.skillforge_https_forwarding:
+resource "google_compute_global_forwarding_rule" "skillforge_https_forwarding" {
+    base_forwarding_rule                                         = [90mnull[0m[0m
+    description                                                  = [90mnull[0m[0m
+    effective_labels                                             = {}
+    external_managed_backend_bucket_migration_state              = [90mnull[0m[0m
+    external_managed_backend_bucket_migration_testing_percentage = 0
+    forwarding_rule_id                                           = 3913559209439200177
+    id                                                           = "projects/skillforge-ai-mvp-25/global/forwardingRules/skillforge-https-forwarding-staging"
+    ip_address                                                   = "34.149.174.205"
+    ip_protocol                                                  = "TCP"
+    ip_version                                                   = [90mnull[0m[0m
+    label_fingerprint                                            = "42WmSpB8rSM="
+    load_balancing_scheme                                        = "EXTERNAL"
+    name                                                         = "skillforge-https-forwarding-staging"
+    network                                                      = [90mnull[0m[0m
+    network_tier                                                 = "PREMIUM"
+    port_range                                                   = "443-443"
+    project                                                      = "skillforge-ai-mvp-25"
+    psc_connection_id                                            = [90mnull[0m[0m
+    psc_connection_status                                        = [90mnull[0m[0m
+    self_link                                                    = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/forwardingRules/skillforge-https-forwarding-staging"
+    subnetwork                                                   = [90mnull[0m[0m
+    target                                                       = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/targetHttpsProxies/skillforge-https-proxy-staging"
+    terraform_labels                                             = {}
+}
+
+# google_compute_managed_ssl_certificate.skillforge_ssl:
+resource "google_compute_managed_ssl_certificate" "skillforge_ssl" {
+    certificate_id            = 98556411437712963
+    creation_timestamp        = "2025-09-03T14:52:44.712-07:00"
+    description               = [90mnull[0m[0m
+    expire_time               = [90mnull[0m[0m
+    id                        = "projects/skillforge-ai-mvp-25/global/sslCertificates/skillforge-ssl-cert-staging"
+    name                      = "skillforge-ssl-cert-staging"
+    project                   = "skillforge-ai-mvp-25"
+    self_link                 = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/sslCertificates/skillforge-ssl-cert-staging"
+    subject_alternative_names = []
+    type                      = "MANAGED"
+
+    managed {
+        domains = [
+            "api.emacsah.com",
+        ]
+    }
+}
+
+# google_compute_network.vpc_main:
+resource "google_compute_network" "vpc_main" {
+    auto_create_subnetworks                   = false
+    bgp_always_compare_med                    = false
+    bgp_best_path_selection_mode              = "LEGACY"
+    bgp_inter_region_cost                     = [90mnull[0m[0m
+    delete_default_routes_on_create           = false
+    description                               = [90mnull[0m[0m
+    enable_ula_internal_ipv6                  = false
+    gateway_ipv4                              = [90mnull[0m[0m
+    id                                        = "projects/skillforge-ai-mvp-25/global/networks/skillforge-vpc-staging"
+    internal_ipv6_range                       = [90mnull[0m[0m
+    mtu                                       = 0
+    name                                      = "skillforge-vpc-staging"
+    network_firewall_policy_enforcement_order = "AFTER_CLASSIC_FIREWALL"
+    network_id                                = "5786131814822973632"
+    network_profile                           = [90mnull[0m[0m
+    numeric_id                                = "5786131814822973632"
+    project                                   = "skillforge-ai-mvp-25"
+    routing_mode                              = "REGIONAL"
+    self_link                                 = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/networks/skillforge-vpc-staging"
+}
+
+# google_compute_region_network_endpoint_group.user_service_neg:
+resource "google_compute_region_network_endpoint_group" "user_service_neg" {
+    description           = "NEG for user service in staging"
+    id                    = "projects/skillforge-ai-mvp-25/regions/europe-west1/networkEndpointGroups/user-service-neg-staging"
+    name                  = "user-service-neg-staging"
+    network               = [90mnull[0m[0m
+    network_endpoint_type = "SERVERLESS"
+    project               = "skillforge-ai-mvp-25"
+    psc_target_service    = [90mnull[0m[0m
+    region                = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/regions/europe-west1"
+    self_link             = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/regions/europe-west1/networkEndpointGroups/user-service-neg-staging"
+    subnetwork            = [90mnull[0m[0m
+
+    cloud_run {
+        service  = "user-service-staging"
+        tag      = [90mnull[0m[0m
+        url_mask = [90mnull[0m[0m
+    }
+}
+
+# google_compute_subnetwork.subnet_main:
+resource "google_compute_subnetwork" "subnet_main" {
+    creation_timestamp         = "2025-08-29T06:42:21.568-07:00"
+    description                = [90mnull[0m[0m
+    external_ipv6_prefix       = [90mnull[0m[0m
+    gateway_address            = "10.0.0.1"
+    id                         = "projects/skillforge-ai-mvp-25/regions/europe-west1/subnetworks/skillforge-subnet-staging"
+    internal_ipv6_prefix       = [90mnull[0m[0m
+    ip_cidr_range              = "10.0.0.0/24"
+    ipv6_access_type           = [90mnull[0m[0m
+    ipv6_cidr_range            = [90mnull[0m[0m
+    ipv6_gce_endpoint          = [90mnull[0m[0m
+    name                       = "skillforge-subnet-staging"
+    network                    = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/networks/skillforge-vpc-staging"
+    private_ip_google_access   = false
+    private_ipv6_google_access = "DISABLE_GOOGLE_ACCESS"
+    project                    = "skillforge-ai-mvp-25"
+    purpose                    = "PRIVATE"
+    region                     = "europe-west1"
+    reserved_internal_range    = [90mnull[0m[0m
+    role                       = [90mnull[0m[0m
+    self_link                  = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/regions/europe-west1/subnetworks/skillforge-subnet-staging"
+    stack_type                 = "IPV4_ONLY"
+    state                      = [90mnull[0m[0m
+    subnetwork_id              = 3811066338975944914
+}
+
+# google_compute_target_http_proxy.skillforge_http_proxy:
+resource "google_compute_target_http_proxy" "skillforge_http_proxy" {
+    creation_timestamp          = "2025-09-03T14:53:07.944-07:00"
+    description                 = [90mnull[0m[0m
+    fingerprint                 = "cuH2QtXEKI4="
+    http_keep_alive_timeout_sec = 0
+    id                          = "projects/skillforge-ai-mvp-25/global/targetHttpProxies/skillforge-http-proxy-staging"
+    name                        = "skillforge-http-proxy-staging"
+    project                     = "skillforge-ai-mvp-25"
+    proxy_bind                  = false
+    proxy_id                    = 5395196087585015340
+    self_link                   = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/targetHttpProxies/skillforge-http-proxy-staging"
+    url_map                     = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/urlMaps/skillforge-redirect-staging"
+}
+
+# google_compute_target_https_proxy.skillforge_https_proxy:
+resource "google_compute_target_https_proxy" "skillforge_https_proxy" {
+    certificate_map             = [90mnull[0m[0m
+    creation_timestamp          = "2025-09-03T15:12:34.175-07:00"
+    description                 = [90mnull[0m[0m
+    fingerprint                 = "HTXl7YFs8Kw="
+    http_keep_alive_timeout_sec = 0
+    id                          = "projects/skillforge-ai-mvp-25/global/targetHttpsProxies/skillforge-https-proxy-staging"
+    name                        = "skillforge-https-proxy-staging"
+    project                     = "skillforge-ai-mvp-25"
+    proxy_bind                  = false
+    proxy_id                    = 8007858430709924797
+    quic_override               = "NONE"
+    self_link                   = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/targetHttpsProxies/skillforge-https-proxy-staging"
+    server_tls_policy           = [90mnull[0m[0m
+    ssl_certificates            = [
+        "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/sslCertificates/skillforge-ssl-cert-staging",
+    ]
+    ssl_policy                  = [90mnull[0m[0m
+    tls_early_data              = "DISABLED"
+    url_map                     = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/urlMaps/skillforge-urlmap-staging"
+}
+
+# google_compute_url_map.skillforge_redirect:
+resource "google_compute_url_map" "skillforge_redirect" {
+    creation_timestamp = "2025-09-03T14:52:56.174-07:00"
+    default_service    = [90mnull[0m[0m
+    description        = [90mnull[0m[0m
+    fingerprint        = "4OOtfnrrzts="
+    id                 = "projects/skillforge-ai-mvp-25/global/urlMaps/skillforge-redirect-staging"
+    map_id             = 2877177811298485847
+    name               = "skillforge-redirect-staging"
+    project            = "skillforge-ai-mvp-25"
+    self_link          = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/urlMaps/skillforge-redirect-staging"
+
+    default_url_redirect {
+        host_redirect          = [90mnull[0m[0m
+        https_redirect         = true
+        path_redirect          = [90mnull[0m[0m
+        prefix_redirect        = [90mnull[0m[0m
+        redirect_response_code = "MOVED_PERMANENTLY_DEFAULT"
+        strip_query            = false
+    }
+}
+
+# google_compute_url_map.skillforge_urlmap:
+resource "google_compute_url_map" "skillforge_urlmap" {
+    creation_timestamp = "2025-09-03T15:12:22.302-07:00"
+    default_service    = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/user-service-backend-staging"
+    description        = [90mnull[0m[0m
+    fingerprint        = "ObYio2890WI="
+    id                 = "projects/skillforge-ai-mvp-25/global/urlMaps/skillforge-urlmap-staging"
+    map_id             = 7634173594235634601
+    name               = "skillforge-urlmap-staging"
+    project            = "skillforge-ai-mvp-25"
+    self_link          = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/urlMaps/skillforge-urlmap-staging"
+
+    host_rule {
+        description  = [90mnull[0m[0m
+        hosts        = [
+            "api.emacsah.com",
+        ]
+        path_matcher = "allpaths"
+    }
+
+    path_matcher {
+        default_service = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/user-service-backend-staging"
+        description     = [90mnull[0m[0m
+        name            = "allpaths"
+
+        path_rule {
+            paths   = [
+                "/api/v1/*",
+            ]
+            service = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/user-service-backend-staging"
+        }
+        path_rule {
+            paths   = [
+                "/health",
+                "/metrics",
+            ]
+            service = "https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/user-service-backend-staging"
+        }
+    }
+}
+
+# google_monitoring_alert_policy.high_error_rate[0]:
+resource "google_monitoring_alert_policy" "high_error_rate" {
+    combiner              = "OR"
+    creation_record       = [
+        {
+            mutate_time = "2025-08-30T13:02:49.285472495Z"
+            mutated_by  = "sah@emacsah.com"
+        },
+    ]
+    display_name          = "High 5xx Error Rate - Staging"
+    enabled               = true
+    id                    = "projects/skillforge-ai-mvp-25/alertPolicies/4043109131596613003"
+    name                  = "projects/skillforge-ai-mvp-25/alertPolicies/4043109131596613003"
+    notification_channels = [
+        "projects/skillforge-ai-mvp-25/notificationChannels/5053900977556305665",
+    ]
+    project               = "skillforge-ai-mvp-25"
+    severity              = [90mnull[0m[0m
+    user_labels           = {}
+
+    alert_strategy {
+        auto_close           = "1800s"
+        notification_prompts = []
+    }
+
+    conditions {
+        display_name = "Error rate over 5% for 5 minutes"
+        name         = "projects/skillforge-ai-mvp-25/alertPolicies/4043109131596613003/conditions/4043109131596615506"
+
+        condition_threshold {
+            comparison              = "COMPARISON_GT"
+            denominator_filter      = "metric.type=\"run.googleapis.com/request_count\" resource.type=\"cloud_run_revision\""
+            duration                = "300s"
+            evaluation_missing_data = [90mnull[0m[0m
+            filter                  = "metric.type=\"run.googleapis.com/request_count\" resource.type=\"cloud_run_revision\" metric.label.response_code_class=\"5xx\""
+            threshold_value         = 0.05
+
+            aggregations {
+                alignment_period     = "60s"
+                cross_series_reducer = "REDUCE_SUM"
+                group_by_fields      = [
+                    "resource.label.service_name",
+                ]
+                per_series_aligner   = "ALIGN_RATE"
+            }
+
+            denominator_aggregations {
+                alignment_period     = "60s"
+                cross_series_reducer = "REDUCE_SUM"
+                group_by_fields      = [
+                    "resource.label.service_name",
+                ]
+                per_series_aligner   = "ALIGN_RATE"
+            }
+
+            trigger {
+                count   = 0
+                percent = 100
+            }
+        }
+    }
+}
+
+# google_monitoring_dashboard.skillforge_dashboard:
+resource "google_monitoring_dashboard" "skillforge_dashboard" {
+    dashboard_json = jsonencode(
+        {
+            displayName  = "SkillForge AI - Staging Dashboard"
+            etag         = "941a92c284aaf38ce5363d78f8f6066a"
+            mosaicLayout = {
+                columns = 2
+                tiles   = [
+                    {
+                        height = 2
+                        widget = {
+                            title   = "Cloud Run - Request Count (per service)"
+                            xyChart = {
+                                dataSets = [
+                                    {
+                                        plotType        = "LINE"
+                                        targetAxis      = "Y1"
+                                        timeSeriesQuery = {
+                                            timeSeriesFilter = {
+                                                aggregation = {
+                                                    perSeriesAligner = "ALIGN_RATE"
+                                                }
+                                                filter      = "metric.type = \"run.googleapis.com/request_count\" resource.type = \"cloud_run_revision\""
+                                            }
+                                        }
+                                    },
+                                ]
+                            }
+                        }
+                        width  = 2
+                    },
+                ]
+            }
+            name         = "projects/584748485117/dashboards/65a49b0c-6bc5-47b7-80aa-52e702a23a98"
+        }
+    )
+    id             = "projects/584748485117/dashboards/65a49b0c-6bc5-47b7-80aa-52e702a23a98"
+    project        = "skillforge-ai-mvp-25"
+}
+
+# google_monitoring_notification_channel.email_alerts[0]:
+resource "google_monitoring_notification_channel" "email_alerts" {
+    description         = [90mnull[0m[0m
+    display_name        = "DevOps Email Alerts - Staging"
+    enabled             = true
+    force_delete        = false
+    id                  = "projects/skillforge-ai-mvp-25/notificationChannels/5053900977556305665"
+    labels              = {
+        "email_address" = "devops-alerts@emacsah.com"
+    }
+    name                = "projects/skillforge-ai-mvp-25/notificationChannels/5053900977556305665"
+    project             = "skillforge-ai-mvp-25"
+    type                = "email"
+    user_labels         = {}
+    verification_status = [90mnull[0m[0m
+}
+
+# google_redis_instance.main_redis:
+resource "google_redis_instance" "main_redis" {
+    alternative_location_id     = [90mnull[0m[0m
+    auth_enabled                = false
+    auth_string                 = (sensitive value)
+    authorized_network          = "projects/skillforge-ai-mvp-25/global/networks/skillforge-vpc-staging"
+    connect_mode                = "PRIVATE_SERVICE_ACCESS"
+    create_time                 = "2025-08-29T13:55:00.993994056Z"
+    current_location_id         = "europe-west1-b"
+    customer_managed_key        = [90mnull[0m[0m
+    display_name                = [90mnull[0m[0m
+    effective_labels            = {
+        "environment"                = "staging"
+        "goog-terraform-provisioned" = "true"
+        "managed_by"                 = "terraform"
+        "project"                    = "skillforge"
+    }
+    effective_reserved_ip_range = "10.14.0.0/29"
+    host                        = "10.14.0.3"
+    id                          = "projects/skillforge-ai-mvp-25/locations/europe-west1/instances/skillforge-redis-instance-staging"
+    labels                      = {
+        "environment" = "staging"
+        "managed_by"  = "terraform"
+        "project"     = "skillforge"
+    }
+    location_id                 = "europe-west1-b"
+    maintenance_schedule        = []
+    maintenance_version         = "20241107_00_00"
+    memory_size_gb              = 1
+    name                        = "skillforge-redis-instance-staging"
+    nodes                       = [
+        {
+            id   = "node-0"
+            zone = "europe-west1-b"
+        },
+    ]
+    persistence_iam_identity    = "serviceAccount:service-584748485117@cloud-redis.iam.gserviceaccount.com"
+    port                        = 6379
+    project                     = "skillforge-ai-mvp-25"
+    read_endpoint               = [90mnull[0m[0m
+    read_endpoint_port          = 0
+    read_replicas_mode          = "READ_REPLICAS_DISABLED"
+    redis_configs               = {}
+    redis_version               = "REDIS_7_0"
+    region                      = "europe-west1"
+    replica_count               = 0
+    secondary_ip_range          = [90mnull[0m[0m
+    server_ca_certs             = []
+    terraform_labels            = {
+        "environment"                = "staging"
+        "goog-terraform-provisioned" = "true"
+        "managed_by"                 = "terraform"
+        "project"                    = "skillforge"
+    }
+    tier                        = "BASIC"
+    transit_encryption_mode     = "DISABLED"
+
+    persistence_config {
+        persistence_mode        = "DISABLED"
+        rdb_next_snapshot_time  = [90mnull[0m[0m
+        rdb_snapshot_period     = [90mnull[0m[0m
+        rdb_snapshot_start_time = [90mnull[0m[0m
+    }
+}
+
+# google_secret_manager_secret.jwt_secret:
+resource "google_secret_manager_secret" "jwt_secret" {
+    annotations           = {}
+    create_time           = "2025-08-29T15:47:53.063082Z"
+    deletion_protection   = false
+    effective_annotations = {}
+    effective_labels      = {
+        "environment"                = "staging"
+        "goog-terraform-provisioned" = "true"
+        "managed_by"                 = "terraform"
+        "project"                    = "skillforge"
+    }
+    expire_time           = [90mnull[0m[0m
+    id                    = "projects/skillforge-ai-mvp-25/secrets/jwt-secret-key-staging"
+    labels                = {
+        "environment" = "staging"
+        "managed_by"  = "terraform"
+        "project"     = "skillforge"
+    }
+    name                  = "projects/584748485117/secrets/jwt-secret-key-staging"
+    project               = "skillforge-ai-mvp-25"
+    secret_id             = "jwt-secret-key-staging"
+    terraform_labels      = {
+        "environment"                = "staging"
+        "goog-terraform-provisioned" = "true"
+        "managed_by"                 = "terraform"
+        "project"                    = "skillforge"
+    }
+    version_aliases       = {}
+    version_destroy_ttl   = [90mnull[0m[0m
+
+    replication {
+        auto {
+        }
+    }
+}
+
+# google_service_networking_connection.main_peering:
+resource "google_service_networking_connection" "main_peering" {
+    id                      = "projects%2Fskillforge-ai-mvp-25%2Fglobal%2Fnetworks%2Fskillforge-vpc-staging:servicenetworking.googleapis.com"
+    network                 = "projects/skillforge-ai-mvp-25/global/networks/skillforge-vpc-staging"
+    peering                 = "servicenetworking-googleapis-com"
+    reserved_peering_ranges = [
+        "private-service-access-staging",
+    ]
+    service                 = "servicenetworking.googleapis.com"
+}
+
+# google_sql_database.main_db:
+resource "google_sql_database" "main_db" {
+    charset         = "UTF8"
+    collation       = "en_US.UTF8"
+    deletion_policy = "DELETE"
+    id              = "projects/skillforge-ai-mvp-25/instances/skillforge-pg-instance-staging/databases/skillforge_db"
+    instance        = "skillforge-pg-instance-staging"
+    name            = "skillforge_db"
+    project         = "skillforge-ai-mvp-25"
+    self_link       = "https://sqladmin.googleapis.com/sql/v1beta4/projects/skillforge-ai-mvp-25/instances/skillforge-pg-instance-staging/databases/skillforge_db"
+}
+
+# google_sql_database_instance.main_postgres:
+resource "google_sql_database_instance" "main_postgres" {
+    available_maintenance_versions = []
+    connection_name                = "skillforge-ai-mvp-25:europe-west1:skillforge-pg-instance-staging"
+    database_version               = "POSTGRES_16"
+    deletion_protection            = true
+    dns_name                       = [90mnull[0m[0m
+    dns_names                      = []
+    first_ip_address               = "10.14.1.3"
+    id                             = "skillforge-pg-instance-staging"
+    instance_type                  = "CLOUD_SQL_INSTANCE"
+    ip_address                     = [
+        {
+            ip_address     = "10.14.1.3"
+            time_to_retire = [90mnull[0m[0m
+            type           = "PRIVATE"
+        },
+    ]
+    maintenance_version            = "POSTGRES_16_9.R20250727.00_14"
+    master_instance_name           = [90mnull[0m[0m
+    name                           = "skillforge-pg-instance-staging"
+    node_count                     = 0
+    private_ip_address             = "10.14.1.3"
+    project                        = "skillforge-ai-mvp-25"
+    psc_service_attachment_link    = [90mnull[0m[0m
+    public_ip_address              = [90mnull[0m[0m
+    region                         = "europe-west1"
+    replica_names                  = []
+    self_link                      = "https://sqladmin.googleapis.com/sql/v1beta4/projects/skillforge-ai-mvp-25/instances/skillforge-pg-instance-staging"
+    server_ca_cert                 = (sensitive value)
+    service_account_email_address  = "p584748485117-mwn2sc@gcp-sa-cloud-sql.iam.gserviceaccount.com"
+
+    replication_cluster {
+        dr_replica               = false
+        failover_dr_replica_name = [90mnull[0m[0m
+        psa_write_endpoint       = [90mnull[0m[0m
+    }
+
+    settings {
+        activation_policy            = "ALWAYS"
+        availability_type            = "ZONAL"
+        collation                    = [90mnull[0m[0m
+        connector_enforcement        = "NOT_REQUIRED"
+        deletion_protection_enabled  = false
+        disk_autoresize              = true
+        disk_autoresize_limit        = 0
+        disk_size                    = 10
+        disk_type                    = "PD_SSD"
+        edition                      = "ENTERPRISE"
+        effective_availability_type  = "ZONAL"
+        enable_dataplex_integration  = false
+        enable_google_ml_integration = false
+        pricing_plan                 = "PER_USE"
+        retain_backups_on_delete     = false
+        tier                         = "db-g1-small"
+        time_zone                    = [90mnull[0m[0m
+        user_labels                  = {
+            "environment" = "staging"
+            "managed_by"  = "terraform"
+            "project"     = "skillforge"
+        }
+        version                      = 12
+
+        backup_configuration {
+            binary_log_enabled             = false
+            enabled                        = true
+            location                       = [90mnull[0m[0m
+            point_in_time_recovery_enabled = false
+            start_time                     = "04:00"
+            transaction_log_retention_days = 7
+
+            backup_retention_settings {
+                retained_backups = 7
+                retention_unit   = "COUNT"
+            }
+        }
+
+        data_cache_config {
+            data_cache_enabled = false
+        }
+
+        database_flags {
+            name  = "log_checkpoints"
+            value = "on"
+        }
+        database_flags {
+            name  = "log_connections"
+            value = "on"
+        }
+        database_flags {
+            name  = "log_disconnections"
+            value = "on"
+        }
+        database_flags {
+            name  = "log_lock_waits"
+            value = "on"
+        }
+        database_flags {
+            name  = "log_min_duration_statement"
+            value = "1000"
+        }
+
+        insights_config {
+            query_insights_enabled  = true
+            query_plans_per_minute  = 0
+            query_string_length     = 1024
+            record_application_tags = false
+            record_client_address   = false
+        }
+
+        ip_configuration {
+            allocated_ip_range                            = [90mnull[0m[0m
+            custom_subject_alternative_names              = []
+            enable_private_path_for_google_cloud_services = false
+            ipv4_enabled                                  = false
+            private_network                               = "projects/skillforge-ai-mvp-25/global/networks/skillforge-vpc-staging"
+            server_ca_mode                                = "GOOGLE_MANAGED_INTERNAL_CA"
+            server_ca_pool                                = [90mnull[0m[0m
+            ssl_mode                                      = "ALLOW_UNENCRYPTED_AND_ENCRYPTED"
+        }
+
+        location_preference {
+            follow_gae_application = [90mnull[0m[0m
+            secondary_zone         = [90mnull[0m[0m
+            zone                   = "europe-west1-d"
+        }
+    }
+}
+
+# google_sql_user.app_user:
+resource "google_sql_user" "app_user" {
+    host                    = [90mnull[0m[0m
+    id                      = "skillforge_user//skillforge-pg-instance-staging"
+    instance                = "skillforge-pg-instance-staging"
+    name                    = "skillforge_user"
+    password                = (sensitive value)
+    password_wo             = (write-only attribute)
+    project                 = "skillforge-ai-mvp-25"
+    sql_server_user_details = []
+    type                    = [90mnull[0m[0m
+}
+
+# google_storage_bucket.frontend_assets:
+resource "google_storage_bucket" "frontend_assets" {
+    default_event_based_hold    = false
+    effective_labels            = {
+        "environment"                = "staging"
+        "goog-terraform-provisioned" = "true"
+        "managed_by"                 = "terraform"
+        "project"                    = "skillforge"
+    }
+    enable_object_retention     = false
+    force_destroy               = false
+    id                          = "skillforge-ai-mvp-25-frontend-assets-staging"
+    labels                      = {
+        "environment" = "staging"
+        "managed_by"  = "terraform"
+        "project"     = "skillforge"
+    }
+    location                    = "EUROPE-WEST1"
+    name                        = "skillforge-ai-mvp-25-frontend-assets-staging"
+    project                     = "skillforge-ai-mvp-25"
+    project_number              = 584748485117
+    public_access_prevention    = "inherited"
+    requester_pays              = false
+    self_link                   = "https://www.googleapis.com/storage/v1/b/skillforge-ai-mvp-25-frontend-assets-staging"
+    storage_class               = "STANDARD"
+    terraform_labels            = {
+        "environment"                = "staging"
+        "goog-terraform-provisioned" = "true"
+        "managed_by"                 = "terraform"
+        "project"                    = "skillforge"
+    }
+    time_created                = "2025-08-29T13:42:07.660Z"
+    uniform_bucket_level_access = true
+    updated                     = "2025-09-03T21:52:11.051Z"
+    url                         = "gs://skillforge-ai-mvp-25-frontend-assets-staging"
+
+    cors {
+        max_age_seconds = 3600
+        method          = [
+            "GET",
+            "HEAD",
+            "PUT",
+            "POST",
+            "DELETE",
+        ]
+        origin          = [
+            "https://api.emacsah.com",
+        ]
+        response_header = [
+            "*",
+        ]
+    }
+
+    hierarchical_namespace {
+        enabled = false
+    }
+
+    soft_delete_policy {
+        effective_time             = "2025-08-29T13:42:07.660Z"
+        retention_duration_seconds = 604800
+    }
+
+    website {
+        main_page_suffix = "index.html"
+        not_found_page   = "index.html"
+    }
+}
+
+# google_storage_bucket.user_uploads:
+resource "google_storage_bucket" "user_uploads" {
+    default_event_based_hold    = false
+    effective_labels            = {
+        "environment"                = "staging"
+        "goog-terraform-provisioned" = "true"
+        "managed_by"                 = "terraform"
+        "project"                    = "skillforge"
+    }
+    enable_object_retention     = false
+    force_destroy               = false
+    id                          = "skillforge-ai-mvp-25-user-uploads-staging"
+    labels                      = {
+        "environment" = "staging"
+        "managed_by"  = "terraform"
+        "project"     = "skillforge"
+    }
+    location                    = "EUROPE-WEST1"
+    name                        = "skillforge-ai-mvp-25-user-uploads-staging"
+    project                     = "skillforge-ai-mvp-25"
+    project_number              = 584748485117
+    public_access_prevention    = "inherited"
+    requester_pays              = false
+    self_link                   = "https://www.googleapis.com/storage/v1/b/skillforge-ai-mvp-25-user-uploads-staging"
+    storage_class               = "STANDARD"
+    terraform_labels            = {
+        "environment"                = "staging"
+        "goog-terraform-provisioned" = "true"
+        "managed_by"                 = "terraform"
+        "project"                    = "skillforge"
+    }
+    time_created                = "2025-08-29T13:42:07.549Z"
+    uniform_bucket_level_access = true
+    updated                     = "2025-09-03T21:52:11.057Z"
+    url                         = "gs://skillforge-ai-mvp-25-user-uploads-staging"
+
+    hierarchical_namespace {
+        enabled = false
+    }
+
+    lifecycle_rule {
+        action {
+            storage_class = [90mnull[0m[0m
+            type          = "Delete"
+        }
+        condition {
+            age                                     = 365
+            created_before                          = [90mnull[0m[0m
+            custom_time_before                      = [90mnull[0m[0m
+            days_since_custom_time                  = 0
+            days_since_noncurrent_time              = 0
+            matches_prefix                          = []
+            matches_storage_class                   = []
+            matches_suffix                          = []
+            noncurrent_time_before                  = [90mnull[0m[0m
+            num_newer_versions                      = 0
+            send_age_if_zero                        = false
+            send_days_since_custom_time_if_zero     = false
+            send_days_since_noncurrent_time_if_zero = false
+            send_num_newer_versions_if_zero         = false
+            with_state                              = "ANY"
+        }
+    }
+
+    soft_delete_policy {
+        effective_time             = "2025-08-29T13:42:07.549Z"
+        retention_duration_seconds = 604800
+    }
+
+    versioning {
+        enabled = true
+    }
+}
+
+# google_vpc_access_connector.main_connector:
+resource "google_vpc_access_connector" "main_connector" {
+    connected_projects = []
+    id                 = "projects/skillforge-ai-mvp-25/locations/europe-west1/connectors/vpc-conn-staging"
+    ip_cidr_range      = "10.8.0.0/28"
+    machine_type       = "e2-micro"
+    max_instances      = 3
+    max_throughput     = 300
+    min_instances      = 2
+    min_throughput     = 200
+    name               = "vpc-conn-staging"
+    network            = "skillforge-vpc-staging"
+    project            = "skillforge-ai-mvp-25"
+    region             = "europe-west1"
+    self_link          = "projects/skillforge-ai-mvp-25/locations/europe-west1/connectors/vpc-conn-staging"
+    state              = "READY"
+}
+
+
+# module.user_service.google_cloud_run_v2_service.service:
+resource "google_cloud_run_v2_service" "service" {
+    annotations             = {}
+    client                  = [90mnull[0m[0m
+    client_version          = [90mnull[0m[0m
+    conditions              = [
+        {
+            execution_reason     = [90mnull[0m[0m
+            last_transition_time = "2025-09-03T22:11:22.917131Z"
+            message              = [90mnull[0m[0m
+            reason               = [90mnull[0m[0m
+            revision_reason      = [90mnull[0m[0m
+            severity             = [90mnull[0m[0m
+            state                = "CONDITION_SUCCEEDED"
+            type                 = "RoutesReady"
+        },
+        {
+            execution_reason     = [90mnull[0m[0m
+            last_transition_time = "2025-09-03T22:11:21.746250Z"
+            message              = [90mnull[0m[0m
+            reason               = [90mnull[0m[0m
+            revision_reason      = [90mnull[0m[0m
+            severity             = [90mnull[0m[0m
+            state                = "CONDITION_SUCCEEDED"
+            type                 = "ConfigurationsReady"
+        },
+    ]
+    create_time             = "2025-08-29T15:48:08.144728Z"
+    creator                 = "sah@emacsah.com"
+    custom_audiences        = []
+    delete_time             = [90mnull[0m[0m
+    deletion_protection     = true
+    description             = [90mnull[0m[0m
+    effective_annotations   = {}
+    effective_labels        = {
+        "environment"                = "staging"
+        "goog-terraform-provisioned" = "true"
+        "managed_by"                 = "terraform"
+        "service"                    = "user-service"
+    }
+    etag                    = "\"CIT64sUGEJiJp3w/cHJvamVjdHMvc2tpbGxmb3JnZS1haS1tdnAtMjUvbG9jYXRpb25zL2V1cm9wZS13ZXN0MS9zZXJ2aWNlcy91c2VyLXNlcnZpY2Utc3RhZ2luZw\""
+    expire_time             = [90mnull[0m[0m
+    generation              = "16"
+    id                      = "projects/skillforge-ai-mvp-25/locations/europe-west1/services/user-service-staging"
+    ingress                 = "INGRESS_TRAFFIC_ALL"
+    invoker_iam_disabled    = false
+    labels                  = {
+        "environment" = "staging"
+        "managed_by"  = "terraform"
+        "service"     = "user-service"
+    }
+    last_modifier           = "sah@emacsah.com"
+    latest_created_revision = "projects/skillforge-ai-mvp-25/locations/europe-west1/services/user-service-staging/revisions/user-service-staging-00011-8kb"
+    latest_ready_revision   = "projects/skillforge-ai-mvp-25/locations/europe-west1/services/user-service-staging/revisions/user-service-staging-00011-8kb"
+    launch_stage            = "GA"
+    location                = "europe-west1"
+    name                    = "user-service-staging"
+    observed_generation     = "16"
+    project                 = "skillforge-ai-mvp-25"
+    reconciling             = false
+    terminal_condition      = [
+        {
+            execution_reason     = [90mnull[0m[0m
+            last_transition_time = "2025-09-03T22:11:22.951357Z"
+            message              = [90mnull[0m[0m
+            reason               = [90mnull[0m[0m
+            revision_reason      = [90mnull[0m[0m
+            severity             = [90mnull[0m[0m
+            state                = "CONDITION_SUCCEEDED"
+            type                 = "Ready"
+        },
+    ]
+    terraform_labels        = {
+        "environment"                = "staging"
+        "goog-terraform-provisioned" = "true"
+        "managed_by"                 = "terraform"
+        "service"                    = "user-service"
+    }
+    traffic_statuses        = [
+        {
+            percent  = 100
+            revision = [90mnull[0m[0m
+            tag      = [90mnull[0m[0m
+            type     = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+            uri      = [90mnull[0m[0m
+        },
+    ]
+    uid                     = "f2391035-e081-47a2-b382-d2ec949eb962"
+    update_time             = "2025-09-03T22:11:16.260687Z"
+    uri                     = "https://user-service-staging-koi53iwqbq-ew.a.run.app"
+    urls                    = [
+        "https://user-service-staging-584748485117.europe-west1.run.app",
+        "https://user-service-staging-koi53iwqbq-ew.a.run.app",
+    ]
+
+    template {
+        annotations                      = {}
+        encryption_key                   = [90mnull[0m[0m
+        execution_environment            = [90mnull[0m[0m
+        gpu_zonal_redundancy_disabled    = false
+        labels                           = {
+            "environment" = "staging"
+            "managed_by"  = "terraform"
+            "service"     = "user-service"
+        }
+        max_instance_request_concurrency = 80
+        revision                         = [90mnull[0m[0m
+        service_account                  = "sa-user-service-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com"
+        session_affinity                 = false
+        timeout                          = "300s"
+
+        containers {
+            args           = []
+            base_image_uri = [90mnull[0m[0m
+            build_info     = []
+            command        = []
+            depends_on     = []
+            image          = "europe-west1-docker.pkg.dev/skillforge-ai-mvp-25/skillforge-docker-repo-staging/user-service:latest"
+            name           = [90mnull[0m[0m
+            working_dir    = [90mnull[0m[0m
+
+            env {
+                name  = "DATABASE_URL"
+                value = [90mnull[0m[0m
+
+                value_source {
+                    secret_key_ref {
+                        secret  = "postgres-password-staging"
+                        version = "latest"
+                    }
+                }
+            }
+            env {
+                name  = "ENVIRONMENT"
+                value = "staging"
+            }
+            env {
+                name  = "JWT_SECRET_KEY"
+                value = [90mnull[0m[0m
+
+                value_source {
+                    secret_key_ref {
+                        secret  = "jwt-secret-key-staging"
+                        version = "latest"
+                    }
+                }
+            }
+            env {
+                name  = "SERVICE_NAME"
+                value = "user-service"
+            }
+
+            ports {
+                container_port = 8000
+                name           = "http1"
+            }
+
+            resources {
+                cpu_idle          = false
+                limits            = {
+                    "cpu"    = "1"
+                    "memory" = "512Mi"
+                }
+                startup_cpu_boost = false
+            }
+
+            startup_probe {
+                failure_threshold     = 1
+                initial_delay_seconds = 0
+                period_seconds        = 240
+                timeout_seconds       = 240
+
+                tcp_socket {
+                    port = 8000
+                }
+            }
+        }
+
+        scaling {
+            max_instance_count = 5
+            min_instance_count = 0
+        }
+
+        vpc_access {
+            connector = "projects/skillforge-ai-mvp-25/locations/europe-west1/connectors/vpc-conn-staging"
+            egress    = "ALL_TRAFFIC"
+        }
+    }
+
+    traffic {
+        percent  = 100
+        revision = [90mnull[0m[0m
+        tag      = [90mnull[0m[0m
+        type     = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+    }
+}
+
+# module.user_service.google_project_iam_member.db_access:
+resource "google_project_iam_member" "db_access" {
+    etag    = "BwY9gvMAlLM="
+    id      = "skillforge-ai-mvp-25/roles/cloudsql.client/serviceAccount:sa-user-service-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com"
+    member  = "serviceAccount:sa-user-service-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com"
+    project = "skillforge-ai-mvp-25"
+    role    = "roles/cloudsql.client"
+}
+
+# module.user_service.google_secret_manager_secret_iam_member.db_password_access:
+resource "google_secret_manager_secret_iam_member" "db_password_access" {
+    etag      = "BwY9gvLCmDg="
+    id        = "projects/skillforge-ai-mvp-25/secrets/postgres-password-staging/roles/secretmanager.secretAccessor/serviceAccount:sa-user-service-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com"
+    member    = "serviceAccount:sa-user-service-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com"
+    project   = "skillforge-ai-mvp-25"
+    role      = "roles/secretmanager.secretAccessor"
+    secret_id = "projects/skillforge-ai-mvp-25/secrets/postgres-password-staging"
+}
+
+# module.user_service.google_secret_manager_secret_iam_member.jwt_access:
+resource "google_secret_manager_secret_iam_member" "jwt_access" {
+    etag      = "BwY9gvLBJEQ="
+    id        = "projects/skillforge-ai-mvp-25/secrets/jwt-secret-key-staging/roles/secretmanager.secretAccessor/serviceAccount:sa-user-service-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com"
+    member    = "serviceAccount:sa-user-service-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com"
+    project   = "skillforge-ai-mvp-25"
+    role      = "roles/secretmanager.secretAccessor"
+    secret_id = "projects/skillforge-ai-mvp-25/secrets/jwt-secret-key-staging"
+}
+
+# module.user_service.google_service_account.service_sa:
+resource "google_service_account" "service_sa" {
+    account_id   = "sa-user-service-staging"
+    description  = [90mnull[0m[0m
+    disabled     = false
+    display_name = "Service Account for user-service (Staging)"
+    email        = "sa-user-service-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com"
+    id           = "projects/skillforge-ai-mvp-25/serviceAccounts/sa-user-service-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com"
+    member       = "serviceAccount:sa-user-service-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com"
+    name         = "projects/skillforge-ai-mvp-25/serviceAccounts/sa-user-service-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com"
+    project      = "skillforge-ai-mvp-25"
+    unique_id    = "114458431359574730917"
+}
+
+
+Outputs:
+
+api_domain = "https://api.emacsah.com"
+database_connection_name = "skillforge-ai-mvp-25:europe-west1:skillforge-pg-instance-staging"
+database_instance_name = "skillforge-pg-instance-staging"
+database_private_ip = (sensitive value)
+docker_repository_url = "europe-west1-docker.pkg.dev/skillforge-ai-mvp-25/skillforge-docker-repo-staging"
+environment = "staging"
+frontend_assets_bucket_name = "skillforge-ai-mvp-25-frontend-assets-staging"
+frontend_assets_url = "https://storage.googleapis.com/skillforge-ai-mvp-25-frontend-assets-staging"
+jwt_secret_name = "jwt-secret-key-staging"
+load_balancer_ip = "34.149.174.205"
+project_id = "skillforge-ai-mvp-25"
+redis_host = (sensitive value)
+redis_instance_name = "skillforge-redis-instance-staging"
+redis_port = 6379
+region = "europe-west1"
+ssl_certificate_name = "skillforge-ssl-cert-staging"
+subnet_name = "skillforge-subnet-staging"
+user_service_account_email = "sa-user-service-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com"
+user_service_name = "user-service-staging"
+user_service_url = "https://user-service-staging-koi53iwqbq-ew.a.run.app"
+user_uploads_bucket_name = "skillforge-ai-mvp-25-user-uploads-staging"
+vpc_connector_id = "projects/skillforge-ai-mvp-25/locations/europe-west1/connectors/vpc-conn-staging"
+vpc_id = "projects/skillforge-ai-mvp-25/global/networks/skillforge-vpc-staging"
+vpc_name = "skillforge-vpc-staging"

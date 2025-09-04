@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(terraform validate:*)",
+      "Bash(chmod:*)",
+      "Bash(dir)",
+      "Bash(dir:*)",
+      "Bash(powershell:*)",
+      "Bash(npm create:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npm run format:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(timeout 10s npm run dev)",
+      "Bash(npm run build:*)",
+      "Bash(tree:*)",
+      "Bash(npm run lint)",
+      "Bash(python test_cloud_sql_proxy.py:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(./scripts/migrate.sh:*)",
+      "Bash(DATABASE_URL=\"postgresql://invalid:invalid@localhost:5432/invalid\" ./scripts/migrate.sh user-service staging)",
+      "Bash(grep:*)",
+      "Bash(cat:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

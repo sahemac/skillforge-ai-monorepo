@@ -1,0 +1,532 @@
+# .github/workflows/terraform.yml
+name: "Terraform Infrastructure Pipeline"
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths: ["terraform/**"]
+  push:
+    branches: [develop, main]
+    paths: ["terraform/**"]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+        - plan
+        - apply
+        - destroy
+
+env:
+  TF_VERSION: "1.5.0"
+  CHECKOV_VERSION: "3.2.0"
+  TFSEC_VERSION: "1.28.0"
+
+jobs:
+  # ================================
+  # VALIDATION & SECURITY SCANNING
+  # ================================
+  validate:
+    name: "Validate & Security Scan"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      pull-requests: write
+      security-events: write
+    strategy:
+      matrix:
+        environment: [staging, production]
+    steps:
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "🔧 Setup Terraform"
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: "🔍 Terraform Format Check"
+        id: fmt
+        run: |
+          cd terraform/environments/${{ matrix.environment }}
+          terraform fmt -check -recursive -diff
+        continue-on-error: true
+
+      - name: "🔧 Terraform Init"
+        id: init
+        run: |
+          cd terraform/environments/${{ matrix.environment }}
+          terraform init -backend=false
+
+      - name: "✅ Terraform Validate"
+        id: validate
+        run: |
+          cd terraform/environments/${{ matrix.environment }}
+          terraform validate -no-color
+
+      - name: "🛡️ Install Security Tools"
+        run: |
+          # Install Checkov
+          pip3 install checkov==${{ env.CHECKOV_VERSION }}
+          
+          # Install tfsec
+          curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash -s v${{ env.TFSEC_VERSION }}
+          sudo mv tfsec /usr/local/bin/
+
+      - name: "🔒 Checkov Security Scan"
+        id: checkov
+        run: |
+          cd terraform/environments/${{ matrix.environment }}
+          checkov -d . \
+            --framework terraform \
+            --output cli \
+            --output sarif \
+            --output-file-path console,checkov-results.sarif \
+            --soft-fail
+        continue-on-error: true
+
+      - name: "🛡️ TFSec Security Scan"
+        id: tfsec
+        run: |
+          cd terraform/environments/${{ matrix.environment }}
+          tfsec . \
+            --format json \
+            --out tfsec-results.json \
+            --soft-fail
+        continue-on-error: true
+
+      - name: "📤 Upload Security Results"
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-scan-results-${{ matrix.environment }}
+          path: |
+            terraform/environments/${{ matrix.environment }}/checkov-results.sarif
+            terraform/environments/${{ matrix.environment }}/tfsec-results.json
+          retention-days: 30
+
+      - name: "📝 Comment PR with Validation Results"
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const fs = require('fs');
+            const environment = '${{ matrix.environment }}';
+            
+            let comment = `## 🏗️ Terraform Validation Results - ${environment}\n\n`;
+            
+            // Format check results
+            const fmtResult = '${{ steps.fmt.outcome }}';
+            comment += `### 📝 Format Check: ${fmtResult === 'success' ? '✅ PASS' : '❌ FAIL'}\n`;
+            if (fmtResult !== 'success') {
+              comment += '```diff\n${{ steps.fmt.outputs.stdout }}\n```\n';
+            }
+            
+            // Validation results
+            const validateResult = '${{ steps.validate.outcome }}';
+            comment += `### ✅ Validation: ${validateResult === 'success' ? '✅ PASS' : '❌ FAIL'}\n`;
+            
+            // Security scan results
+            const checkovResult = '${{ steps.checkov.outcome }}';
+            const tfsecResult = '${{ steps.tfsec.outcome }}';
+            comment += `### 🔒 Security Scans:\n`;
+            comment += `- Checkov: ${checkovResult === 'success' ? '✅ PASS' : '⚠️ ISSUES FOUND'}\n`;
+            comment += `- TFSec: ${tfsecResult === 'success' ? '✅ PASS' : '⚠️ ISSUES FOUND'}\n`;
+            
+            comment += `\n📊 **Security scan artifacts uploaded for detailed review**`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # ================================
+  # TERRAFORM PLAN
+  # ================================
+  plan:
+    name: "Plan Infrastructure"
+    runs-on: ubuntu-latest
+    needs: [validate]
+    if: always() && (needs.validate.result == 'success' || github.event_name != 'pull_request')
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    strategy:
+      matrix:
+        environment: [staging, production]
+    env:
+      TF_VAR_environment: ${{ matrix.environment }}
+    steps:
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "🔧 Setup Terraform"
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: "🔐 Authenticate to Google Cloud"
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: "🔧 Terraform Init"
+        run: |
+          cd terraform/environments/${{ matrix.environment }}
+          terraform init
+
+      - name: "📋 Terraform Plan"
+        id: plan
+        run: |
+          cd terraform/environments/${{ matrix.environment }}
+          terraform plan \
+            -var-file="terraform.tfvars" \
+            -out="terraform-${{ matrix.environment }}-${{ github.sha }}.tfplan" \
+            -detailed-exitcode
+        continue-on-error: true
+
+      - name: "📤 Upload Terraform Plan"
+        uses: actions/upload-artifact@v4
+        if: steps.plan.outputs.exitcode == '2'
+        with:
+          name: terraform-plan-${{ matrix.environment }}-${{ github.sha }}
+          path: terraform/environments/${{ matrix.environment }}/terraform-${{ matrix.environment }}-${{ github.sha }}.tfplan
+          retention-days: 30
+
+      - name: "📝 Generate Plan Summary"
+        id: plan-summary
+        if: steps.plan.outputs.exitcode == '2'
+        run: |
+          cd terraform/environments/${{ matrix.environment }}
+          terraform show -no-color terraform-${{ matrix.environment }}-${{ github.sha }}.tfplan > plan-output.txt
+          
+          # Create a summary
+          echo "PLAN_SUMMARY<<EOF" >> $GITHUB_OUTPUT
+          echo "## 📋 Terraform Plan - ${{ matrix.environment }}" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "### Changes Detected:" >> $GITHUB_OUTPUT
+          echo '```hcl' >> $GITHUB_OUTPUT
+          head -50 plan-output.txt >> $GITHUB_OUTPUT
+          echo '```' >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "📦 **Plan artifact uploaded**: \`terraform-plan-${{ matrix.environment }}-${{ github.sha }}\`" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: "📝 Comment PR with Plan"
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request' && steps.plan.outputs.exitcode == '2'
+        with:
+          script: |
+            const planSummary = `${{ steps.plan-summary.outputs.PLAN_SUMMARY }}`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: planSummary
+            });
+
+      - name: "❌ Plan Failed Notification"
+        if: steps.plan.outputs.exitcode == '1'
+        run: |
+          echo "::error::Terraform plan failed for ${{ matrix.environment }}"
+          exit 1
+
+  # ================================
+  # STAGING DEPLOYMENT
+  # ================================
+  deploy-staging:
+    name: "Deploy to Staging"
+    runs-on: ubuntu-latest
+    needs: [plan]
+    if: |
+      always() && 
+      needs.plan.result == 'success' && 
+      (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') && 
+      github.event_name == 'push'
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: staging
+      url: https://staging.skillforge-ai.com
+    env:
+      TF_VAR_environment: staging
+    steps:
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "🔧 Setup Terraform"
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: "🔐 Authenticate to Google Cloud"
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: "📥 Download Terraform Plan"
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-staging-${{ github.sha }}
+          path: terraform/environments/staging/
+
+      - name: "🔧 Terraform Init"
+        run: |
+          cd terraform/environments/staging
+          terraform init
+
+      - name: "🚀 Terraform Apply"
+        id: apply
+        run: |
+          cd terraform/environments/staging
+          terraform apply \
+            -auto-approve \
+            terraform-staging-${{ github.sha }}.tfplan
+        timeout-minutes: 30
+
+      - name: "💾 Backup State"
+        if: always()
+        run: |
+          cd terraform/environments/staging
+          terraform state pull > backup-state-${{ github.sha }}.json
+
+      - name: "📤 Upload State Backup"
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: terraform-state-backup-staging-${{ github.sha }}
+          path: terraform/environments/staging/backup-state-${{ github.sha }}.json
+          retention-days: 90
+
+      - name: "✅ Deployment Success Notification"
+        if: steps.apply.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: 'success',
+              description: '🚀 Staging deployment successful',
+              context: 'terraform/staging'
+            });
+
+      - name: "❌ Deployment Failed Notification"
+        if: steps.apply.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: 'failure',
+              description: '❌ Staging deployment failed',
+              context: 'terraform/staging'
+            });
+
+  # ================================
+  # PRODUCTION DEPLOYMENT
+  # ================================
+  deploy-production:
+    name: "Deploy to Production"
+    runs-on: ubuntu-latest
+    needs: [plan]
+    if: |
+      always() && 
+      needs.plan.result == 'success' && 
+      github.event_name == 'release' && 
+      github.event.action == 'published'
+    permissions:
+      contents: read
+      id-token: write
+      deployments: write
+    environment:
+      name: production
+      url: https://skillforge-ai.com
+    env:
+      TF_VAR_environment: production
+    steps:
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "🔧 Setup Terraform"
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: "🔐 Authenticate to Google Cloud"
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: "🔧 Terraform Init"
+        run: |
+          cd terraform/environments/production
+          terraform init
+
+      - name: "📋 Fresh Terraform Plan"
+        id: prod-plan
+        run: |
+          cd terraform/environments/production
+          terraform plan \
+            -var-file="terraform.tfvars" \
+            -out="terraform-production-${{ github.sha }}.tfplan" \
+            -detailed-exitcode
+
+      - name: "🤔 Production Approval Gate"
+        if: steps.prod-plan.outputs.exitcode == '2'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const { sha } = context;
+            
+            // Create deployment
+            const deployment = await github.rest.repos.createDeployment({
+              owner,
+              repo,
+              ref: sha,
+              environment: 'production',
+              description: 'Production infrastructure deployment',
+              auto_merge: false,
+              required_contexts: []
+            });
+
+      - name: "🚀 Terraform Apply Production"
+        id: apply-prod
+        if: steps.prod-plan.outputs.exitcode == '2'
+        run: |
+          cd terraform/environments/production
+          terraform apply \
+            -auto-approve \
+            terraform-production-${{ github.sha }}.tfplan
+        timeout-minutes: 45
+
+      - name: "💾 Production State Backup"
+        if: always()
+        run: |
+          cd terraform/environments/production
+          terraform state pull > backup-state-prod-${{ github.sha }}.json
+
+      - name: "📤 Upload Production State Backup"
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: terraform-state-backup-production-${{ github.sha }}
+          path: terraform/environments/production/backup-state-prod-${{ github.sha }}.json
+          retention-days: 365
+
+      - name: "✅ Production Success Notification"
+        if: steps.apply-prod.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: 'success',
+              description: '🎉 Production deployment successful',
+              context: 'terraform/production'
+            });
+
+  # ================================
+  # ROLLBACK MECHANISM
+  # ================================
+  rollback:
+    name: "Emergency Rollback"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'rollback'
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "🔧 Setup Terraform"
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: "🔐 Authenticate to Google Cloud"
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: "📥 List Available Backups"
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listArtifactsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'terraform-state-backup-${{ github.event.inputs.environment }}'
+            });
+            
+            console.log('Available state backups:');
+            artifacts.data.artifacts.forEach(artifact => {
+              console.log(`- ${artifact.name} (${artifact.created_at})`);
+            });
+
+      - name: "⚠️ Manual Rollback Required"
+        run: |
+          echo "::warning::Automatic rollback requires manual intervention"
+          echo "Please download the appropriate state backup and restore manually:"
+          echo "1. Download backup artifact"
+          echo "2. Run: terraform state push backup-state-*.json"
+          echo "3. Run: terraform plan to verify"
+          echo "4. Run: terraform apply if needed"
+
+  # ================================
+  # NOTIFICATION & CLEANUP
+  # ================================
+  notify:
+    name: "Send Notifications"
+    runs-on: ubuntu-latest
+    needs: [validate, plan, deploy-staging, deploy-production]
+    if: always()
+    steps:
+      - name: "📧 Slack Notification"
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#devops-alerts'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: "📧 Teams Notification"
+        if: failure()
+        uses: skitionek/notify-microsoft-teams@master
+        with:
+          webhook_url: ${{ secrets.TEAMS_WEBHOOK }}
+          needs: ${{ toJson(needs) }}
+          job: ${{ toJson(job) }}
