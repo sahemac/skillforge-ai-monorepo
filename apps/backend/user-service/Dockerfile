@@ -1,33 +1,43 @@
-# apps/backend/user-service/Dockerfile
-
-# --- Étape 1: Le "Builder"
-# Installe les dépendances dans une première étape pour optimiser le cache de layers
-FROM python:3.11-slim as builder
-
-WORKDIR /app
-
-# Copie les fichiers de dépendances
-COPY requirements.txt requirements-dev.txt ./
-
-# Installe uniquement les dépendances de production
-RUN pip install --no-cache-dir -r requirements.txt
-
-# --- Étape 2: Le "Runtime"
-# L'image finale est basée sur la même image slim
+# Use Python 3.11 slim image
 FROM python:3.11-slim
 
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH="/app" \
+    PORT=8000
+
+# Set work directory
 WORKDIR /app
 
-# Crée un utilisateur non-root pour des raisons de sécurité
-RUN useradd --no-create-home appuser
-USER appuser
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copie les dépendances installées depuis l'étape "builder"
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+# Create non-root user
+RUN groupadd -r skillforge && useradd -r -g skillforge skillforge
 
-# Copie le code source de l'application (qui n'existe pas encore, c'est normal)
-# COPY ./app /app/app
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Commande pour lancer le serveur (sera remplacée par le vrai code plus tard)
-# Pour l'instant, on met une commande qui tourne en boucle pour que le conteneur ne crash pas
-CMD ["tail", "-f", "/dev/null"]
+# Copy project files
+COPY . .
+
+# Change ownership of the app directory to the skillforge user
+RUN chown -R skillforge:skillforge /app
+
+# Switch to non-root user
+USER skillforge
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8000/health')"
+
+# Run the application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
