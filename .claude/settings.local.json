@@ -23,7 +23,8 @@
       "Bash(./scripts/migrate.sh:*)",
       "Bash(DATABASE_URL=\"postgresql://invalid:invalid@localhost:5432/invalid\" ./scripts/migrate.sh user-service staging)",
       "Bash(grep:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(sed:*)"
     ],
     "deny": [],
     "ask": []
