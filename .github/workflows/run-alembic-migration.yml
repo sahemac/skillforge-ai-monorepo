@@ -41,6 +41,8 @@ jobs:
   migrate:
     name: Run Database Migration
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       status: ${{ steps.migration.outputs.status }}
       log_file: ${{ steps.migration.outputs.log_file }}

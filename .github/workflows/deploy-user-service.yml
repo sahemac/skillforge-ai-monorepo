@@ -20,6 +20,10 @@ on:
     paths:
       - 'apps/backend/user-service/**'
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   test:
     name: Run Unit Tests
