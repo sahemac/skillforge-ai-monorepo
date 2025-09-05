@@ -187,6 +187,9 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+          token_format: 'access_token'
+          create_credentials_file: true
+          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
 
       - name: "🔧 Terraform Init"
         run: |
@@ -284,6 +287,9 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+          token_format: 'access_token'
+          create_credentials_file: true
+          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
 
       - name: "📥 Download Terraform Plan"
         uses: actions/download-artifact@v4
@@ -382,6 +388,9 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+          token_format: 'access_token'
+          create_credentials_file: true
+          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
 
       - name: "🔧 Terraform Init"
         run: |
@@ -478,6 +487,9 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+          token_format: 'access_token'
+          create_credentials_file: true
+          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
 
       - name: "📥 List Available Backups"
         uses: actions/github-script@v7
