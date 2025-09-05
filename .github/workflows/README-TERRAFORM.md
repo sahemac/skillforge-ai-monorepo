@@ -84,8 +84,8 @@ graph TD
 
 ### Secrets Repository
 ```yaml
-GCP_WORKLOAD_IDENTITY_PROVIDER: projects/584748485117/locations/global/workloadIdentityPools/github-actions/providers/github
-GCP_SERVICE_ACCOUNT: terraform-ci-cd@skillforge-ai-mvp-25.iam.gserviceaccount.com
+GCP_WIF_PROVIDER: projects/584748485117/locations/global/workloadIdentityPools/github-actions/providers/github
+GCP_CICD_SERVICE_ACCOUNT: terraform-ci-cd@skillforge-ai-mvp-25.iam.gserviceaccount.com
 SLACK_WEBHOOK: https://hooks.slack.com/services/...  # Optionnel
 TEAMS_WEBHOOK: https://outlook.office.com/webhook/...  # Optionnel
 ```
@@ -177,7 +177,7 @@ Error: google: could not find default credentials
 ```
 
 **Solution** :
-1. Vérifier `GCP_WORKLOAD_IDENTITY_PROVIDER` et `GCP_SERVICE_ACCOUNT`
+1. Vérifier `GCP_WIF_PROVIDER` et `GCP_CICD_SERVICE_ACCOUNT`
 2. Confirmer que le service account a les bonnes permissions
 3. Vérifier que le repository est autorisé dans Workload Identity
 

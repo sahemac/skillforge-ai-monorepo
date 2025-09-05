@@ -45,7 +45,7 @@ your-project-id
 ```bash
 # Nom du secret: DATABASE_URL_STAGING
 # Valeur: Connexion PostgreSQL staging
-postgresql+asyncpg://username:password@host:port/database_staging
+postgresql+asyncpg://usernme:password@host:port/database_staging
 
 # Nom du secret: DATABASE_URL_PRODUCTION
 # Valeur: Connexion PostgreSQL production
