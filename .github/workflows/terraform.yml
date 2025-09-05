@@ -195,7 +195,12 @@ jobs:
         uses: google-github-actions/setup-gcloud@v1
         with:
           version: '>= 363.0.0'
-
+        
+      - name: "🔍 Verify Google Cloud Authentication"
+        run: |
+          gcloud auth list
+          gcloud config list
+      
       - name: "🔧 Terraform Init"
         run: |
           cd terraform/environments/${{ matrix.environment }}
@@ -300,6 +305,11 @@ jobs:
         uses: google-github-actions/setup-gcloud@v1
         with:
           version: '>= 363.0.0'
+          
+      - name: "🔍 Verify Google Cloud Authentication"
+        run: |
+          gcloud auth list
+          gcloud config list
 
       - name: "📥 Download Terraform Plan"
         uses: actions/download-artifact@v4
@@ -407,7 +417,12 @@ jobs:
         with:
           version: '>= 363.0.0'
       
-      
+      - name: "🔍 Verify Google Cloud Authentication"
+        run: |
+          gcloud auth list
+          gcloud config list
+          
+          
       - name: "🔧 Terraform Init"
         run: |
           cd terraform/environments/production
@@ -513,7 +528,10 @@ jobs:
         with:
           version: '>= 363.0.0'
       
-      
+      - name: "🔍 Verify Google Cloud Authentication"
+        run: |
+          gcloud auth list
+          gcloud config list
       
       - name: "📥 List Available Backups"
         uses: actions/github-script@v7
