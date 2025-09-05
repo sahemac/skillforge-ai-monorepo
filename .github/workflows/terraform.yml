@@ -45,6 +45,7 @@ jobs:
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
+      id-token: write
       pull-requests: write
       security-events: write
     strategy:
@@ -59,6 +60,22 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
+      - name: "🔐 Authenticate to Google Cloud"
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+          token_format: 'access_token'
+          create_credentials_file: true
+
+      - name: "📄 Prepare terraform.tfvars"
+        run: |
+          cd terraform/environments/${{ matrix.environment }}
+          if [ ! -f terraform.tfvars ]; then
+            echo "Creating terraform.tfvars from example file..."
+            cp terraform.tfvars.example terraform.tfvars
+          fi
+
       - name: "🔍 Terraform Format Check"
         id: fmt
         run: |
@@ -70,7 +87,7 @@ jobs:
         id: init
         run: |
           cd terraform/environments/${{ matrix.environment }}
-          terraform init -backend=false
+          terraform init
 
       - name: "✅ Terraform Validate"
         id: validate
@@ -202,6 +219,14 @@ jobs:
           gcloud auth list
           gcloud config list
       
+      - name: "📄 Prepare terraform.tfvars"
+        run: |
+          cd terraform/environments/${{ matrix.environment }}
+          if [ ! -f terraform.tfvars ]; then
+            echo "Creating terraform.tfvars from example file..."
+            cp terraform.tfvars.example terraform.tfvars
+          fi
+
       - name: "🔧 Terraform Init"
         run: |
           cd terraform/environments/${{ matrix.environment }}

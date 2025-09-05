@@ -1,0 +1,47 @@
+# terraform/environments/production/terraform.tfvars.example
+# Example configuration for PRODUCTION environment
+# Copy to terraform.tfvars and update values
+
+# ================================
+# PROJECT CONFIGURATION
+# ================================
+
+project_id      = "skillforge-ai-mvp-25"
+project_number  = "584748485117"
+environment     = "production"
+
+# ================================
+# DOMAIN AND DNS CONFIGURATION
+# ================================
+
+organization_domain = "emacsah.com"
+global_ip_name     = "skillforge-global-ip-prod"
+ssl_certificate_domains = ["api.emacsah.com"]
+
+# ================================
+# DOCKER REGISTRY CONFIGURATION
+# ================================
+
+docker_repo_name = "skillforge-docker-repo-production"
+
+# ================================
+# MONITORING CONFIGURATION
+# ================================
+
+monitoring_notification_email = "devops-alerts@emacsah.com"
+enable_monitoring_alerts      = true
+
+# ================================
+# ENVIRONMENT-SPECIFIC OVERRIDES
+# ================================
+
+# Database configuration for production
+database_tier = "db-n1-standard-1"  # Standard instance for production
+
+# Redis configuration for production
+redis_memory_size_gb = 2         # 2GB for production
+redis_tier          = "STANDARD" # Standard tier for production
+
+# Cloud Run configuration for production
+cloud_run_max_instances = 100   # Full scaling for production
+cloud_run_min_instances = 1     # Always keep 1 instance warm

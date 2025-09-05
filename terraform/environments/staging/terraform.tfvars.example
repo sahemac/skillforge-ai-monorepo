@@ -1,0 +1,47 @@
+# terraform/environments/staging/terraform.tfvars.example
+# Example configuration for STAGING environment
+# Copy to terraform.tfvars and update values
+
+# ================================
+# PROJECT CONFIGURATION
+# ================================
+
+project_id      = "skillforge-ai-mvp-25"
+project_number  = "584748485117"
+environment     = "staging"
+
+# ================================
+# DOMAIN AND DNS CONFIGURATION
+# ================================
+
+organization_domain = "emacsah.com"
+global_ip_name     = "skillforge-global-ip"
+ssl_certificate_domains = ["api.emacsah.com"]
+
+# ================================
+# DOCKER REGISTRY CONFIGURATION
+# ================================
+
+docker_repo_name = "skillforge-docker-repo-staging"
+
+# ================================
+# MONITORING CONFIGURATION
+# ================================
+
+monitoring_notification_email = "devops-alerts@emacsah.com"
+enable_monitoring_alerts      = true
+
+# ================================
+# ENVIRONMENT-SPECIFIC OVERRIDES
+# ================================
+
+# Database configuration for staging
+database_tier = "db-g1-small"  # Small instance for staging
+
+# Redis configuration for staging
+redis_memory_size_gb = 1       # 1GB for staging
+redis_tier          = "BASIC"  # Basic tier for staging
+
+# Cloud Run configuration for staging
+cloud_run_max_instances = 5    # Limited scaling for staging
+cloud_run_min_instances = 0    # Scale to zero when not used
