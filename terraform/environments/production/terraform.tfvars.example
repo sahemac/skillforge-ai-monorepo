@@ -40,7 +40,7 @@ database_tier = "db-n1-standard-1"  # Standard instance for production
 
 # Redis configuration for production
 redis_memory_size_gb = 2         # 2GB for production
-redis_tier          = "STANDARD" # Standard tier for production
+redis_tier          = "STANDARD_HA" # Standard HA tier for production
 
 # Cloud Run configuration for production
 cloud_run_max_instances = 100   # Full scaling for production
