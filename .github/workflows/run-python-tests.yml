@@ -15,6 +15,9 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Run Unit Tests
@@ -46,66 +49,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           
-          echo "🔍 Debug: Current directory: $(pwd)"
-          echo "🔍 Debug: Service directory: ${{ inputs.service-directory }}"
-          echo "🔍 Debug: Files in service directory:"
-          ls -la "${{ inputs.service-directory }}/"
-          
-          # Create and activate virtual environment
-          python -m venv .venv
-          source .venv/bin/activate
-          
-          # Upgrade pip in venv
-          pip install --upgrade pip
-          
-          # Try requirements-dev.txt first, fallback to requirements.txt
-          if [[ -f "${{ inputs.service-directory }}/requirements-dev.txt" ]]; then
-            echo "📦 Installing from requirements-dev.txt..."
-            pip install -r ${{ inputs.service-directory }}/requirements-dev.txt
-          elif [[ -f "${{ inputs.service-directory }}/requirements.txt" ]]; then
-            echo "📦 Installing from requirements.txt..."
-            pip install -r ${{ inputs.service-directory }}/requirements.txt
-            
-            # If that fails, install core dependencies directly
-            if ! python -c "import fastapi" 2>/dev/null; then
-              echo "⚠️ FastAPI not found, installing core dependencies directly..."
-              pip install fastapi==0.104.1 pytest==7.4.3 pytest-asyncio==0.21.1 sqlmodel==0.0.14 httpx==0.25.2 aiosqlite==0.19.0
-            fi
-          else
-            echo "❌ No requirements file found in ${{ inputs.service-directory }}"
-            echo "Available files:"
-            find "${{ inputs.service-directory }}" -name "requirements*.txt" -o -name "*.txt" | head -10
-            exit 1
-          fi
+          # Install core test dependencies directly
+          pip install fastapi==0.104.1 pytest==7.4.3 pytest-asyncio==0.21.1 sqlmodel==0.0.14 httpx==0.25.2 aiosqlite==0.19.0
 
       - name: Run tests with pytest
         run: |
-          # Activate virtual environment
-          source .venv/bin/activate
-          
-          # Verify pytest is available
-          echo "🔍 Pytest location: $(which pytest)"
-          echo "🔍 Python path: $(which python)"
-          
-          # Test FastAPI import from the venv python
-          echo "🔍 Testing FastAPI import from venv:"
-          python -c "import fastapi; print(f'✅ FastAPI {fastapi.__version__} available')" || echo "❌ FastAPI not found in venv"
-          
           cd ${{ inputs.service-directory }}
-          
-          # Set PYTHONPATH to include the service directory
           export PYTHONPATH="${PWD}:${PYTHONPATH}"
-          echo "🔍 PYTHONPATH: $PYTHONPATH"
-          
-          # Check if pytest.ini or setup.cfg exists for configuration
-          if [[ -f "pytest.ini" ]]; then
-            echo "📋 Using pytest.ini configuration"
-            pytest
-          elif [[ -f "setup.cfg" ]]; then
-            echo "📋 Using setup.cfg configuration"
-            pytest
-          else
-            echo "📋 Running pytest with default configuration"
-            # Run tests with verbose output and coverage
-            pytest -v --tb=short
-          fi
+          pytest -v
