@@ -103,9 +103,11 @@ jobs:
           # Install Checkov
           pip3 install checkov==${{ env.CHECKOV_VERSION }}
           
-          # Install tfsec (latest version)
-          curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
-          sudo mv tfsec /usr/local/bin/
+          # Install tfsec - using trivy instead (tfsec is deprecated)
+          # tfsec has been replaced by trivy
+          wget -q https://github.com/aquasecurity/trivy/releases/download/v0.56.2/trivy_0.56.2_Linux-64bit.tar.gz
+          tar -xzf trivy_0.56.2_Linux-64bit.tar.gz
+          sudo mv trivy /usr/local/bin/
 
       - name: "🔒 Checkov Security Scan"
         id: checkov
@@ -119,14 +121,14 @@ jobs:
             --soft-fail
         continue-on-error: true
 
-      - name: "🛡️ TFSec Security Scan"
+      - name: "🛡️ Trivy Security Scan (replaces TFSec)"
         id: tfsec
         run: |
           cd terraform/environments/${{ matrix.environment }}
-          tfsec . \
+          trivy config . \
             --format json \
-            --out tfsec-results.json \
-            --soft-fail
+            --output trivy-results.json \
+            --exit-code 0
         continue-on-error: true
 
       - name: "📤 Upload Security Results"
@@ -136,7 +138,7 @@ jobs:
           name: security-scan-results-${{ matrix.environment }}
           path: |
             terraform/environments/${{ matrix.environment }}/checkov-results.sarif
-            terraform/environments/${{ matrix.environment }}/tfsec-results.json
+            terraform/environments/${{ matrix.environment }}/trivy-results.json
           retention-days: 30
 
       - name: "📝 Comment PR with Validation Results"
@@ -165,7 +167,7 @@ jobs:
             const tfsecResult = '${{ steps.tfsec.outcome }}';
             comment += `### 🔒 Security Scans:\n`;
             comment += `- Checkov: ${checkovResult === 'success' ? '✅ PASS' : '⚠️ ISSUES FOUND'}\n`;
-            comment += `- TFSec: ${tfsecResult === 'success' ? '✅ PASS' : '⚠️ ISSUES FOUND'}\n`;
+            comment += `- Trivy: ${tfsecResult === 'success' ? '✅ PASS' : '⚠️ ISSUES FOUND'}\n`;
             
             comment += `\n📊 **Security scan artifacts uploaded for detailed review**`;
             
