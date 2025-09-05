@@ -26,7 +26,9 @@
       "Bash(cat:*)",
       "Bash(sed:*)",
       "Bash(git check-ignore:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(gcloud projects get-iam-policy:*)",
+      "Bash(./scripts/add-terraform-permissions.sh:*)"
     ],
     "deny": [],
     "ask": []

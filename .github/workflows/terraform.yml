@@ -67,6 +67,7 @@ jobs:
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
           token_format: 'access_token'
           create_credentials_file: true
+          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
 
       - name: "📄 Prepare terraform.tfvars"
         run: |
