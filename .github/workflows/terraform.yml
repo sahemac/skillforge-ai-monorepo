@@ -33,7 +33,7 @@ on:
 env:
   TF_VERSION: "1.5.0"
   CHECKOV_VERSION: "3.2.0"
-  TFSEC_VERSION: "1.28.0"
+  TFSEC_VERSION: "1.28.10"
 
 jobs:
   # ================================
@@ -103,8 +103,8 @@ jobs:
           # Install Checkov
           pip3 install checkov==${{ env.CHECKOV_VERSION }}
           
-          # Install tfsec
-          curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash -s v${{ env.TFSEC_VERSION }}
+          # Install tfsec (latest version)
+          curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
           sudo mv tfsec /usr/local/bin/
 
       - name: "🔒 Checkov Security Scan"
