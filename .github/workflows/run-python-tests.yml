@@ -50,7 +50,7 @@ jobs:
           python -m pip install --upgrade pip
           
           # Install core test dependencies directly
-          pip install fastapi==0.104.1 pytest==7.4.3 pytest-asyncio==0.21.1 sqlmodel==0.0.14 httpx==0.25.2 aiosqlite==0.19.0
+          pip install fastapi==0.104.1 pytest==7.4.3 pytest-asyncio==0.21.1 sqlmodel==0.0.14 httpx==0.25.2 aiosqlite==0.19.0 pydantic-settings==2.1.0 python-jose==3.3.0 passlib==1.7.4 asyncpg==0.29.0
 
       - name: Run tests with pytest
         run: |

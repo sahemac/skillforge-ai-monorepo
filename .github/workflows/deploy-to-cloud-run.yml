@@ -17,6 +17,7 @@ on:
         required: true
       GCP_CICD_SERVICE_ACCOUNT:
         required: true
+
 jobs:
   deploy:
     name: Deploy to Cloud Run

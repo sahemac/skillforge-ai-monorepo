@@ -36,7 +36,9 @@ on:
       migration_log:
         description: "Migration log file path"
         value: ${{ jobs.migrate.outputs.log_file }}
-
+permissions:
+  contents: read
+  
 jobs:
   migrate:
     name: Run Database Migration
