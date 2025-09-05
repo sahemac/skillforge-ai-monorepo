@@ -190,6 +190,11 @@ jobs:
           token_format: 'access_token'
           create_credentials_file: true
           audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
+      
+      - name: "🔧 Set up Cloud SDK"
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          version: '>= 363.0.0'
 
       - name: "🔧 Terraform Init"
         run: |
@@ -290,6 +295,11 @@ jobs:
           token_format: 'access_token'
           create_credentials_file: true
           audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
+      
+      - name: "🔧 Set up Cloud SDK"
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          version: '>= 363.0.0'
 
       - name: "📥 Download Terraform Plan"
         uses: actions/download-artifact@v4
@@ -392,6 +402,12 @@ jobs:
           create_credentials_file: true
           audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
 
+      - name: "🔧 Set up Cloud SDK"
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          version: '>= 363.0.0'
+      
+      
       - name: "🔧 Terraform Init"
         run: |
           cd terraform/environments/production
@@ -491,6 +507,14 @@ jobs:
           create_credentials_file: true
           audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
 
+      
+      - name: "🔧 Set up Cloud SDK"
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          version: '>= 363.0.0'
+      
+      
+      
       - name: "📥 List Available Backups"
         uses: actions/github-script@v7
         with:
