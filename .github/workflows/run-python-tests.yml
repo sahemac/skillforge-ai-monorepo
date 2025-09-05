@@ -65,16 +65,12 @@ jobs:
           elif [[ -f "${{ inputs.service-directory }}/requirements.txt" ]]; then
             echo "📦 Installing from requirements.txt..."
             pip install -r ${{ inputs.service-directory }}/requirements.txt
-            echo "✅ Installation completed"
             
-            echo "🔍 Verifying installations:"
-            pip list | grep -E "(fastapi|pytest|sqlmodel)" || echo "Some packages not found"
-            
-            echo "🔍 Testing FastAPI import:"
-            python -c "import fastapi; print(f'✅ FastAPI {fastapi.__version__} imported successfully')" || echo "❌ FastAPI import failed"
-            
-            echo "🔍 Testing pytest:"
-            python -c "import pytest; print(f'✅ Pytest {pytest.__version__} imported successfully')" || echo "❌ Pytest import failed"
+            # If that fails, install core dependencies directly
+            if ! python -c "import fastapi" 2>/dev/null; then
+              echo "⚠️ FastAPI not found, installing core dependencies directly..."
+              pip install fastapi==0.104.1 pytest==7.4.3 pytest-asyncio==0.21.1 sqlmodel==0.0.14 httpx==0.25.2 aiosqlite==0.19.0
+            fi
           else
             echo "❌ No requirements file found in ${{ inputs.service-directory }}"
             echo "Available files:"
