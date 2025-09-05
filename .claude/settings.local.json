@@ -25,7 +25,8 @@
       "Bash(grep:*)",
       "Bash(cat:*)",
       "Bash(sed:*)",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
