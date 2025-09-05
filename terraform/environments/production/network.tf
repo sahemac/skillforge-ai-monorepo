@@ -4,8 +4,6 @@
 resource "google_compute_network" "vpc_main" {
   name                    = local.vpc_name
   auto_create_subnetworks = false # Nous gérons les sous-réseaux manuellement
-  
-  labels = local.common_labels
 }
 
 # Crée un sous-réseau dans la région principale
