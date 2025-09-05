@@ -322,6 +322,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      statuses: write
     environment:
       name: staging
       url: https://staging.skillforge-ai.com
@@ -435,6 +436,7 @@ jobs:
       contents: read
       id-token: write
       deployments: write
+      statuses: write
     environment:
       name: production
       url: https://skillforge-ai.com
