@@ -75,6 +75,10 @@ jobs:
       - name: Run tests with pytest
         run: |
           cd ${{ inputs.service-directory }}
+          source ../.venv/bin/activate
+          
+          # Vérifie que pytest est installé
+          which pytest || { echo "❌ pytest not found"; exit 1; }
           
           # Check if pytest.ini or setup.cfg exists for configuration
           if [[ -f "pytest.ini" ]]; then
