@@ -74,8 +74,14 @@ jobs:
 
       - name: Run tests with pytest
         run: |
+          # Activate virtual environment
+          source .venv/bin/activate
+          
           cd ${{ inputs.service-directory }}
           
+          # Verify pytest is available
+          echo "🔍 Pytest location: $(which pytest)"
+          echo "🔍 Python path: $(which python)"
           
           # Check if pytest.ini or setup.cfg exists for configuration
           if [[ -f "pytest.ini" ]]; then
