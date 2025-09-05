@@ -162,6 +162,7 @@ jobs:
   plan:
     name: "Plan Infrastructure"
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [validate]
     if: always() && (needs.validate.result == 'success' || github.event_name != 'pull_request')
     permissions:
@@ -210,10 +211,20 @@ jobs:
         id: plan
         run: |
           cd terraform/environments/${{ matrix.environment }}
+          set +e
           terraform plan \
             -var-file="terraform.tfvars" \
             -out="terraform-${{ matrix.environment }}-${{ github.sha }}.tfplan" \
-            -detailed-exitcode
+            -detailed-exitcode 2>&1 | tee plan-output.txt
+          PLAN_EXIT_CODE=$?
+          echo "exitcode=${PLAN_EXIT_CODE}" >> $GITHUB_OUTPUT
+          
+          # Show plan output for debugging
+          if [ $PLAN_EXIT_CODE -eq 1 ]; then
+            echo "❌ Terraform plan failed with errors:"
+            cat plan-output.txt
+          fi
+          exit 0
         continue-on-error: true
 
       - name: "📤 Upload Terraform Plan"
@@ -261,6 +272,7 @@ jobs:
         if: steps.plan.outputs.exitcode == '1'
         run: |
           echo "::error::Terraform plan failed for ${{ matrix.environment }}"
+          echo "Check the 'Terraform Plan' step above for detailed error messages"
           exit 1
 
   # ================================
