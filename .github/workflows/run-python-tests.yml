@@ -51,9 +51,12 @@ jobs:
           echo "🔍 Debug: Files in service directory:"
           ls -la "${{ inputs.service-directory }}/"
           
-          # Create a virtual environment
+          # Create and activate virtual environment
           python -m venv .venv
           source .venv/bin/activate
+          
+          # Upgrade pip in venv
+          pip install --upgrade pip
           
           # Try requirements-dev.txt first, fallback to requirements.txt
           if [[ -f "${{ inputs.service-directory }}/requirements-dev.txt" ]]; then
@@ -63,8 +66,15 @@ jobs:
             echo "📦 Installing from requirements.txt..."
             pip install -r ${{ inputs.service-directory }}/requirements.txt
             echo "✅ Installation completed"
-            echo "🔍 Verifying FastAPI installation:"
-            python -c "import fastapi; print(f'FastAPI version: {fastapi.__version__}')" || echo "❌ FastAPI not found"
+            
+            echo "🔍 Verifying installations:"
+            pip list | grep -E "(fastapi|pytest|sqlmodel)" || echo "Some packages not found"
+            
+            echo "🔍 Testing FastAPI import:"
+            python -c "import fastapi; print(f'✅ FastAPI {fastapi.__version__} imported successfully')" || echo "❌ FastAPI import failed"
+            
+            echo "🔍 Testing pytest:"
+            python -c "import pytest; print(f'✅ Pytest {pytest.__version__} imported successfully')" || echo "❌ Pytest import failed"
           else
             echo "❌ No requirements file found in ${{ inputs.service-directory }}"
             echo "Available files:"
