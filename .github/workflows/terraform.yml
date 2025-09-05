@@ -87,6 +87,8 @@ jobs:
         id: init
         run: |
           cd terraform/environments/${{ matrix.environment }}
+          # Clean cache to avoid version conflicts
+          rm -rf .terraform .terraform.lock.hcl
           terraform init
 
       - name: "✅ Terraform Validate"
@@ -230,6 +232,8 @@ jobs:
       - name: "🔧 Terraform Init"
         run: |
           cd terraform/environments/${{ matrix.environment }}
+          # Clean cache to avoid version conflicts
+          rm -rf .terraform .terraform.lock.hcl
           terraform init
 
       - name: "📋 Terraform Plan"
@@ -357,6 +361,8 @@ jobs:
       - name: "🔧 Terraform Init"
         run: |
           cd terraform/environments/staging
+          # Clean cache to avoid version conflicts
+          rm -rf .terraform .terraform.lock.hcl
           terraform init
 
       - name: "🚀 Terraform Apply"
@@ -463,6 +469,8 @@ jobs:
       - name: "🔧 Terraform Init"
         run: |
           cd terraform/environments/production
+          # Clean cache to avoid version conflicts
+          rm -rf .terraform .terraform.lock.hcl
           terraform init
 
       - name: "📋 Fresh Terraform Plan"
