@@ -13,8 +13,14 @@ from app.core.database import get_session
 from app.models.base import SQLModel
 from app.core.config import get_settings
 
-# Test database URL (use in-memory SQLite for tests)
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+# Import all models to ensure they are registered with SQLModel.metadata
+from app.models.user_simple import User, UserSettings, UserSession  
+from app.models.company_simple import CompanyProfile, TeamMember, Subscription
+
+# Test database URL (use Cloud SQL PostgreSQL database)
+# Format: postgresql+asyncpg://user:password@host/database
+# Using Cloud SQL connection or public IP
+TEST_DATABASE_URL = "postgresql+asyncpg://skillforge_user:Psaumes%4027@34.76.97.123:5432/skillforge_db"
 
 # Override settings for testing
 test_settings = get_settings()
@@ -25,8 +31,6 @@ test_settings.DATABASE_URL = TEST_DATABASE_URL
 test_engine = create_async_engine(
     TEST_DATABASE_URL,
     echo=False,
-    poolclass=StaticPool,
-    connect_args={"check_same_thread": False},
 )
 
 # Create test session factory

@@ -37,7 +37,9 @@
       "Bash(/c/Python39/python.exe -m pytest --version)",
       "Bash(/c/Python310/python.exe -m pytest --version)",
       "Bash(/c/Python311/python.exe -m pytest --version)",
-      "Bash(/c/Users/DELL/AppData/Local/Microsoft/WindowsApps/python.exe -m pytest --version)"
+      "Bash(/c/Users/DELL/AppData/Local/Microsoft/WindowsApps/python.exe -m pytest --version)",
+      "Bash(psql:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
