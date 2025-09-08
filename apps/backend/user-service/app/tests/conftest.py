@@ -140,37 +140,60 @@ def sample_company_data():
 
 
 @pytest.fixture
-def create_test_user(client: TestClient):
-    """Create a test user."""
-    def _create_user(user_data: dict = None):
+def create_test_user(db_session: AsyncSession):
+    """Create a test user directly in database."""
+    import asyncio
+    from app.crud import user
+    from app.models.user import User
+    from app.utils.security import get_password_hash
+    import uuid
+    
+    async def _create_user(user_data: dict = None):
         if user_data is None:
+            unique_id = str(uuid.uuid4())[:8]
             user_data = {
-                "email": "test@skillforge-ai.com",
-                "username": "testuser",
+                "email": f"testuser{unique_id}@skillforge-ai.com",
+                "username": f"testuser{unique_id}",
                 "password": "TestPassword123!",
-                "confirm_password": "TestPassword123!",
                 "first_name": "Test",
                 "last_name": "User",
                 "terms_accepted": True,
                 "privacy_policy_accepted": True
             }
         
-        response = client.post("/api/v1/auth/register", json=user_data)
-        if response.status_code == 201:
-            return response.json()
+        # Create user object
+        hashed_password = get_password_hash(user_data["password"])
+        db_user = User(
+            email=user_data["email"],
+            username=user_data["username"],
+            first_name=user_data["first_name"],
+            last_name=user_data["last_name"],
+            hashed_password=hashed_password,
+            is_verified=True,
+            terms_accepted=user_data.get("terms_accepted", True),
+            privacy_policy_accepted=user_data.get("privacy_policy_accepted", True)
+        )
         
-        return None
+        db_session.add(db_user)
+        await db_session.commit()
+        await db_session.refresh(db_user)
+        return db_user
     
     return _create_user
 
 
 @pytest.fixture
-def create_test_company(client: TestClient):
-    """Create a test company."""
-    def _create_company(auth_client, company_data: dict = None):
+def create_test_company(db_session: AsyncSession):
+    """Create a test company directly in database."""
+    from app.models.company import Company
+    from app.utils.text import slugify
+    import uuid
+    
+    async def _create_company(owner_user, company_data: dict = None):
         if company_data is None:
+            unique_id = str(uuid.uuid4())[:8]
             company_data = {
-                "name": "Test Company Inc.",
+                "name": f"Test Company {unique_id}",
                 "description": "A test company for unit testing",
                 "industry": "technology",
                 "company_size": "small",
@@ -178,23 +201,40 @@ def create_test_company(client: TestClient):
                 "email": "info@testcompany.com"
             }
         
-        response = auth_client.post("/api/v1/companies/", json=company_data)
-        if response.status_code == 201:
-            return response.json()
+        # Generate slug if not provided
+        if "slug" not in company_data:
+            company_data["slug"] = slugify(company_data["name"])
         
-        return None
+        # Create company object
+        db_company = Company(
+            name=company_data["name"],
+            slug=company_data["slug"],
+            description=company_data.get("description"),
+            industry=company_data.get("industry"),
+            company_size=company_data.get("company_size"),
+            website=company_data.get("website"),
+            email=company_data.get("email"),
+            owner_id=owner_user.id
+        )
+        
+        db_session.add(db_company)
+        await db_session.commit()
+        await db_session.refresh(db_company)
+        return db_company
     
     return _create_company
 
 
 @pytest.fixture
-def authenticated_client(client: TestClient, create_test_user):
+def authenticated_client(client: TestClient):
     """Create an authenticated test client."""
-    # Create a simple authenticated client for synchronous tests
-    # We'll create a test token directly
+    import uuid
+    
+    # Use unique email for each test
+    unique_id = str(uuid.uuid4())[:8]
     test_user_data = {
-        "email": "test@skillforge-ai.com",
-        "username": "testuser",
+        "email": f"testuser{unique_id}@skillforge-ai.com",
+        "username": f"testuser{unique_id}",
         "password": "TestPassword123!",
         "confirm_password": "TestPassword123!",
         "first_name": "Test",
@@ -203,35 +243,87 @@ def authenticated_client(client: TestClient, create_test_user):
         "privacy_policy_accepted": True
     }
     
-    # Register user first
-    register_response = client.post("/api/v1/auth/register", json=test_user_data)
-    if register_response.status_code == 201:
-        # Login to get token
-        login_data = {
-            "email": test_user_data["email"],
-            "password": test_user_data["password"]
+    try:
+        # Register user
+        register_response = client.post("/api/v1/auth/register", json=test_user_data)
+        
+        if register_response.status_code == 201:
+            user_data = register_response.json()
+            
+            # Login to get token
+            login_data = {
+                "email": test_user_data["email"],
+                "password": test_user_data["password"]
+            }
+            
+            login_response = client.post("/api/v1/auth/login", json=login_data)
+            
+            if login_response.status_code == 200:
+                token_data = login_response.json()
+                access_token = token_data.get("access_token")
+                
+                if access_token:
+                    # Update client headers
+                    client.headers.update({"Authorization": f"Bearer {access_token}"})
+                    return client, user_data
+        
+        # If registration/login fails, raise error to fail test explicitly
+        raise Exception(f"Authentication setup failed: Register={register_response.status_code}, Login={getattr(login_response, 'status_code', 'N/A')}")
+        
+    except Exception as e:
+        pytest.fail(f"authenticated_client fixture failed: {e}")
+
+# Simplified version that returns None instead of failing
+@pytest.fixture  
+def authenticated_client_optional(client: TestClient):
+    """Create authenticated client, returns None if fails (for optional tests)."""
+    try:
+        import uuid
+        unique_id = str(uuid.uuid4())[:8]
+        test_user_data = {
+            "email": f"testuser{unique_id}@skillforge-ai.com",
+            "username": f"testuser{unique_id}",
+            "password": "TestPassword123!",
+            "confirm_password": "TestPassword123!",
+            "first_name": "Test",
+            "last_name": "User",
+            "terms_accepted": True,
+            "privacy_policy_accepted": True
         }
         
-        response = client.post("/api/v1/auth/login", json=login_data)
-        if response.status_code == 200:
-            token_data = response.json()
-            access_token = token_data["access_token"]
+        register_response = client.post("/api/v1/auth/register", json=test_user_data)
+        if register_response.status_code == 201:
+            user_data = register_response.json()
             
-            # Add authorization header to client
-            client.headers.update({"Authorization": f"Bearer {access_token}"})
+            login_data = {
+                "email": test_user_data["email"],
+                "password": test_user_data["password"]
+            }
             
-            return client, test_user_data
-    
-    # Return client without auth if registration/login failed
-    return client, None
+            login_response = client.post("/api/v1/auth/login", json=login_data)
+            if login_response.status_code == 200:
+                token_data = login_response.json()
+                access_token = token_data.get("access_token")
+                
+                if access_token:
+                    client.headers.update({"Authorization": f"Bearer {access_token}"})
+                    return client, user_data
+        
+        return None, None
+    except:
+        return None, None
 
 
 @pytest.fixture
-def admin_user(client: TestClient):
-    """Create an admin user."""
+def authenticated_admin_client(client: TestClient):
+    """Create an authenticated admin test client."""
+    import uuid
+    
+    # Use unique email for admin user
+    unique_id = str(uuid.uuid4())[:8]
     admin_data = {
-        "email": "admin@skillforge-ai.com",
-        "username": "admin",
+        "email": f"admin{unique_id}@skillforge-ai.com",
+        "username": f"admin{unique_id}",
         "password": "AdminPassword123!",
         "confirm_password": "AdminPassword123!",
         "first_name": "Admin",
@@ -240,35 +332,42 @@ def admin_user(client: TestClient):
         "privacy_policy_accepted": True
     }
     
-    # Register admin user
-    response = client.post("/api/v1/auth/register", json=admin_data)
-    if response.status_code == 201:
-        return admin_data
-    
-    return None
-
-
-@pytest.fixture
-def authenticated_admin_client(client: TestClient, admin_user):
-    """Create an authenticated admin test client."""
-    if admin_user:
-        # Login to get token
-        login_data = {
-            "email": admin_user["email"],
-            "password": admin_user["password"]
-        }
+    try:
+        # Register admin user
+        register_response = client.post("/api/v1/auth/register", json=admin_data)
         
-        response = client.post("/api/v1/auth/login", json=login_data)
-        if response.status_code == 200:
-            token_data = response.json()
-            access_token = token_data["access_token"]
+        if register_response.status_code == 201:
+            user_data = register_response.json()
             
-            # Add authorization header to client
-            client.headers.update({"Authorization": f"Bearer {access_token}"})
+            # Login to get token
+            login_data = {
+                "email": admin_data["email"],
+                "password": admin_data["password"]
+            }
             
-            return client, admin_user
-    
-    return client, None
+            login_response = client.post("/api/v1/auth/login", json=login_data)
+            
+            if login_response.status_code == 200:
+                token_data = login_response.json()
+                access_token = token_data.get("access_token")
+                
+                if access_token:
+                    # Update client headers
+                    client.headers.update({"Authorization": f"Bearer {access_token}"})
+                    return client, user_data
+        
+        # If registration/login fails, raise error
+        raise Exception(f"Admin authentication setup failed: Register={register_response.status_code}")
+        
+    except Exception as e:
+        pytest.fail(f"authenticated_admin_client fixture failed: {e}")
+
+# Keep admin_user for backward compatibility
+@pytest.fixture
+def admin_user(authenticated_admin_client):
+    """Get admin user data from authenticated admin client."""
+    client, user_data = authenticated_admin_client
+    return user_data
 
 
 @pytest.fixture

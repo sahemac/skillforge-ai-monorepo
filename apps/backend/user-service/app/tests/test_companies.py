@@ -3,6 +3,7 @@ Company endpoint tests for SkillForge AI User Service
 """
 
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -90,17 +91,14 @@ class TestCompanyCreation:
 class TestMyCompanies:
     """Test user's companies endpoint."""
     
-    def test_get_my_companies_success(self, authenticated_client, create_test_company):
+    @pytest.mark.asyncio
+    async def test_get_my_companies_success(self, authenticated_client, create_test_user, create_test_company):
         """Test getting user's companies."""
-        client, user = authenticated_client
+        client, user_data = authenticated_client
         
-        # Create a company for the user
-        import asyncio
-        
-        async def create_company():
-            await create_test_company(user)
-        
-        asyncio.run(create_company())
+        # Create user and company in database
+        user = await create_test_user(user_data)
+        await create_test_company(user)
         
         response = client.get("/api/v1/companies/my-companies")
         
@@ -128,18 +126,14 @@ class TestMyCompanies:
 class TestCompanyRetrieval:
     """Test company retrieval endpoints."""
     
-    def test_get_company_by_id_owner(self, authenticated_client, create_test_company):
+    @pytest.mark.asyncio
+    async def test_get_company_by_id_owner(self, authenticated_client, create_test_user, create_test_company):
         """Test getting company by ID as owner."""
-        client, user = authenticated_client
+        client, user_data = authenticated_client
         
-        company = None
-        import asyncio
-        
-        async def create_company():
-            nonlocal company
-            company = await create_test_company(user)
-        
-        company = asyncio.run(create_company())
+        # Create user and company in database
+        user = await create_test_user(user_data)
+        company = await create_test_company(user)
         
         response = client.get(f"/api/v1/companies/{company.id}")
         
@@ -159,21 +153,14 @@ class TestCompanyRetrieval:
         
         assert_response_error(response, 404, "Company not found")
     
-    def test_get_company_by_id_no_access(self, authenticated_client, create_test_user, create_test_company):
+    @pytest.mark.asyncio
+    async def test_get_company_by_id_no_access(self, authenticated_client, create_test_user, create_test_company):
         """Test getting company without access fails."""
-        client, user = authenticated_client
+        client, user_data = authenticated_client
         
         # Create another user and their company
-        other_user = None
-        other_company = None
-        import asyncio
-        
-        async def create_other_user_company():
-            nonlocal other_user, other_company
-            other_user = await create_test_user(UserFactory.build(email="other@example.com", username="other"))
-            other_company = await create_test_company(other_user)
-        
-        asyncio.run(create_other_user_company())
+        other_user = await create_test_user(UserFactory.build(email="other@example.com", username="other"))
+        other_company = await create_test_company(other_user)
         
         response = client.get(f"/api/v1/companies/{other_company.id}")
         
@@ -183,18 +170,14 @@ class TestCompanyRetrieval:
 class TestCompanyUpdates:
     """Test company update endpoints."""
     
-    def test_update_company_success(self, authenticated_client, create_test_company):
+    @pytest.mark.asyncio
+    async def test_update_company_success(self, authenticated_client, create_test_user, create_test_company):
         """Test successful company update."""
-        client, user = authenticated_client
+        client, user_data = authenticated_client
         
-        company = None
-        import asyncio
-        
-        async def create_company():
-            nonlocal company
-            company = await create_test_company(user)
-        
-        company = asyncio.run(create_company())
+        # Create user and company in database
+        user = await create_test_user(user_data)
+        company = await create_test_company(user)
         
         update_data = {
             "name": "Updated Company Name",
@@ -211,21 +194,14 @@ class TestCompanyUpdates:
         assert response_data["description"] == "Updated description"
         assert response_data["website"] == "https://updated-website.com"
     
-    def test_update_company_not_owner(self, authenticated_client, create_test_user, create_test_company):
+    @pytest.mark.asyncio
+    async def test_update_company_not_owner(self, authenticated_client, create_test_user, create_test_company):
         """Test updating company as non-owner fails."""
-        client, user = authenticated_client
+        client, user_data = authenticated_client
         
         # Create another user and their company
-        other_user = None
-        other_company = None
-        import asyncio
-        
-        async def create_other_user_company():
-            nonlocal other_user, other_company
-            other_user = await create_test_user(UserFactory.build(email="other@example.com", username="other"))
-            other_company = await create_test_company(other_user)
-        
-        asyncio.run(create_other_user_company())
+        other_user = await create_test_user(UserFactory.build(email="other@example.com", username="other"))
+        other_company = await create_test_company(other_user)
         
         update_data = {
             "name": "Hacked Name"
@@ -239,18 +215,14 @@ class TestCompanyUpdates:
 class TestCompanyDeletion:
     """Test company deletion endpoint."""
     
-    def test_delete_company_success(self, authenticated_client, create_test_company):
+    @pytest.mark.asyncio
+    async def test_delete_company_success(self, authenticated_client, create_test_user, create_test_company):
         """Test successful company deletion."""
-        client, user = authenticated_client
+        client, user_data = authenticated_client
         
-        company = None
-        import asyncio
-        
-        async def create_company():
-            nonlocal company
-            company = await create_test_company(user)
-        
-        company = asyncio.run(create_company())
+        # Create user and company in database
+        user = await create_test_user(user_data)
+        company = await create_test_company(user)
         
         response = client.delete(f"/api/v1/companies/{company.id}")
         
@@ -260,21 +232,14 @@ class TestCompanyDeletion:
         response = client.get(f"/api/v1/companies/{company.id}")
         assert_response_error(response, 403, "Access to company denied")
     
-    def test_delete_company_not_owner(self, authenticated_client, create_test_user, create_test_company):
+    @pytest.mark.asyncio
+    async def test_delete_company_not_owner(self, authenticated_client, create_test_user, create_test_company):
         """Test deleting company as non-owner fails."""
-        client, user = authenticated_client
+        client, user_data = authenticated_client
         
         # Create another user and their company
-        other_user = None
-        other_company = None
-        import asyncio
-        
-        async def create_other_user_company():
-            nonlocal other_user, other_company
-            other_user = await create_test_user(UserFactory.build(email="other@example.com", username="other"))
-            other_company = await create_test_company(other_user)
-        
-        asyncio.run(create_other_user_company())
+        other_user = await create_test_user(UserFactory.build(email="other@example.com", username="other"))
+        other_company = await create_test_company(other_user)
         
         response = client.delete(f"/api/v1/companies/{other_company.id}")
         
@@ -284,18 +249,11 @@ class TestCompanyDeletion:
 class TestPublicCompanyProfiles:
     """Test public company profile endpoints."""
     
-    def test_get_public_company_profile_success(self, client: TestClient, create_test_user, create_test_company):
+    @pytest.mark.asyncio
+    async def test_get_public_company_profile_success(self, client: TestClient, create_test_user, create_test_company):
         """Test getting public company profile."""
-        user = None
-        company = None
-        import asyncio
-        
-        async def create_user_company():
-            nonlocal user, company
-            user = await create_test_user()
-            company = await create_test_company(user)
-        
-        asyncio.run(create_user_company())
+        user = await create_test_user()
+        company = await create_test_company(user)
         
         response = client.get(f"/api/v1/companies/public/{company.id}")
         
@@ -309,18 +267,11 @@ class TestPublicCompanyProfiles:
         assert "description" in response_data
         assert "industry" in response_data
     
-    def test_get_company_by_slug_success(self, client: TestClient, create_test_user, create_test_company):
+    @pytest.mark.asyncio
+    async def test_get_company_by_slug_success(self, client: TestClient, create_test_user, create_test_company):
         """Test getting company by slug."""
-        user = None
-        company = None
-        import asyncio
-        
-        async def create_user_company():
-            nonlocal user, company
-            user = await create_test_user()
-            company = await create_test_company(user, CompanyFactory.build(slug="test-company"))
-        
-        asyncio.run(create_user_company())
+        user = await create_test_user()
+        company = await create_test_company(user, CompanyFactory.build(slug="test-company"))
         
         response = client.get(f"/api/v1/companies/slug/{company.slug}")
         
@@ -330,19 +281,15 @@ class TestPublicCompanyProfiles:
         assert response_data["slug"] == company.slug
         assert response_data["name"] == company.name
     
-    def test_search_public_companies(self, client: TestClient, create_test_user, create_test_company):
+    @pytest.mark.asyncio
+    async def test_search_public_companies(self, client: TestClient, create_test_user, create_test_company):
         """Test searching public companies."""
         # Create some test companies
-        import asyncio
+        user1 = await create_test_user(UserFactory.build(email="user1@example.com", username="user1"))
+        user2 = await create_test_user(UserFactory.build(email="user2@example.com", username="user2"))
         
-        async def create_companies():
-            user1 = await create_test_user(UserFactory.build(email="user1@example.com", username="user1"))
-            user2 = await create_test_user(UserFactory.build(email="user2@example.com", username="user2"))
-            
-            await create_test_company(user1, CompanyFactory.build(name="Tech Company", industry="technology"))
-            await create_test_company(user2, CompanyFactory.build(name="Health Corp", industry="healthcare"))
-        
-        asyncio.run(create_companies())
+        await create_test_company(user1, CompanyFactory.build(name="Tech Company", industry="technology"))
+        await create_test_company(user2, CompanyFactory.build(name="Health Corp", industry="healthcare"))
         
         response = client.get("/api/v1/companies/public/search")
         
@@ -353,15 +300,11 @@ class TestPublicCompanyProfiles:
         assert "total" in response_data
         assert len(response_data["companies"]) >= 2
     
-    def test_search_public_companies_with_filters(self, client: TestClient, create_test_user, create_test_company):
+    @pytest.mark.asyncio
+    async def test_search_public_companies_with_filters(self, client: TestClient, create_test_user, create_test_company):
         """Test searching public companies with filters."""
-        import asyncio
-        
-        async def create_companies():
-            user1 = await create_test_user(UserFactory.build(email="user1@example.com", username="user1"))
-            await create_test_company(user1, CompanyFactory.build(name="Tech Startup", industry="technology", company_size="startup"))
-        
-        asyncio.run(create_companies())
+        user1 = await create_test_user(UserFactory.build(email="user1@example.com", username="user1"))
+        await create_test_company(user1, CompanyFactory.build(name="Tech Startup", industry="technology", company_size="startup"))
         
         response = client.get("/api/v1/companies/public/search?industry=technology&company_size=startup")
         
@@ -377,18 +320,14 @@ class TestPublicCompanyProfiles:
 class TestTeamManagement:
     """Test team management endpoints."""
     
-    def test_get_team_members_success(self, authenticated_client, create_test_company):
+    @pytest.mark.asyncio
+    async def test_get_team_members_success(self, authenticated_client, create_test_user, create_test_company):
         """Test getting team members."""
-        client, user = authenticated_client
+        client, user_data = authenticated_client
         
-        company = None
-        import asyncio
-        
-        async def create_company():
-            nonlocal company
-            company = await create_test_company(user)
-        
-        company = asyncio.run(create_company())
+        # Create user and company in database
+        user = await create_test_user(user_data)
+        company = await create_test_company(user)
         
         response = client.get(f"/api/v1/companies/{company.id}/members")
         
@@ -398,21 +337,15 @@ class TestTeamManagement:
         assert "members" in response_data
         assert "total" in response_data
     
-    def test_invite_team_member_success(self, authenticated_client, create_test_user, create_test_company):
+    @pytest.mark.asyncio
+    async def test_invite_team_member_success(self, authenticated_client, create_test_user, create_test_company):
         """Test inviting team member."""
-        client, user = authenticated_client
+        client, user_data = authenticated_client
         
         # Create company and another user to invite
-        company = None
-        invite_user = None
-        import asyncio
-        
-        async def setup():
-            nonlocal company, invite_user
-            company = await create_test_company(user)
-            invite_user = await create_test_user(UserFactory.build(email="invite@example.com", username="invitee"))
-        
-        asyncio.run(setup())
+        user = await create_test_user(user_data)
+        company = await create_test_company(user)
+        invite_user = await create_test_user(UserFactory.build(email="invite@example.com", username="invitee"))
         
         invite_data = {
             "email": invite_user.email,
@@ -430,18 +363,14 @@ class TestTeamManagement:
         assert response_data["title"] == "Developer"
         assert response_data["user_id"] == str(invite_user.id)
     
-    def test_invite_nonexistent_user(self, authenticated_client, create_test_company):
+    @pytest.mark.asyncio
+    async def test_invite_nonexistent_user(self, authenticated_client, create_test_user, create_test_company):
         """Test inviting non-existent user fails."""
-        client, user = authenticated_client
+        client, user_data = authenticated_client
         
-        company = None
-        import asyncio
-        
-        async def create_company():
-            nonlocal company
-            company = await create_test_company(user)
-        
-        company = asyncio.run(create_company())
+        # Create user and company in database
+        user = await create_test_user(user_data)
+        company = await create_test_company(user)
         
         invite_data = {
             "email": "nonexistent@example.com",
@@ -452,31 +381,24 @@ class TestTeamManagement:
         
         assert_response_error(response, 404, "User not found")
     
-    def test_invite_existing_member(self, authenticated_client, create_test_user, create_test_company):
+    @pytest.mark.asyncio
+    async def test_invite_existing_member(self, authenticated_client, create_test_user, create_test_company, db_session):
         """Test inviting existing member fails."""
-        client, user = authenticated_client
+        client, user_data = authenticated_client
         
-        company = None
-        invite_user = None
-        import asyncio
+        # Create users and company
+        user = await create_test_user(user_data)
+        company = await create_test_company(user)
+        invite_user = await create_test_user(UserFactory.build(email="invite@example.com", username="invitee"))
         
-        async def setup():
-            nonlocal company, invite_user
-            company = await create_test_company(user)
-            invite_user = await create_test_user(UserFactory.build(email="invite@example.com", username="invitee"))
-            
-            # First invitation
-            from app.crud import team_member
-            from app.api.dependencies import get_db
-            async with get_db() as db:
-                await team_member.add_member(
-                    db,
-                    company_id=company.id,
-                    user_id=invite_user.id,
-                    role="member"
-                )
-        
-        asyncio.run(setup())
+        # First invitation - add member directly to database
+        from app.crud import team_member
+        await team_member.add_member(
+            db_session,
+            company_id=company.id,
+            user_id=invite_user.id,
+            role="member"
+        )
         
         invite_data = {
             "email": invite_user.email,

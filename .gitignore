@@ -9,6 +9,10 @@ GITHUB_SECRETS_EXACT_VALUES.md
 *secrets*.env
 *credentials*.json
 
+# DevOps implementation reports - Private documentation
+Documentations/Rapports\ implémentation\ DevOps/
+Documentations/Rapports*
+
 # C extensions
 *.so
 

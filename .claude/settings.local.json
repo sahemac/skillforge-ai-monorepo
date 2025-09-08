@@ -32,7 +32,12 @@
       "Bash(terraform plan:*)",
       "Bash(curl:*)",
       "Bash(echo \"gcloud logging read ''resource.type=\"\"http_load_balancer\"\" AND resource.labels.forwarding_rule_name=\"\"skillforge-https-forwarding-staging\"\"'' --limit=5 --format=json --project=skillforge-ai-mvp-25\")",
-      "Bash(echo \"gcloud logging read ''resource.type=\"\"cloud_run_revision\"\" AND resource.labels.service_name=\"\"user-service-staging\"\"'' --limit=5 --format=json --project=skillforge-ai-mvp-25\")"
+      "Bash(echo \"gcloud logging read ''resource.type=\"\"cloud_run_revision\"\" AND resource.labels.service_name=\"\"user-service-staging\"\"'' --limit=5 --format=json --project=skillforge-ai-mvp-25\")",
+      "Bash(pytest:*)",
+      "Bash(/c/Python39/python.exe -m pytest --version)",
+      "Bash(/c/Python310/python.exe -m pytest --version)",
+      "Bash(/c/Python311/python.exe -m pytest --version)",
+      "Bash(/c/Users/DELL/AppData/Local/Microsoft/WindowsApps/python.exe -m pytest --version)"
     ],
     "deny": [],
     "ask": []
