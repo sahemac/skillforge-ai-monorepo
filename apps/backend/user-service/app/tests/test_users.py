@@ -3,6 +3,7 @@ User endpoint tests for SkillForge AI User Service
 """
 
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,7 +21,8 @@ class TestCurrentUser:
         
         assert response.status_code == 200
         response_data = response.json()
-        assert_user_response(response_data, user.email)
+        user_email = user.get("email") if isinstance(user, dict) else user.email
+        assert_user_response(response_data, user_email)
     
     def test_get_current_user_unauthorized(self, client: TestClient):
         """Test getting current user without authentication fails."""
@@ -192,18 +194,13 @@ class TestAccountDeletion:
 class TestPublicUserProfiles:
     """Test public user profile endpoints."""
     
-    def test_get_public_user_profile_success(self, client: TestClient, create_test_user):
+    @pytest.mark.asyncio
+    async def test_get_public_user_profile_success(self, client: TestClient, create_test_user):
         """Test getting public user profile."""
-        user = None
-        import asyncio
+        user = await create_test_user()
         
-        async def create_user():
-            nonlocal user
-            user = await create_test_user()
-        
-        user = asyncio.run(create_user())
-        
-        response = client.get(f"/api/v1/users/{user.id}/public")
+        user_id = user.get("id") if isinstance(user, dict) else user.id
+        response = client.get(f"/api/v1/users/{user_id}/public")
         
         assert response.status_code == 200
         response_data = response.json()
@@ -223,16 +220,12 @@ class TestPublicUserProfiles:
         
         assert_response_error(response, 404, "User not found")
     
-    def test_get_public_users_list(self, client: TestClient, create_test_user):
+    @pytest.mark.asyncio
+    async def test_get_public_users_list(self, client: TestClient, create_test_user):
         """Test getting public users list."""
         # Create some test users
-        import asyncio
-        
-        async def create_users():
-            await create_test_user(UserFactory.build(email="user1@example.com", username="user1"))
-            await create_test_user(UserFactory.build(email="user2@example.com", username="user2"))
-        
-        asyncio.run(create_users())
+        await create_test_user(UserFactory.build(email="user1@example.com", username="user1"))
+        await create_test_user(UserFactory.build(email="user2@example.com", username="user2"))
         
         response = client.get("/api/v1/users/public")
         
@@ -245,19 +238,15 @@ class TestPublicUserProfiles:
         assert "size" in response_data
         assert len(response_data["users"]) >= 2
     
-    def test_get_public_users_search(self, client: TestClient, create_test_user):
+    @pytest.mark.asyncio
+    async def test_get_public_users_search(self, client: TestClient, create_test_user):
         """Test searching public users."""
-        import asyncio
-        
-        async def create_users():
-            await create_test_user(UserFactory.build(
-                email="john@example.com", 
-                username="john", 
-                first_name="John",
-                last_name="Doe"
-            ))
-        
-        asyncio.run(create_users())
+        await create_test_user(UserFactory.build(
+            email="john@example.com", 
+            username="john", 
+            first_name="John",
+            last_name="Doe"
+        ))
         
         response = client.get("/api/v1/users/public?q=John")
         
@@ -294,20 +283,15 @@ class TestAdminUserEndpoints:
         
         assert_response_error(response, 403, "Not enough permissions")
     
-    def test_get_user_by_id_admin(self, authenticated_admin_client, create_test_user):
+    @pytest.mark.asyncio
+    async def test_get_user_by_id_admin(self, authenticated_admin_client, create_test_user):
         """Test getting user by ID as admin."""
         client, admin_user = authenticated_admin_client
         
-        user = None
-        import asyncio
+        user = await create_test_user(UserFactory.build(email="target@example.com"))
         
-        async def create_user():
-            nonlocal user
-            user = await create_test_user(UserFactory.build(email="target@example.com"))
-        
-        user = asyncio.run(create_user())
-        
-        response = client.get(f"/api/v1/users/{user.id}")
+        user_id = user.get("id") if isinstance(user, dict) else user.id
+        response = client.get(f"/api/v1/users/{user_id}")
         
         assert response.status_code == 200
         response_data = response.json()
@@ -315,51 +299,42 @@ class TestAdminUserEndpoints:
         # Admin should see additional fields
         assert "failed_login_attempts" in response_data
         assert "metadata" in response_data
-        assert response_data["email"] == user.email
+        user_email = user.get("email") if isinstance(user, dict) else user.email
+        assert response_data["email"] == user_email
     
-    def test_update_user_role_admin(self, authenticated_admin_client, create_test_user):
+    @pytest.mark.asyncio
+    async def test_update_user_role_admin(self, authenticated_admin_client, create_test_user):
         """Test updating user role as admin."""
         client, admin_user = authenticated_admin_client
         
-        user = None
-        import asyncio
-        
-        async def create_user():
-            nonlocal user
-            user = await create_test_user(UserFactory.build(email="target@example.com"))
-        
-        user = asyncio.run(create_user())
+        user = await create_test_user(UserFactory.build(email="target@example.com"))
         
         role_update = {
             "role": "moderator"
         }
         
-        response = client.put(f"/api/v1/users/{user.id}/role", json=role_update)
+        user_id = user.get("id") if isinstance(user, dict) else user.id
+        response = client.put(f"/api/v1/users/{user_id}/role", json=role_update)
         
         assert response.status_code == 200
         response_data = response.json()
         
         assert response_data["role"] == "moderator"
     
-    def test_update_user_status_admin(self, authenticated_admin_client, create_test_user):
+    @pytest.mark.asyncio
+    async def test_update_user_status_admin(self, authenticated_admin_client, create_test_user):
         """Test updating user status as admin."""
         client, admin_user = authenticated_admin_client
         
-        user = None
-        import asyncio
-        
-        async def create_user():
-            nonlocal user
-            user = await create_test_user(UserFactory.build(email="target@example.com"))
-        
-        user = asyncio.run(create_user())
+        user = await create_test_user(UserFactory.build(email="target@example.com"))
         
         status_update = {
             "status": "suspended",
             "is_active": False
         }
         
-        response = client.put(f"/api/v1/users/{user.id}/status", json=status_update)
+        user_id = user.get("id") if isinstance(user, dict) else user.id
+        response = client.put(f"/api/v1/users/{user_id}/status", json=status_update)
         
         assert response.status_code == 200
         response_data = response.json()
@@ -367,20 +342,15 @@ class TestAdminUserEndpoints:
         assert response_data["status"] == "suspended"
         assert response_data["is_active"] is False
     
-    def test_delete_user_admin(self, authenticated_admin_client, create_test_user):
+    @pytest.mark.asyncio
+    async def test_delete_user_admin(self, authenticated_admin_client, create_test_user):
         """Test deleting user as admin."""
         client, admin_user = authenticated_admin_client
         
-        user = None
-        import asyncio
+        user = await create_test_user(UserFactory.build(email="target@example.com"))
         
-        async def create_user():
-            nonlocal user
-            user = await create_test_user(UserFactory.build(email="target@example.com"))
-        
-        user = asyncio.run(create_user())
-        
-        response = client.delete(f"/api/v1/users/{user.id}")
+        user_id = user.get("id") if isinstance(user, dict) else user.id
+        response = client.delete(f"/api/v1/users/{user_id}")
         
         assert response.status_code == 204
     
@@ -392,6 +362,7 @@ class TestAdminUserEndpoints:
             "role": "user"
         }
         
-        response = client.put(f"/api/v1/users/{admin_user.id}/role", json=role_update)
+        admin_user_id = admin_user.get("id") if isinstance(admin_user, dict) else admin_user.id
+        response = client.put(f"/api/v1/users/{admin_user_id}/role", json=role_update)
         
         assert_response_error(response, 400, "Cannot change your own role")

@@ -1,5 +1,3 @@
-# ok je valide, si tel est donc le cas actualise la...
-
 | Nom de la Colonne | Type de Données | Contraintes | Description |
 | --- | --- | --- | --- |
 | id | UUID | PRIMARY KEY, DEFAULT uuid_generate_v4() | Identifiant unique du jalon. |

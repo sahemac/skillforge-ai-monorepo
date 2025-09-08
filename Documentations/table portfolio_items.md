@@ -1,5 +1,3 @@
-# vas y
-
 | Nom de la Colonne | Type de Données | Contraintes | Description |
 | --- | --- | --- | --- |
 | id | UUID | PRIMARY KEY, DEFAULT uuid_generate_v4() | Identifiant unique de l'entrée du portfolio. |

@@ -244,6 +244,9 @@ def authenticated_client(client: TestClient):
     }
     
     try:
+        # Initialize login_response to None
+        login_response = None
+        
         # Register user
         register_response = client.post("/api/v1/auth/register", json=test_user_data)
         
@@ -268,7 +271,8 @@ def authenticated_client(client: TestClient):
                     return client, user_data
         
         # If registration/login fails, raise error to fail test explicitly
-        raise Exception(f"Authentication setup failed: Register={register_response.status_code}, Login={getattr(login_response, 'status_code', 'N/A')}")
+        login_status = login_response.status_code if login_response else 'N/A'
+        raise Exception(f"Authentication setup failed: Register={register_response.status_code}, Login={login_status}")
         
     except Exception as e:
         pytest.fail(f"authenticated_client fixture failed: {e}")
@@ -333,8 +337,15 @@ def authenticated_admin_client(client: TestClient):
     }
     
     try:
+        # Initialize login_response to None
+        login_response = None
+        
         # Register admin user
         register_response = client.post("/api/v1/auth/register", json=admin_data)
+        
+        # Debug: Print registration response for troubleshooting
+        if register_response.status_code != 201:
+            print(f"Admin registration failed with {register_response.status_code}: {register_response.text}")
         
         if register_response.status_code == 201:
             user_data = register_response.json()
@@ -354,10 +365,15 @@ def authenticated_admin_client(client: TestClient):
                 if access_token:
                     # Update client headers
                     client.headers.update({"Authorization": f"Bearer {access_token}"})
+                    
+                    # TODO: In a real application, you would set admin role in database
+                    # For now, we'll just return the authenticated client
                     return client, user_data
         
-        # If registration/login fails, raise error
-        raise Exception(f"Admin authentication setup failed: Register={register_response.status_code}")
+        # If registration/login fails, provide detailed error info
+        login_status = login_response.status_code if login_response else 'N/A'
+        error_text = register_response.text if register_response.status_code != 201 else "Login failed"
+        raise Exception(f"Admin authentication setup failed: Register={register_response.status_code} ({error_text}), Login={login_status}")
         
     except Exception as e:
         pytest.fail(f"authenticated_admin_client fixture failed: {e}")
