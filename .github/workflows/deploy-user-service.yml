@@ -60,7 +60,7 @@ jobs:
     with:
       service_name: 'user-service'
       environment: ${{ inputs.environment || 'staging' }}
-      service_url: ${{ inputs.environment == 'production' && 'https://user-service-prod-123456789.europe-west1.run.app' || 'https://user-service-staging-123456789.europe-west1.run.app' }}
+      service_url: ${{ inputs.environment == 'production' && 'https://user-service-prod-584748485117.europe-west1.run.app' || 'https://user-service-staging-584748485117.europe-west1.run.app' }}
     secrets:
       DATABASE_URL: ${{ inputs.environment == 'production' && secrets.DATABASE_URL_PRODUCTION || secrets.DATABASE_URL_STAGING }}
       GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -95,7 +95,7 @@ jobs:
     uses: ./.github/workflows/validate-iap.yml
     with:
       environment: ${{ inputs.environment || 'staging' }}
-      service_url: ${{ inputs.environment == 'production' && 'https://user-service-prod-123456789.europe-west1.run.app' || 'https://user-service-staging-123456789.europe-west1.run.app' }}
+      service_url: ${{ inputs.environment == 'production' && 'https://user-service-prod-584748485117.europe-west1.run.app' || 'https://user-service-staging-584748485117.europe-west1.run.app' }}
 
   notify:
     name: Send Notifications

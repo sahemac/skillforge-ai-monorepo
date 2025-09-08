@@ -30,7 +30,9 @@
       "Bash(gcloud projects get-iam-policy:*)",
       "Bash(./scripts/add-terraform-permissions.sh:*)",
       "Bash(terraform plan:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(echo \"gcloud logging read ''resource.type=\"\"http_load_balancer\"\" AND resource.labels.forwarding_rule_name=\"\"skillforge-https-forwarding-staging\"\"'' --limit=5 --format=json --project=skillforge-ai-mvp-25\")",
+      "Bash(echo \"gcloud logging read ''resource.type=\"\"cloud_run_revision\"\" AND resource.labels.service_name=\"\"user-service-staging\"\"'' --limit=5 --format=json --project=skillforge-ai-mvp-25\")"
     ],
     "deny": [],
     "ask": []
