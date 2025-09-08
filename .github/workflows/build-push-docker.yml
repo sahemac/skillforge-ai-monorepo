@@ -27,6 +27,7 @@ jobs:
     permissions:
       contents: 'read'
       id-token: 'write'
+      security-events: 'write'  # For SARIF upload to Security tab
     outputs:
       image_uri: ${{ steps.push.outputs.image_uri }}
     steps:
@@ -43,14 +44,43 @@ jobs:
         id: build
         run: |
           IMAGE_URI="europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ inputs.image_name }}:${{ github.sha }}"
-          docker build -t ${IMAGE_URI} -f ${{ inputs.dockerfile_path }} .
+          
+          # Build with security best practices
+          docker build \
+            --no-cache \
+            --pull \
+            --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            --label "org.opencontainers.image.version=${{ github.sha }}" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            -t ${IMAGE_URI} \
+            -f ${{ inputs.dockerfile_path }} .
+          
           echo "image_uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
       - name: Scan Docker Image
         uses: aquasecurity/trivy-action@0.20.0
         with:
           image-ref: ${{ steps.build.outputs.image_uri }}
-          format: 'table'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
           exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'HIGH,CRITICAL'
+          
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          
+      - name: Scan Docker Image - Table Output
+        uses: aquasecurity/trivy-action@0.20.0
+        if: always()
+        with:
+          image-ref: ${{ steps.build.outputs.image_uri }}
+          format: 'table'
+          exit-code: '0'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'HIGH,CRITICAL'

@@ -214,6 +214,21 @@ variable "ssl_certificate_domains" {
 }
 
 # ================================
+# IAP VARIABLES  
+# ================================
+
+variable "iap_support_email" {
+  description = "Support email for IAP OAuth consent screen"
+  type        = string
+}
+
+variable "iap_allowed_users" {
+  description = "List of users allowed to access IAP-protected resources"
+  type        = list(string)
+  default     = []
+}
+
+# ================================
 # MONITORING VARIABLES
 # ================================
 

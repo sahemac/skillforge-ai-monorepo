@@ -5,6 +5,9 @@ data "google_compute_global_address" "skillforge_ip" {
   name = var.global_ip_name
 }
 
+# Note: IAP configuration is managed manually via GCP Console
+# This avoids API deprecation issues and simplifies management
+
 # Certificat SSL managé par Google
 resource "google_compute_managed_ssl_certificate" "skillforge_ssl" {
   name = local.ssl_cert_name
@@ -31,7 +34,7 @@ resource "google_compute_region_network_endpoint_group" "user_service_neg" {
   description = "NEG for user service in ${var.environment}"
 }
 
-# Backend service pointant vers Cloud Run
+# Backend service pointant vers Cloud Run avec IAP
 resource "google_compute_backend_service" "user_service_backend" {
   name        = "user-service-backend-${var.environment}"
   protocol    = "HTTP"
@@ -44,7 +47,7 @@ resource "google_compute_backend_service" "user_service_backend" {
     group = google_compute_region_network_endpoint_group.user_service_neg.id
   }
 
-  # Configuration pour Identity-Aware Proxy sera faite manuellement
+  # Note: IAP configuration managed manually via GCP Console
   
   log_config {
     enable      = true

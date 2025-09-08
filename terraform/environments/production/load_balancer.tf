@@ -1,8 +1,27 @@
-# terraform/environments/staging/load_balancer.tf
+# terraform/environments/production/load_balancer.tf
 
 # Utilise l'IP statique déjà créée manuellement
 data "google_compute_global_address" "skillforge_ip" {
   name = var.global_ip_name
+}
+
+# OAuth consent screen configuration - Use existing brand
+data "google_iap_brand" "project_brand" {
+  project = var.project_id
+}
+
+# IAP OAuth client
+resource "google_iap_client" "iap_client" {
+  display_name = "SkillForge AI IAP Client ${title(var.environment)}"
+  brand        = data.google_iap_brand.project_brand.name
+}
+
+# IAP Web Backend Service IAM configuration
+resource "google_iap_web_backend_service_iam_binding" "iap_web_binding" {
+  project             = var.project_id
+  web_backend_service = google_compute_backend_service.user_service_backend.name
+  role                = "roles/iap.httpsResourceAccessor"
+  members             = var.iap_allowed_users
 }
 
 # Certificat SSL managé par Google
@@ -31,7 +50,7 @@ resource "google_compute_region_network_endpoint_group" "user_service_neg" {
   description = "NEG for user service in ${var.environment}"
 }
 
-# Backend service pointant vers Cloud Run
+# Backend service pointant vers Cloud Run avec IAP
 resource "google_compute_backend_service" "user_service_backend" {
   name        = "user-service-backend-${var.environment}"
   protocol    = "HTTP"
@@ -44,7 +63,11 @@ resource "google_compute_backend_service" "user_service_backend" {
     group = google_compute_region_network_endpoint_group.user_service_neg.id
   }
 
-  # Configuration pour Identity-Aware Proxy sera faite manuellement
+  # Configuration Identity-Aware Proxy
+  iap {
+    oauth2_client_id     = google_iap_client.iap_client.client_id
+    oauth2_client_secret = google_iap_client.iap_client.secret
+  }
   
   log_config {
     enable      = true

@@ -1,0 +1,63 @@
+OAuth Consent Screen (Écran de consentement OAuth)
+Branding (Marque de l'application)
+Statut actuel :
+* Type d'utilisateur : Externe (correct pour permettre l'accès à tous les utilisateurs avec un compte Google).
+* Nom de l'application : SkillForge AI.
+* Email de support : sah@emacsah.com.
+* Logo de l'application : Configuré.
+* Domaine de l'application : https://api.emacsah.com
+* Authorized domains : emacsah.com
+* État de la publication : Test (limité à 100 utilisateurs tests).
+
+
+Statut actuel :
+* Nom de l'application : SkillForge AI.
+* Email de support : sah@emacsah.com.
+* Logo de l'application : Configuré.
+
+
+Clients OAuth
+Statut actuel :
+* Un client OAuth nommé "SkillForge AI Web Client" a été créé.
+* Type : Application Web.
+* URI de redirection autorisées : https://api.emacsah.com/.
+* Origines JavaScript autorisées : Aucune configurée.
+* ID client OAuth : 584748485117-bfq4rh76j5i51smaogru4klkbr52q5sr.apps.googleusercontent.com
+* code secret du client  : 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
+
+
+ Identity-Aware Proxy (IAP)
+Statut actuel :
+* IAP est activé pour le backend service user-service-backend-staging.
+* Méthode IAP : IAM.
+* Équilibreur de charge : skillforge-urlmap-staging.
+* Configuration OAuth :  584748485117-bfq4rh76j5i51smaogru4klkbr52q5sr.apps.googleusercontent.com
+* Page de destination 403 : https://api.emacsah.com/unauthorized.
+
+Backend Service
+
+Nom : user-service-backend-staging
+IAP activé : Oui
+Client OAuth : 584748485117-bfq4rh76j5i51smaogru4klkbr52q5sr.apps.googleusercontent.com
+NEG : user-service-neg-staging (pointant vers user-service-staging sur Cloud Run)
+Protocole : HTTP
+Port : 80
+
+. Network Endpoint Group (NEG)
+
+Nom : user-service-neg-staging
+Service Cloud Run : user-service-staging
+Taille : 0 
+
+
+Certificat SSL
+
+Nom : skillforge-ssl-cert-staging
+Domaine : api.emacsah.com
+Statut : ACTIVE
+Date d'expiration : 2 décembre 2025
+
+Permissions IAM pour IAP
+
+Utilisateur : sah@emacsah.com
+Rôle : roles/iap.httpsResourceAccessor

@@ -23,10 +23,19 @@ on:
 permissions:
   contents: read
   id-token: write
+  security-events: write  # For security scans
+  actions: read          # For workflow status
 
 jobs:
+  security-validation:
+    name: Security Validation
+    uses: ./.github/workflows/validate-security.yml
+    with:
+      environment: ${{ inputs.environment || 'staging' }}
+
   test:
     name: Run Unit Tests
+    needs: security-validation
     uses: ./.github/workflows/run-python-tests.yml
     with:
       service-directory: 'apps/backend/user-service'
@@ -36,7 +45,7 @@ jobs:
     needs: test
     uses: ./.github/workflows/build-push-docker.yml
     with:
-      image_name: 'skillforge-docker-repo-staging/user-service'
+      image_name: ${{ inputs.environment == 'production' && 'skillforge-docker-repo-prod/user-service' || 'skillforge-docker-repo-staging/user-service' }}
       dockerfile_path: 'apps/backend/user-service/Dockerfile'
     secrets:
       GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -51,9 +60,9 @@ jobs:
     with:
       service_name: 'user-service'
       environment: ${{ inputs.environment || 'staging' }}
-      service_url: 'https://user-service-staging-123456789.europe-west1.run.app'
+      service_url: ${{ inputs.environment == 'production' && 'https://user-service-prod-123456789.europe-west1.run.app' || 'https://user-service-staging-123456789.europe-west1.run.app' }}
     secrets:
-      DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+      DATABASE_URL: ${{ inputs.environment == 'production' && secrets.DATABASE_URL_PRODUCTION || secrets.DATABASE_URL_STAGING }}
       GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
 
   # Job factice pour gérer le cas skip_migration
@@ -73,15 +82,24 @@ jobs:
     uses: ./.github/workflows/deploy-to-cloud-run.yml
     with:
       image_uri: ${{ needs.build.outputs.image_uri }}
-      service_name: 'user-service-staging'
+      service_name: ${{ inputs.environment == 'production' && 'user-service-prod' || 'user-service-staging' }}
       gcp_region: 'europe-west1'
     secrets:
       GCP_WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
       GCP_CICD_SERVICE_ACCOUNT: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
 
+  validate-iap:
+    name: Validate IAP Configuration
+    needs: [deploy]
+    if: ${{ needs.deploy.result == 'success' }}
+    uses: ./.github/workflows/validate-iap.yml
+    with:
+      environment: ${{ inputs.environment || 'staging' }}
+      service_url: ${{ inputs.environment == 'production' && 'https://user-service-prod-123456789.europe-west1.run.app' || 'https://user-service-staging-123456789.europe-west1.run.app' }}
+
   notify:
     name: Send Notifications
-    needs: [test, build, migrate, migrate_skip, deploy]
+    needs: [test, build, migrate, migrate_skip, deploy, validate-iap]
     if: always()
     runs-on: ubuntu-latest
     steps:

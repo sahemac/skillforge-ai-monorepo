@@ -19,6 +19,18 @@ global_ip_name     = "skillforge-global-ip-prod"
 ssl_certificate_domains = ["api.emacsah.com"]
 
 # ================================
+# IAP CONFIGURATION
+# ================================
+
+iap_support_email = "sah@emacsah.com"
+iap_allowed_users = [
+  "user:sah@emacsah.com"
+  # Add additional users as needed:
+  # "user:admin@emacsah.com",
+  # "group:admins@emacsah.com"
+]
+
+# ================================
 # DOCKER REGISTRY CONFIGURATION
 # ================================
 

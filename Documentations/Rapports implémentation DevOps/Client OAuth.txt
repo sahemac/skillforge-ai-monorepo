@@ -1,0 +1,4 @@
+client OAuth infos
+
+ID du client : 584748485117-bfq4rh76j5i51smaogru4klkbr52q5sr.apps.googleusercontent.com
+code secret du client  : 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

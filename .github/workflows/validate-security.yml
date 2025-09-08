@@ -1,0 +1,135 @@
+# .github/workflows/validate-security.yml
+name: "Security Validation"
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to validate (staging/production)'
+        required: false
+        type: string
+        default: 'staging'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to validate'
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  security-checks:
+    name: Security Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Validate Dockerfile security
+        run: |
+          echo "🔍 Validating Dockerfile security practices..."
+          
+          # Check for common security issues in Dockerfiles
+          find . -name "Dockerfile*" -type f | while read dockerfile; do
+            echo "Checking $dockerfile..."
+            
+            # Check if running as root
+            if grep -q "USER root\|USER 0" "$dockerfile" 2>/dev/null; then
+              echo "⚠️  WARNING: Found root user in $dockerfile"
+            fi
+            
+            # Check for COPY vs ADD
+            if grep -q "^ADD " "$dockerfile" 2>/dev/null; then
+              echo "⚠️  WARNING: Using ADD instead of COPY in $dockerfile"
+            fi
+            
+            # Check for hardcoded secrets
+            if grep -iE "(password|secret|key|token).*=" "$dockerfile" 2>/dev/null; then
+              echo "⚠️  WARNING: Potential hardcoded secrets in $dockerfile"
+            fi
+          done
+          
+      - name: Validate workflow permissions
+        run: |
+          echo "🔍 Validating GitHub Actions workflow permissions..."
+          
+          # Check for overly broad permissions
+          find .github/workflows -name "*.yml" -type f | while read workflow; do
+            echo "Checking $workflow..."
+            
+            if grep -q "permissions:\s*write-all\|permissions:\s*\*" "$workflow" 2>/dev/null; then
+              echo "❌ ERROR: Overly broad permissions in $workflow"
+              exit 1
+            fi
+          done
+          
+          echo "✅ Workflow permissions validation passed"
+          
+      - name: Environment-specific security checks
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          echo "🔍 Running $ENVIRONMENT environment security checks..."
+          
+          if [[ "$ENVIRONMENT" == "production" ]]; then
+            echo "🔒 Production security validations:"
+            
+            # Check production-specific configurations
+            if [[ -f "terraform/environments/production/terraform.tfvars.example" ]]; then
+              echo "✅ Production terraform config exists"
+            else
+              echo "❌ ERROR: Missing production terraform configuration"
+              exit 1
+            fi
+            
+            # Ensure staging configurations are not used in production
+            if grep -r "staging" terraform/environments/production/ 2>/dev/null; then
+              echo "⚠️  WARNING: Found staging references in production config"
+            fi
+            
+          else
+            echo "🔧 Staging environment validation passed"
+          fi
+          
+      - name: Check for sensitive data exposure
+        run: |
+          echo "🔍 Scanning for potential sensitive data exposure..."
+          
+          # Look for common patterns that might expose sensitive data
+          sensitive_patterns=(
+            "password.*="
+            "secret.*="
+            "key.*="
+            "token.*="
+            "api_key"
+            "private_key"
+            "database.*password"
+          )
+          
+          for pattern in "${sensitive_patterns[@]}"; do
+            if grep -rI --exclude-dir=.git --exclude-dir=node_modules "$pattern" . 2>/dev/null | grep -v ".example" | head -5; then
+              echo "⚠️  WARNING: Found potential sensitive data pattern: $pattern"
+            fi
+          done
+          
+          echo "✅ Sensitive data scan completed"
+          
+      - name: Security validation summary
+        run: |
+          echo "## 🛡️ Security Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Date**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Completed Checks:" >> $GITHUB_STEP_SUMMARY
+          echo "- Dockerfile security practices" >> $GITHUB_STEP_SUMMARY
+          echo "- GitHub Actions workflow permissions" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment-specific configurations" >> $GITHUB_STEP_SUMMARY
+          echo "- Sensitive data exposure scan" >> $GITHUB_STEP_SUMMARY
