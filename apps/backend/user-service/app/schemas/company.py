@@ -8,7 +8,7 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, EmailStr, Field, field_validator, HttpUrl
 from uuid import UUID
 
-from app.models.company_simple import CompanySize, IndustryType
+from app.models.company import CompanySize, IndustryType
 
 
 # Base schemas

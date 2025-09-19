@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
 from app.crud.base import CRUDBase
-from app.models.user_simple import User, UserSession, UserSettings, UserRole, UserStatus
+from app.models.user import User, UserSession, UserSettings, UserRole, UserStatus
 from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import get_password_hash, verify_password
 
@@ -35,12 +35,17 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             full_name = f"{obj_in.first_name or ''} {obj_in.last_name or ''}".strip()
         
         # Prepare user data
-        user_data = obj_in.model_dump(exclude={"password", "confirm_password"})
+        user_data = obj_in.model_dump(exclude={"password", "confirm_password", "terms_accepted", "privacy_policy_accepted"})
+        
+        # Set role if provided, otherwise use default
+        if obj_in.role:
+            user_data["role"] = obj_in.role
+            
         user_data.update({
             "hashed_password": get_password_hash(obj_in.password),
             "full_name": full_name,
-            "terms_accepted_at": datetime.utcnow(),
-            "privacy_policy_accepted_at": datetime.utcnow(),
+            "terms_accepted_at": datetime.utcnow() if obj_in.terms_accepted else None,
+            "privacy_policy_accepted_at": datetime.utcnow() if obj_in.privacy_policy_accepted else None,
         })
         
         db_user = User(**user_data)

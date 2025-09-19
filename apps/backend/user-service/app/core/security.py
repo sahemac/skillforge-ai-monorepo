@@ -12,7 +12,7 @@ from passlib.context import CryptContext
 from passlib.handlers.bcrypt import bcrypt
 
 from app.core.config import get_settings
-from app.models.user_simple import UserRole
+from app.models.user import UserRole
 
 settings = get_settings()
 

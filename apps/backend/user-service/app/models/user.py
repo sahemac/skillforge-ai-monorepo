@@ -13,11 +13,12 @@ from .base import TimestampMixin, UUIDMixin
 
 
 class UserRole(str, Enum):
-    """User role enumeration."""
-    ADMIN = "admin"
-    USER = "user"
-    MODERATOR = "moderator"
-    PREMIUM_USER = "premium_user"
+    """User role enumeration for SkillForge AI business model."""
+    ADMIN = "admin"                    # Platform administrator
+    USER = "user"                      # Standard learner
+    MODERATOR = "moderator"            # Community moderator
+    PREMIUM_USER = "premium_user"      # Premium learner
+    COMPANY_CONTACT = "company_contact"  # Company representative - creates projects
 
 
 class UserStatus(str, Enum):
@@ -49,9 +50,7 @@ class User(SQLModel, UUIDMixin, TimestampMixin, table=True):
         nullable=False
     )
     
-    # From TimestampMixin
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    updated_at: Optional[datetime] = Field(default=None, nullable=True)
+    # Timestamp fields inherited from TimestampMixin
     
     # Basic Information
     email: str = Field(unique=True, index=True, nullable=False)
@@ -61,44 +60,20 @@ class User(SQLModel, UUIDMixin, TimestampMixin, table=True):
     # Profile Information
     first_name: Optional[str] = Field(default=None, max_length=100)
     last_name: Optional[str] = Field(default=None, max_length=100)
-    full_name: Optional[str] = Field(default=None, max_length=200)
     bio: Optional[str] = Field(default=None, max_length=1000)
-    avatar_url: Optional[str] = Field(default=None)
-    
-    # Contact Information
-    phone_number: Optional[str] = Field(default=None, max_length=20)
-    location: Optional[str] = Field(default=None, max_length=200)
-    timezone: Optional[str] = Field(default="UTC", max_length=50)
-    
-    # Professional Information
-    job_title: Optional[str] = Field(default=None, max_length=200)
-    experience_level: Optional[UserSkillLevel] = Field(default=UserSkillLevel.BEGINNER)
-    skills: Optional[List[str]] = Field(default=[], sa_column_kwargs={"type_": "JSON"})
-    interests: Optional[List[str]] = Field(default=[], sa_column_kwargs={"type_": "JSON"})
     
     # Account Management
     role: UserRole = Field(default=UserRole.USER, nullable=False)
-    status: UserStatus = Field(default=UserStatus.PENDING_VERIFICATION, nullable=False)
+    status: UserStatus = Field(default=UserStatus.ACTIVE, nullable=False)
+    is_email_verified: bool = Field(default=False, nullable=False)  # Correspond à la colonne PostgreSQL
     is_active: bool = Field(default=True, nullable=False)
-    is_verified: bool = Field(default=False, nullable=False)
-    is_superuser: bool = Field(default=False, nullable=False)
+    experience_level: Optional[UserSkillLevel] = Field(default=UserSkillLevel.BEGINNER)
     
-    # Verification and Security
-    email_verified_at: Optional[datetime] = Field(default=None)
-    last_login_at: Optional[datetime] = Field(default=None)
-    failed_login_attempts: int = Field(default=0, nullable=False)
-    account_locked_until: Optional[datetime] = Field(default=None)
-    
-    # Subscription and Preferences
-    is_premium: bool = Field(default=False, nullable=False)
-    premium_expires_at: Optional[datetime] = Field(default=None)
+    # Contact Information (correspond aux colonnes PostgreSQL existantes)
+    country: Optional[str] = Field(default=None, max_length=200)
+    timezone: Optional[str] = Field(default="UTC", max_length=50)
+    language_preference: str = Field(default="en", nullable=False)
     newsletter_subscribed: bool = Field(default=True, nullable=False)
-    notification_preferences: str = Field(default="{}", sa_column=Column(JSON))
-    
-    # User Metadata (renamed to avoid conflict with SQLModel's metadata) 
-    user_metadata: str = Field(default="{}", sa_column=Column(JSON))
-    terms_accepted_at: Optional[datetime] = Field(default=None)
-    privacy_policy_accepted_at: Optional[datetime] = Field(default=None)
     
     # Relationships
     company_profiles: List["CompanyProfile"] = Relationship(back_populates="owner")
@@ -115,6 +90,14 @@ class UserSettings(SQLModel, UUIDMixin, TimestampMixin, table=True):
     """User settings and preferences."""
     
     __tablename__ = "user_settings"
+    
+    # Primary key from UUIDMixin
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        primary_key=True,
+        index=True,
+        nullable=False
+    )
     
     user_id: uuid.UUID = Field(foreign_key="users.id", nullable=False, index=True)
     
@@ -138,13 +121,21 @@ class UserSettings(SQLModel, UUIDMixin, TimestampMixin, table=True):
     skill_recommendations: bool = Field(default=True, nullable=False)
     
     # Additional Settings
-    custom_settings: Optional[dict] = Field(default={}, sa_column_kwargs={"type_": "JSON"})
+    custom_settings: Optional[dict] = Field(default={}, sa_column=Column(JSON))
 
 
 class UserSession(SQLModel, UUIDMixin, TimestampMixin, table=True):
     """User session tracking."""
     
     __tablename__ = "user_sessions"
+    
+    # Primary key from UUIDMixin
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        primary_key=True,
+        index=True,
+        nullable=False
+    )
     
     user_id: uuid.UUID = Field(foreign_key="users.id", nullable=False, index=True)
     session_token: str = Field(unique=True, index=True, nullable=False)
@@ -153,7 +144,7 @@ class UserSession(SQLModel, UUIDMixin, TimestampMixin, table=True):
     # Session Information
     ip_address: Optional[str] = Field(default=None)
     user_agent: Optional[str] = Field(default=None)
-    device_info: Optional[dict] = Field(default={}, sa_column_kwargs={"type_": "JSON"})
+    device_info: Optional[dict] = Field(default={}, sa_column=Column(JSON))
     
     # Session Management
     expires_at: datetime = Field(nullable=False)

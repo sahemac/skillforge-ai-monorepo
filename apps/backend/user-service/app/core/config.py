@@ -34,13 +34,10 @@ class Settings(BaseSettings):
         env="ALLOWED_HOSTS"
     )
     
-    # Database
-    DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://user:password@localhost:5432/dbname",
-        env="DATABASE_URL"
-    )
-    POSTGRES_USER: str = Field(default="postgres", env="POSTGRES_USER")
-    POSTGRES_PASSWORD: str = Field(default="changeme", env="POSTGRES_PASSWORD") 
+    # Database - NO DEFAULTS FOR PRODUCTION SECRETS
+    DATABASE_URL: Optional[str] = Field(default=None, env="DATABASE_URL")
+    POSTGRES_USER: str = Field(default="skillforge_user", env="POSTGRES_USER")
+    POSTGRES_PASSWORD: Optional[str] = Field(default=None, env="POSTGRES_PASSWORD") 
     POSTGRES_DB: str = Field(default="skillforge_db", env="POSTGRES_DB")
     POSTGRES_HOST: str = Field(default="localhost", env="POSTGRES_HOST")
     POSTGRES_PORT: int = Field(default=5432, env="POSTGRES_PORT")
@@ -105,11 +102,16 @@ class Settings(BaseSettings):
         if isinstance(v, str) and v:
             return v
         # Build from individual components if not provided
-        user = values.get("POSTGRES_USER", "username")
-        password = values.get("POSTGRES_PASSWORD", "password") 
+        user = values.get("POSTGRES_USER")
+        password = values.get("POSTGRES_PASSWORD") 
         host = values.get("POSTGRES_HOST", "localhost")
         port = values.get("POSTGRES_PORT", 5432)
-        db = values.get("POSTGRES_DB", "skillforge_users")
+        db = values.get("POSTGRES_DB", "skillforge_db")
+        
+        # For development only - fallback to SQLite if no password provided
+        if not password or not user:
+            return "sqlite+aiosqlite:///./skillforge_dev.db"
+        
         return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
     
     @property

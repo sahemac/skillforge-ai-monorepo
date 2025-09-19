@@ -10,8 +10,8 @@ import uuid
 
 class TimestampMixin:
     """Mixin for models with timestamp fields."""
-    created_at: datetime
-    updated_at: Optional[datetime]
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    updated_at: Optional[datetime] = Field(default=None, nullable=True)
 
 
 class UUIDMixin:

@@ -32,7 +32,7 @@ from app.schemas.user import (
     UserSettingsResponse,
     UserSettingsUpdate
 )
-from app.models.user_simple import User, UserRole, UserStatus
+from app.models.user import User, UserRole, UserStatus
 from app.core.security import validate_password_strength, Permissions
 from app.core.config import get_settings
 

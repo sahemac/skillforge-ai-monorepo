@@ -31,7 +31,7 @@ from app.core.security import (
     validate_password_strength
 )
 from app.core.config import get_settings
-from app.models.user_simple import UserStatus
+from app.models.user import UserStatus
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

@@ -31,8 +31,8 @@ from app.schemas.company import (
     TeamMemberListResponse,
     CompanySearchFilters
 )
-from app.models.user_simple import User
-from app.models.company_simple import CompanyProfile, CompanySize, IndustryType
+from app.models.user import User
+from app.models.company import CompanyProfile, CompanySize, IndustryType
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

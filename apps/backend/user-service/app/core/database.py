@@ -21,32 +21,44 @@ engine: Optional[AsyncEngine] = None
 
 def create_engine() -> AsyncEngine:
     """Create database engine."""
-    # Use separate parameters to avoid issues with @ in password
-    database_url = (
-        f"postgresql+asyncpg://"
-        f"{settings.POSTGRES_HOST}:"
-        f"{settings.POSTGRES_PORT}/"
-        f"{settings.POSTGRES_DB}"
-    )
+    # Use DATABASE_URL from settings (can be SQLite or PostgreSQL)
+    database_url = settings.DATABASE_URL
     
-    return create_async_engine(
-        database_url,
-        echo=settings.is_development and not settings.is_testing,
-        future=True,
-        poolclass=NullPool if settings.is_testing else None,
-        pool_pre_ping=True,
-        pool_recycle=300,  # 5 minutes
-        json_serializer=None,  # Use default JSON serializer
-        # Use separate connection parameters to avoid URL parsing issues
-        connect_args={
-            "user": settings.POSTGRES_USER,
-            "password": settings.POSTGRES_PASSWORD,
-            "host": settings.POSTGRES_HOST,
-            "port": settings.POSTGRES_PORT,
-            "database": settings.POSTGRES_DB,
-            "command_timeout": 10,
-        }
-    )
+    # Check if using SQLite
+    if "sqlite" in database_url:
+        # SQLite configuration
+        from sqlalchemy.pool import StaticPool
+        return create_async_engine(
+            database_url,
+            echo=settings.DEBUG,
+            future=True,
+            poolclass=StaticPool,  # Important for SQLite with async
+            connect_args={"check_same_thread": False}  # Required for SQLite
+        )
+    else:
+        # PostgreSQL configuration with Cloud SQL Proxy support
+        connect_args = {}
+        
+        # Configuration spécifique pour Cloud SQL Proxy
+        if "localhost:5432" in database_url:
+            connect_args = {
+                "ssl": False,  # Disable SSL for cloud_sql_proxy
+                "server_settings": {
+                    "application_name": "SkillForge_API"
+                },
+                "command_timeout": 30
+            }
+        
+        return create_async_engine(
+            database_url,
+            echo=settings.DEBUG,
+            future=True,
+            poolclass=NullPool if getattr(settings, 'is_testing', False) else None,
+            pool_pre_ping=True,
+            pool_recycle=300,  # 5 minutes
+            json_serializer=None,  # Use default JSON serializer
+            connect_args=connect_args
+        )
 
 
 def get_engine() -> AsyncEngine:
@@ -192,7 +204,7 @@ async def close_db_connection() -> None:
 # Database utilities
 async def reset_database() -> None:
     """Reset database (for testing only)."""
-    if not settings.is_testing:
+    if not getattr(settings, 'is_testing', False):
         raise RuntimeError("Database reset is only allowed in testing environment")
     
     try:

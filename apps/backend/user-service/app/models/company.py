@@ -4,7 +4,8 @@ Company Profile model for SkillForge AI User Service
 
 from datetime import datetime
 from typing import Optional, List
-from sqlmodel import Field, SQLModel, Relationship
+from sqlmodel import Field, SQLModel, Relationship, Column
+from sqlalchemy import JSON
 from enum import Enum
 import uuid
 
@@ -39,6 +40,14 @@ class CompanyProfile(SQLModel, UUIDMixin, TimestampMixin, table=True):
     """Company profile for organizations using SkillForge AI."""
     
     __tablename__ = "company_profiles"
+    
+    # Primary key from UUIDMixin
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        primary_key=True,
+        index=True,
+        nullable=False
+    )
     
     # Basic Information
     name: str = Field(nullable=False, max_length=200, index=True)
@@ -75,8 +84,8 @@ class CompanyProfile(SQLModel, UUIDMixin, TimestampMixin, table=True):
     registration_number: Optional[str] = Field(default=None, max_length=50)
     
     # SkillForge AI Specific
-    skills_focus: Optional[List[str]] = Field(default=[], sa_column_kwargs={"type_": "JSON"})
-    learning_goals: Optional[List[str]] = Field(default=[], sa_column_kwargs={"type_": "JSON"})
+    skills_focus: Optional[List[str]] = Field(default=[], sa_column=Column(JSON))
+    learning_goals: Optional[List[str]] = Field(default=[], sa_column=Column(JSON))
     
     # Subscription and Billing
     subscription_plan: str = Field(default="free", nullable=False)  # free, basic, premium, enterprise
@@ -94,7 +103,7 @@ class CompanyProfile(SQLModel, UUIDMixin, TimestampMixin, table=True):
     owner: "User" = Relationship(back_populates="company_profiles")
     
     # Settings and Preferences
-    settings: Optional[dict] = Field(default={}, sa_column_kwargs={"type_": "JSON"})
+    settings: Optional[dict] = Field(default={}, sa_column=Column(JSON))
     
     class Config:
         """Pydantic configuration."""
@@ -109,6 +118,14 @@ class CompanyTeamMember(SQLModel, UUIDMixin, TimestampMixin, table=True):
     
     __tablename__ = "company_team_members"
     
+    # Primary key from UUIDMixin
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        primary_key=True,
+        index=True,
+        nullable=False
+    )
+    
     company_id: uuid.UUID = Field(foreign_key="company_profiles.id", nullable=False, index=True)
     user_id: uuid.UUID = Field(foreign_key="users.id", nullable=False, index=True)
     
@@ -118,7 +135,7 @@ class CompanyTeamMember(SQLModel, UUIDMixin, TimestampMixin, table=True):
     department: Optional[str] = Field(default=None, max_length=100)
     
     # Permissions
-    permissions: Optional[List[str]] = Field(default=[], sa_column_kwargs={"type_": "JSON"})
+    permissions: Optional[List[str]] = Field(default=[], sa_column=Column(JSON))
     
     # Status
     is_active: bool = Field(default=True, nullable=False)
@@ -135,6 +152,14 @@ class CompanySubscription(SQLModel, UUIDMixin, TimestampMixin, table=True):
     """Company subscription and billing information."""
     
     __tablename__ = "company_subscriptions"
+    
+    # Primary key from UUIDMixin
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        primary_key=True,
+        index=True,
+        nullable=False
+    )
     
     company_id: uuid.UUID = Field(foreign_key="company_profiles.id", nullable=False, index=True)
     
@@ -159,5 +184,10 @@ class CompanySubscription(SQLModel, UUIDMixin, TimestampMixin, table=True):
     seats_included: int = Field(default=1, nullable=False, ge=1)
     seats_used: int = Field(default=0, nullable=False, ge=0)
     
-    # Metadata
-    metadata: Optional[dict] = Field(default={}, sa_column_kwargs={"type_": "JSON"})
+    # Subscription Metadata
+    subscription_metadata: Optional[dict] = Field(default={}, sa_column=Column(JSON))
+
+
+# Aliases for backward compatibility
+TeamMember = CompanyTeamMember
+Subscription = CompanySubscription

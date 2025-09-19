@@ -3,19 +3,16 @@ Models package for SkillForge AI User Service
 """
 
 from .base import TimestampMixin, UUIDMixin
-# Utilisation du modèle User simplifié temporairement
-from .user_simple import (
+# Utilisation des modèles définitifs
+from .user import (
     User, 
     UserRole, 
     UserStatus,
     UserSkillLevel,
     UserSession,
-    UserSettings,
-    UserCreate,
-    UserRead,
-    UserUpdate
+    UserSettings
 )
-from .company_simple import (
+from .company import (
     CompanyProfile, 
     CompanySize, 
     IndustryType,
@@ -28,18 +25,15 @@ __all__ = [
     "TimestampMixin",
     "UUIDMixin",
     
-    # User models (simplified)
+    # User models
     "User",
     "UserRole",
     "UserStatus",
     "UserSkillLevel",
     "UserSession",
-    "UserSettings", 
-    "UserCreate",
-    "UserRead", 
-    "UserUpdate",
+    "UserSettings",
     
-    # Company models (simplified)
+    # Company models
     "CompanyProfile",
     "CompanySize",
     "IndustryType", 

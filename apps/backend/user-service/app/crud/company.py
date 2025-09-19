@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
 from app.crud.base import CRUDBase
-from app.models.company_simple import (
+from app.models.company import (
     CompanyProfile, 
     TeamMember, 
     Subscription,

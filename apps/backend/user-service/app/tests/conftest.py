@@ -15,12 +15,12 @@ from app.models.base import SQLModel
 from app.core.config import get_settings
 
 # Import all models to ensure they are registered with SQLModel.metadata
-from app.models.user_simple import User, UserSettings, UserSession  
-from app.models.company_simple import CompanyProfile, TeamMember, Subscription
+from app.models.user import User, UserSettings, UserSession  
+from app.models.company import CompanyProfile, TeamMember, Subscription
 
 # Test database URL - Using Cloud SQL via proxy on localhost:5432
 # Cloud SQL Proxy must be running: cloud-sql-proxy.exe --port=5432 skillforge-ai-mvp-25:europe-west1:skillforge-pg-instance-staging
-TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "postgresql+asyncpg://test_user:test_password@localhost:5432/test_db")
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "postgresql+asyncpg://skillforge_user:Psaumes@27@localhost:5432/skillforge_db")
 
 # Override settings for testing
 test_settings = get_settings()
@@ -156,7 +156,7 @@ def sample_company_data():
 @pytest.fixture
 def create_test_user(db_session: AsyncSession):
     """Create a test user directly in database."""
-    from app.models.user_simple import User
+    from app.models.user import User
     import uuid
     from datetime import datetime
     import hashlib
@@ -177,7 +177,7 @@ def create_test_user(db_session: AsyncSession):
         # Simple password hashing for testing
         password_hash = hashlib.sha256(user_data["password"].encode()).hexdigest()
         
-        # Create user object using User from user_simple
+        # Create user object using User from definitive model
         db_user = User(
             email=user_data["email"],
             username=user_data["username"],
@@ -201,7 +201,7 @@ def create_test_user(db_session: AsyncSession):
 @pytest.fixture
 def create_test_company(db_session: AsyncSession):
     """Create a test company directly in database."""
-    from app.models.company_simple import CompanyProfile
+    from app.models.company import CompanyProfile
     import uuid
     from datetime import datetime
     

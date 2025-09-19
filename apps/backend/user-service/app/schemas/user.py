@@ -8,7 +8,7 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from uuid import UUID
 
-from app.models.user_simple import UserRole, UserStatus, UserSkillLevel
+from app.models.user import UserRole, UserStatus, UserSkillLevel
 
 
 # Base schemas
@@ -37,6 +37,7 @@ class UserCreate(UserBase):
     confirm_password: str = Field(..., min_length=8, max_length=128)
     terms_accepted: bool = Field(..., description="User must accept terms and conditions")
     privacy_policy_accepted: bool = Field(..., description="User must accept privacy policy")
+    role: Optional[UserRole] = None  # Allow specifying role at creation (admin only)
     
     @field_validator("confirm_password")
     def passwords_match(cls, v, info):
@@ -117,15 +118,16 @@ class UserResponse(BaseModel):
     avatar_url: Optional[str]
     phone_number: Optional[str]
     location: Optional[str]
-    timezone: str
+    timezone: Optional[str]
     job_title: Optional[str]
-    experience_level: UserSkillLevel
-    skills: List[str]
-    interests: List[str]
+    experience_level: Optional[UserSkillLevel]
+    skills: Optional[List[str]]
+    interests: Optional[List[str]]
     role: UserRole
     status: UserStatus
     is_active: bool
     is_verified: bool
+    is_superuser: bool
     is_premium: bool
     premium_expires_at: Optional[datetime]
     newsletter_subscribed: bool
@@ -148,9 +150,9 @@ class UserPublicResponse(BaseModel):
     avatar_url: Optional[str]
     location: Optional[str]
     job_title: Optional[str]
-    experience_level: UserSkillLevel
-    skills: List[str]
-    interests: List[str]
+    experience_level: Optional[UserSkillLevel]
+    skills: Optional[List[str]]
+    interests: Optional[List[str]]
     is_verified: bool
     created_at: datetime
     

@@ -14,8 +14,8 @@ from app.core.config import get_settings
 from app.models.base import SQLModel
 
 # Import all models so Alembic can detect them
-from app.models.user_simple import User, UserSettings, UserSession
-from app.models.company_simple import CompanyProfile, TeamMember, Subscription
+from app.models.user import User, UserSettings, UserSession
+from app.models.company import CompanyProfile, TeamMember, Subscription
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -39,7 +39,7 @@ def get_database_url():
     """Get database URL from environment or config."""
     # Use Cloud SQL via proxy on localhost:5432
     # Proxy must be running: cloud-sql-proxy.exe --port=5432 skillforge-ai-mvp-25:europe-west1:skillforge-pg-instance-staging
-    return os.environ.get("DATABASE_URL", "postgresql+asyncpg://user:password@localhost:5432/dbname")
+    return os.environ.get("DATABASE_URL", "postgresql+asyncpg://skillforge_user:Psaumes@27@localhost:5432/skillforge_db")
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
