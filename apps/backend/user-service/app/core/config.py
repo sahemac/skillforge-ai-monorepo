@@ -36,11 +36,11 @@ class Settings(BaseSettings):
     
     # Database
     DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://skillforge_user:Psaumes@27@127.0.0.1:5432/skillforge_db",
+        default="postgresql+asyncpg://user:password@localhost:5432/dbname",
         env="DATABASE_URL"
     )
-    POSTGRES_USER: str = Field(default="skillforge_user", env="POSTGRES_USER")
-    POSTGRES_PASSWORD: str = Field(default="Psaumes@27", env="POSTGRES_PASSWORD") 
+    POSTGRES_USER: str = Field(default="postgres", env="POSTGRES_USER")
+    POSTGRES_PASSWORD: str = Field(default="changeme", env="POSTGRES_PASSWORD") 
     POSTGRES_DB: str = Field(default="skillforge_db", env="POSTGRES_DB")
     POSTGRES_HOST: str = Field(default="localhost", env="POSTGRES_HOST")
     POSTGRES_PORT: int = Field(default=5432, env="POSTGRES_PORT")

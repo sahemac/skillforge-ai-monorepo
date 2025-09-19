@@ -37,9 +37,9 @@ target_metadata = SQLModel.metadata
 
 def get_database_url():
     """Get database URL from environment or config."""
-    # Construire une URL sans le problème du @ dans le mot de passe
-    # Utiliser des paramètres séparés pour éviter l'erreur getaddrinfo
-    return "postgresql+asyncpg://skillforge_user:Psaumes%4027@localhost:5432/skillforge_db"
+    # Use Cloud SQL via proxy on localhost:5432
+    # Proxy must be running: cloud-sql-proxy.exe --port=5432 skillforge-ai-mvp-25:europe-west1:skillforge-pg-instance-staging
+    return os.environ.get("DATABASE_URL", "postgresql+asyncpg://user:password@localhost:5432/dbname")
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.

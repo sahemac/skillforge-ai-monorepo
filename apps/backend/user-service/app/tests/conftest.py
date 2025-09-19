@@ -3,6 +3,7 @@ Test configuration and fixtures for SkillForge AI User Service
 """
 
 import asyncio
+import os
 import pytest
 from typing import AsyncGenerator, Generator
 from fastapi.testclient import TestClient
@@ -17,10 +18,9 @@ from app.core.config import get_settings
 from app.models.user_simple import User, UserSettings, UserSession  
 from app.models.company_simple import CompanyProfile, TeamMember, Subscription
 
-# Test database URL (use Cloud SQL PostgreSQL database)
-# Format: postgresql+asyncpg://user:password@host/database
-# Using Cloud SQL connection or public IP
-TEST_DATABASE_URL = "postgresql+asyncpg://skillforge_user:Psaumes%4027@34.76.97.123:5432/skillforge_db"
+# Test database URL - Using Cloud SQL via proxy on localhost:5432
+# Cloud SQL Proxy must be running: cloud-sql-proxy.exe --port=5432 skillforge-ai-mvp-25:europe-west1:skillforge-pg-instance-staging
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "postgresql+asyncpg://test_user:test_password@localhost:5432/test_db")
 
 # Override settings for testing
 test_settings = get_settings()
@@ -28,10 +28,20 @@ test_settings.ENVIRONMENT = "testing"
 test_settings.DATABASE_URL = TEST_DATABASE_URL
 
 # Create test engine
-test_engine = create_async_engine(
-    TEST_DATABASE_URL,
-    echo=False,
-)
+if TEST_DATABASE_URL.startswith("sqlite"):
+    from sqlalchemy.pool import StaticPool
+    test_engine = create_async_engine(
+        TEST_DATABASE_URL,
+        echo=False,
+        poolclass=StaticPool,
+        connect_args={"check_same_thread": False},
+    )
+else:
+    # PostgreSQL configuration
+    test_engine = create_async_engine(
+        TEST_DATABASE_URL,
+        echo=False,
+    )
 
 # Create test session factory
 TestSessionLocal = async_sessionmaker(
@@ -146,11 +156,10 @@ def sample_company_data():
 @pytest.fixture
 def create_test_user(db_session: AsyncSession):
     """Create a test user directly in database."""
-    import asyncio
-    from app.crud import user
-    from app.models.user import User
-    from app.utils.security import get_password_hash
+    from app.models.user_simple import User
     import uuid
+    from datetime import datetime
+    import hashlib
     
     async def _create_user(user_data: dict = None):
         if user_data is None:
@@ -165,17 +174,20 @@ def create_test_user(db_session: AsyncSession):
                 "privacy_policy_accepted": True
             }
         
-        # Create user object
-        hashed_password = get_password_hash(user_data["password"])
+        # Simple password hashing for testing
+        password_hash = hashlib.sha256(user_data["password"].encode()).hexdigest()
+        
+        # Create user object using User from user_simple
         db_user = User(
             email=user_data["email"],
             username=user_data["username"],
             first_name=user_data["first_name"],
             last_name=user_data["last_name"],
-            hashed_password=hashed_password,
+            hashed_password=password_hash,
             is_verified=True,
             terms_accepted=user_data.get("terms_accepted", True),
-            privacy_policy_accepted=user_data.get("privacy_policy_accepted", True)
+            privacy_policy_accepted=user_data.get("privacy_policy_accepted", True),
+            created_at=datetime.utcnow()
         )
         
         db_session.add(db_user)
@@ -189,9 +201,9 @@ def create_test_user(db_session: AsyncSession):
 @pytest.fixture
 def create_test_company(db_session: AsyncSession):
     """Create a test company directly in database."""
-    from app.models.company import Company
-    from app.utils.text import slugify
+    from app.models.company_simple import CompanyProfile
     import uuid
+    from datetime import datetime
     
     async def _create_company(owner_user, company_data: dict = None):
         if company_data is None:
@@ -207,10 +219,11 @@ def create_test_company(db_session: AsyncSession):
         
         # Generate slug if not provided
         if "slug" not in company_data:
-            company_data["slug"] = slugify(company_data["name"])
+            # Simple slug generation
+            company_data["slug"] = company_data["name"].lower().replace(" ", "-")
         
-        # Create company object
-        db_company = Company(
+        # Create company object using CompanyProfile
+        db_company = CompanyProfile(
             name=company_data["name"],
             slug=company_data["slug"],
             description=company_data.get("description"),
@@ -218,7 +231,8 @@ def create_test_company(db_session: AsyncSession):
             company_size=company_data.get("company_size"),
             website=company_data.get("website"),
             email=company_data.get("email"),
-            owner_id=owner_user.id
+            owner_id=owner_user.id,
+            created_at=datetime.utcnow()
         )
         
         db_session.add(db_company)

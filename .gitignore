@@ -9,6 +9,20 @@ GITHUB_SECRETS_EXACT_VALUES.md
 *secrets*.env
 *credentials*.json
 
+# CRITICAL: Terraform backup files - NEVER commit these
+*backup-complete*.json
+*backup-state*.json
+*secrets-backup*.json
+terraform-backup*.json
+state-backup*.json
+
+# CRITICAL: Database credentials and connection strings
+.env.local
+.env.production
+.env.staging
+DATABASE_URL
+POSTGRES_PASSWORD
+
 # DevOps implementation reports - Private documentation
 Documentations/Rapports\ implémentation\ DevOps/
 Documentations/Rapports*

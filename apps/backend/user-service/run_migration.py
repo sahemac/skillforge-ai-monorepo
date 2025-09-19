@@ -7,8 +7,8 @@ import os
 import sys
 import subprocess
 
-# Database URL for cloud PostgreSQL
-DATABASE_URL = "postgresql+asyncpg://skillforge_user:Psaumes%4027@34.76.97.123:5432/skillforge_db"
+# Database URL for cloud PostgreSQL via Cloud SQL Proxy
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@localhost:5432/dbname")
 
 def test_connection():
     """Test database connection before migration"""
