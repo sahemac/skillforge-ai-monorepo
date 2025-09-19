@@ -3,19 +3,22 @@
 set -e
 
 PROJECT_ID="skillforge-ai-mvp-25"
-SERVICE_ACCOUNT_EMAIL="${GCP_CICD_SERVICE_ACCOUNT}"
-
 echo "🔐 Ajout des permissions pour le service account CI/CD"
 echo "===================================================="
 echo "Project: $PROJECT_ID"
-echo "Service Account: $SERVICE_ACCOUNT_EMAIL"
 echo ""
 
-if [[ -z "$SERVICE_ACCOUNT_EMAIL" ]]; then
-    echo "❌ Variable GCP_CICD_SERVICE_ACCOUNT non définie"
-    echo "Utilisez: export GCP_CICD_SERVICE_ACCOUNT=your-sa@$PROJECT_ID.iam.gserviceaccount.com"
-    exit 1
+# Récupérer le service account depuis les secrets GitHub ou demander
+if [[ -z "$GCP_CICD_SERVICE_ACCOUNT" ]]; then
+    echo "⚠️  Variable GCP_CICD_SERVICE_ACCOUNT non définie"
+    echo "Entrez l'email de votre service account CI/CD:"
+    read -p "Service Account Email: " SERVICE_ACCOUNT_EMAIL
+else
+    SERVICE_ACCOUNT_EMAIL="$GCP_CICD_SERVICE_ACCOUNT"
 fi
+
+echo "Service Account: $SERVICE_ACCOUNT_EMAIL"
+echo ""
 
 # Rôles requis pour Terraform
 REQUIRED_ROLES=(

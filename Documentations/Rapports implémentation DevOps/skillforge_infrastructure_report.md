@@ -56,8 +56,8 @@ Internet → Load Balancer (IAP) → Cloud Run → VPC → Cloud SQL + Redis
   - `jwt-secret-key-staging` (version 1 active)
   - `postgres-password-staging` (version 1 active)
 - **Service Accounts**:
-  - `sa-user-service-staging`: Accès DB + Secrets
-  - `sa-github-actions-cicd`: Pipeline CI/CD
+  - `sa-user-service-staging`: Accès DB + Secrets / Pipeline CI/CD
+  - `sa-github-actions-cicd`: Pipeline CI/CD (non configuré)
 
 ### 1.3 Configuration IAP (Identity-Aware Proxy)
 - **Status**: Activé et opérationnel
@@ -369,3 +369,11 @@ L'infrastructure SkillForge AI est désormais complètement opérationnelle avec
 La plateforme est prête pour le développement des fonctionnalités métier selon le plan établi.
 
 **Statut Final**: ✅ PRODUCTION READY
+
+
+
+DISPLAY NAME                                EMAIL                                                                 DISABLED
+Default compute service account             584748485117-compute@developer.gserviceaccount.com                    False
+Terraform CI/CD                             terraform-ci-cd@skillforge-ai-mvp-25.iam.gserviceaccount.com          False
+Service Account for GitHub Actions CI/CD    sa-github-actions-cicd@skillforge-ai-mvp-25.iam.gserviceaccount.com   False
+Service Account for user-service (Staging)  sa-user-service-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com  False
