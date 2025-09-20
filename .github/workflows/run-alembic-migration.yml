@@ -178,7 +178,7 @@ jobs:
           POSTGRES_USER: "skillforge_user"
           POSTGRES_PASSWORD: ${{ steps.get-db-password.outputs.db_password }}
           POSTGRES_HOST: ${{ steps.get-db-password.outputs.password_source == 'secret_manager' && 'localhost' || 'localhost' }}
-          POSTGRES_PORT: ${{ steps.get-db-password.outputs.password_source == 'secret_manager' && '5432' || '5432' }}
+          POSTGRES_PORT: "5432"
           POSTGRES_DB: "skillforge_db"
           ENVIRONMENT: ${{ inputs.environment }}
           SERVICE_URL: ${{ inputs.service_url }}
