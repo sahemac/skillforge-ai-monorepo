@@ -51,6 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
     outputs:
       status: ${{ steps.migration.outputs.status }}
       log_file: ${{ steps.migration.outputs.log_file }}
