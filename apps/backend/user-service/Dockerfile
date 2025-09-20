@@ -20,11 +20,11 @@ RUN apt-get update && apt-get install -y \
 RUN groupadd -r skillforge && useradd -r -g skillforge skillforge
 
 # Install Python dependencies
-COPY requirements.txt .
+COPY apps/backend/user-service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project files
-COPY . .
+COPY apps/backend/user-service/ .
 
 # Change ownership of the app directory to the skillforge user
 RUN chown -R skillforge:skillforge /app
