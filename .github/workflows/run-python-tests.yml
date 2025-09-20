@@ -15,9 +15,9 @@ on:
         required: true
         type: string
     secrets:
-      TEST_DATABASE_URL:
-        description: "Test database URL for integration tests"
-        required: false
+      DATABASE_URL_STAGING:
+        description: "Staging database URL for integration tests"
+        required: true
 
 permissions:
   contents: read
@@ -27,21 +27,7 @@ jobs:
     name: Run Unit Tests
     runs-on: ubuntu-latest
 
-    # PostgreSQL service for integration tests
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: skillforge_test_db
-          POSTGRES_USER: skillforge_test_user
-          POSTGRES_PASSWORD: test_password_123
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    # Tests will use real staging PostgreSQL database
 
     steps:
       - name: Checkout repository
@@ -78,24 +64,17 @@ jobs:
           # Install additional test dependencies
           pip install pytest-postgresql pytest-xdist
 
-      - name: Wait for PostgreSQL
+      - name: Setup Cloud SQL Proxy
         run: |
-          until pg_isready -h localhost -p 5432 -U skillforge_test_user; do
-            echo "Waiting for PostgreSQL..."
-            sleep 2
-          done
-          echo "PostgreSQL is ready!"
-
-      - name: Setup test database
-        run: |
-          # Create test database schema if needed
-          PGPASSWORD=test_password_123 psql -h localhost -U skillforge_test_user -d skillforge_test_db -c "SELECT 1;" || true
+          # Install Cloud SQL Proxy
+          curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.6.0/cloud-sql-proxy.linux.amd64
+          chmod +x cloud-sql-proxy
+          # No need to start proxy as we'll use direct connection
 
       - name: Run tests with pytest
         env:
-          # Test database configuration
-          TEST_DATABASE_URL: "postgresql+asyncpg://skillforge_test_user:test_password_123@localhost:5432/skillforge_test_db"
-          DATABASE_URL: "postgresql+asyncpg://skillforge_test_user:test_password_123@localhost:5432/skillforge_test_db"
+          # Use real staging database for tests
+          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
           
           # Test environment settings
           ENVIRONMENT: "testing"
@@ -112,8 +91,8 @@ jobs:
           cd ${{ inputs.service-directory }}
           export PYTHONPATH="${PWD}:${PYTHONPATH}"
           
-          echo "Running tests with PostgreSQL..."
-          echo "Database URL: $TEST_DATABASE_URL"
+          echo "Running tests with real staging PostgreSQL..."
+          echo "Database configured for staging environment"
           
           # Run tests with coverage
           pytest -v --tb=short --cov=app --cov-report=term-missing --cov-report=xml

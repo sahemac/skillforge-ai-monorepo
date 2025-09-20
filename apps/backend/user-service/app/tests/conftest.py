@@ -18,42 +18,28 @@ from app.core.config import get_settings
 from app.models.user import User, UserSettings, UserSession  
 from app.models.company import CompanyProfile, TeamMember, Subscription
 
-# Test database URL - Priority: CI/CD env var, then Cloud SQL via proxy, then SQLite fallback
-# CI/CD: Uses PostgreSQL service in GitHub Actions
-# Local: Cloud SQL Proxy must be running: cloud-sql-proxy.exe --port=5432 skillforge-ai-mvp-25:europe-west1:skillforge-pg-instance-staging
-TEST_DATABASE_URL = os.getenv(
-    "TEST_DATABASE_URL", 
-    os.getenv(
-        "DATABASE_URL",
-        # Fallback for local development with Cloud SQL Proxy
-        "postgresql+asyncpg://skillforge_user:Psaumes@27@localhost:5432/skillforge_db"
-    )
-)
+# Test database URL - Use real DATABASE_URL from environment
+# CI/CD: Uses DATABASE_URL_STAGING secret for real staging database testing
+# Local: Uses DATABASE_URL with Cloud SQL Proxy connection
+TEST_DATABASE_URL = os.getenv("DATABASE_URL")
 
-# If no PostgreSQL available, fallback to SQLite for local testing
-if not TEST_DATABASE_URL or "postgresql" not in TEST_DATABASE_URL.lower():
-    TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_skillforge.db"
+# Fallback for local development if no DATABASE_URL set
+if not TEST_DATABASE_URL:
+    TEST_DATABASE_URL = "postgresql+asyncpg://skillforge_user:Psaumes@27@localhost:5432/skillforge_db"
 
 # Override settings for testing
 test_settings = get_settings()
 test_settings.ENVIRONMENT = "testing"
 test_settings.DATABASE_URL = TEST_DATABASE_URL
 
-# Create test engine
-if TEST_DATABASE_URL.startswith("sqlite"):
-    from sqlalchemy.pool import StaticPool
-    test_engine = create_async_engine(
-        TEST_DATABASE_URL,
-        echo=False,
-        poolclass=StaticPool,
-        connect_args={"check_same_thread": False},
-    )
-else:
-    # PostgreSQL configuration
-    test_engine = create_async_engine(
-        TEST_DATABASE_URL,
-        echo=False,
-    )
+# Create test engine for PostgreSQL
+test_engine = create_async_engine(
+    TEST_DATABASE_URL,
+    echo=False,
+    # Use smaller pool size for tests to avoid connection limit issues
+    pool_size=2,
+    max_overflow=5,
+)
 
 # Create test session factory
 TestSessionLocal = async_sessionmaker(
@@ -75,24 +61,23 @@ def event_loop():
 
 @pytest.fixture(scope="session")
 async def test_db_setup():
-    """Set up test database."""
-    # Create all tables
-    async with test_engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
-    
+    """Set up test database - no schema changes needed for real DB."""
+    # No table creation needed - using real database with existing schema
     yield
-    
-    # Clean up
-    async with test_engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.drop_all)
+    # No cleanup needed - real database should not be altered
 
 
 @pytest.fixture
 async def db_session(test_db_setup) -> AsyncGenerator[AsyncSession, None]:
-    """Create a test database session."""
+    """Create a test database session with transaction rollback for safety."""
     async with TestSessionLocal() as session:
-        yield session
-        await session.rollback()
+        # Start a transaction that will be rolled back
+        transaction = await session.begin()
+        try:
+            yield session
+        finally:
+            # Always rollback to ensure no test data persists
+            await transaction.rollback()
 
 
 @pytest.fixture
