@@ -39,6 +39,8 @@ jobs:
     uses: ./.github/workflows/run-python-tests.yml
     with:
       service-directory: 'apps/backend/user-service'
+    secrets:
+      TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
 
   build:
     name: Build & Push Docker Image

@@ -18,9 +18,21 @@ from app.core.config import get_settings
 from app.models.user import User, UserSettings, UserSession  
 from app.models.company import CompanyProfile, TeamMember, Subscription
 
-# Test database URL - Using Cloud SQL via proxy on localhost:5432
-# Cloud SQL Proxy must be running: cloud-sql-proxy.exe --port=5432 skillforge-ai-mvp-25:europe-west1:skillforge-pg-instance-staging
-TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "postgresql+asyncpg://skillforge_user:Psaumes@27@localhost:5432/skillforge_db")
+# Test database URL - Priority: CI/CD env var, then Cloud SQL via proxy, then SQLite fallback
+# CI/CD: Uses PostgreSQL service in GitHub Actions
+# Local: Cloud SQL Proxy must be running: cloud-sql-proxy.exe --port=5432 skillforge-ai-mvp-25:europe-west1:skillforge-pg-instance-staging
+TEST_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL", 
+    os.getenv(
+        "DATABASE_URL",
+        # Fallback for local development with Cloud SQL Proxy
+        "postgresql+asyncpg://skillforge_user:Psaumes@27@localhost:5432/skillforge_db"
+    )
+)
+
+# If no PostgreSQL available, fallback to SQLite for local testing
+if not TEST_DATABASE_URL or "postgresql" not in TEST_DATABASE_URL.lower():
+    TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_skillforge.db"
 
 # Override settings for testing
 test_settings = get_settings()
