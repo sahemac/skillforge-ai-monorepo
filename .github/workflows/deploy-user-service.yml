@@ -48,7 +48,8 @@ jobs:
     if: ${{ always() && needs.security-validation.result == 'success' }}  # Build even if tests fail
     uses: ./.github/workflows/build-push-docker.yml
     with:
-      image_name: ${{ inputs.environment == 'production' && 'skillforge-docker-repo-prod/user-service' || 'skillforge-docker-repo-staging/user-service' }}
+      image_name: ${{ inputs.environment == 'production' && 'skillforge-docker-repo-prod' || 'skillforge-docker-repo-staging' }}
+      image_tag: 'user-service'
       dockerfile_path: 'apps/backend/user-service/Dockerfile'
     secrets:
       GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}

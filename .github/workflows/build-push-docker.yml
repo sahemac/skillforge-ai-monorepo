@@ -6,6 +6,9 @@ on:
       image_name:
         required: true
         type: string
+      image_tag:
+        required: true
+        type: string
       dockerfile_path:
         required: true
         type: string
@@ -44,7 +47,7 @@ jobs:
       - name: Build Docker Image
         id: build
         run: |
-          IMAGE_URI="europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ inputs.image_name }}:${{ github.sha }}"
+          IMAGE_URI="europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ inputs.image_name }}/${{ inputs.image_tag }}:${{ github.sha }}"
           
           # Build with security best practices
           docker build \
