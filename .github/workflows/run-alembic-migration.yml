@@ -24,11 +24,17 @@ on:
         default: "3.11"
     secrets:
       DATABASE_URL:
-        description: "PostgreSQL connection string"
-        required: true
+        description: "PostgreSQL connection string (fallback)"
+        required: false
       GCP_PROJECT_ID:
         description: "Google Cloud Project ID"
-        required: false
+        required: true
+      GCP_WIF_PROVIDER:
+        description: "GCP Workload Identity Federation Provider"
+        required: true
+      GCP_CICD_SERVICE_ACCOUNT:
+        description: "GCP CI/CD Service Account"
+        required: true
     outputs:
       migration_status:
         description: "Migration status (success/failed)"
@@ -88,51 +94,93 @@ jobs:
           echo "✅ Service validation passed"
           echo "service_dir=$SERVICE_DIR" >> $GITHUB_ENV
 
-      - name: Test database connectivity
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
+      
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          version: 'latest'
+      
+      - name: Install Cloud SQL Proxy
         run: |
-          echo "🔍 Testing database connectivity..."
+          echo "🔧 Installing Cloud SQL Proxy..."
+          curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.11.0/cloud-sql-proxy.linux.amd64
+          chmod +x cloud-sql-proxy
+          sudo mv cloud-sql-proxy /usr/local/bin/
           
-          python3 -c "
-          import asyncio
-          import asyncpg
-          import sys
-          from urllib.parse import urlparse
-          
-          async def test_connection():
-              try:
-                  url = '${{ secrets.DATABASE_URL }}'
-                  parsed = urlparse(url)
-                  
-                  conn = await asyncpg.connect(
-                      host=parsed.hostname,
-                      port=parsed.port or 5432,
-                      database=parsed.path[1:],
-                      user=parsed.username,
-                      password=parsed.password
-                  )
-                  
-                  result = await conn.fetchval('SELECT version();')
-                  print(f'✅ Database connection successful')
-                  print(f'PostgreSQL version: {result[:50]}...')
-                  
-                  await conn.close()
-                  return True
-              except Exception as e:
-                  print(f'❌ Database connection failed: {e}')
-                  return False
-          
-          if not asyncio.run(test_connection()):
-              sys.exit(1)
-          "
-
-      - name: Run Alembic Migration
-        id: migration
+          echo "✅ Cloud SQL Proxy installed:"
+          cloud-sql-proxy --version
+      
+      - name: Get Database Password from Secret Manager
+        id: get-db-password
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SERVICE_URL: ${{ inputs.service_url }}
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          echo "🔐 Retrieving database password from Secret Manager..."
+          
+          # Try to get password from Secret Manager
+          if DB_PASSWORD=$(gcloud secrets versions access latest --secret="postgres-password" --project="$PROJECT_ID" 2>/dev/null); then
+            echo "✅ Retrieved password from Secret Manager"
+            echo "db_password=$DB_PASSWORD" >> $GITHUB_OUTPUT
+            echo "password_source=secret_manager" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Could not retrieve from Secret Manager, using DATABASE_URL if available"
+            echo "password_source=database_url" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Start Cloud SQL Proxy
+        if: steps.get-db-password.outputs.password_source == 'secret_manager'
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          echo "🚀 Starting Cloud SQL Proxy..."
+          INSTANCE_CONNECTION_NAME="$PROJECT_ID:europe-west1:skillforge-pg-instance-staging"
+          echo "Instance: $INSTANCE_CONNECTION_NAME"
+          
+          # Start Cloud SQL Proxy in background on port 5433 (to avoid conflicts)
+          cloud-sql-proxy \
+            --port=5433 \
+            --private-ip \
+            "$INSTANCE_CONNECTION_NAME" &
+          
+          PROXY_PID=$!
+          echo "PROXY_PID=$PROXY_PID" >> $GITHUB_ENV
+          
+          echo "⏳ Waiting for Cloud SQL Proxy to be ready..."
+          sleep 10
+          
+          # Test proxy connection
+          if timeout 30 bash -c 'until nc -z localhost 5433; do sleep 1; done'; then
+            echo "✅ Cloud SQL Proxy is ready on port 5433"
+          else
+            echo "❌ Cloud SQL Proxy failed to start"
+            exit 1
+          fi
+
+      - name: Install service dependencies
+        working-directory: ${{ env.service_dir }}
+        run: |
+          echo "📦 Installing service dependencies..."
+          pip install -r requirements.txt
+
+      - name: Run Database Migration
+        id: migration
+        working-directory: ${{ env.service_dir }}
+        env:
+          # Set database configuration based on available secrets
+          DATABASE_URL: ${{ steps.get-db-password.outputs.password_source == 'secret_manager' && format('postgresql+asyncpg://skillforge_user:{0}@localhost:5433/skillforge_db', steps.get-db-password.outputs.db_password) || secrets.DATABASE_URL }}
+          POSTGRES_USER: "skillforge_user"
+          POSTGRES_PASSWORD: ${{ steps.get-db-password.outputs.db_password }}
+          POSTGRES_HOST: ${{ steps.get-db-password.outputs.password_source == 'secret_manager' && 'localhost' || '' }}
+          POSTGRES_PORT: ${{ steps.get-db-password.outputs.password_source == 'secret_manager' && '5433' || '' }}
+          POSTGRES_DB: "skillforge_db"
           ENVIRONMENT: ${{ inputs.environment }}
+          SERVICE_URL: ${{ inputs.service_url }}
         run: |
           set -euo pipefail
           
@@ -140,13 +188,26 @@ jobs:
           LOG_FILE="/tmp/migrate-${{ inputs.service_name }}-$(date +%Y%m%d-%H%M%S).log"
           echo "log_file=$LOG_FILE" >> $GITHUB_OUTPUT
           
-          # Make migration script executable
-          chmod +x scripts/migrate.sh
+          echo "🗃️ Running database migration for ${{ inputs.service_name }} in ${{ inputs.environment }} environment..."
+          echo ""
           
-          echo "🚀 Starting migration for ${{ inputs.service_name }}..."
+          # Show configuration (without revealing password)
+          echo "📋 Migration Configuration:"
+          echo "  Service: ${{ inputs.service_name }}"
+          echo "  Environment: ${{ inputs.environment }}"
+          echo "  Database User: $POSTGRES_USER"
+          echo "  Database Name: $POSTGRES_DB"
+          if [[ "${{ steps.get-db-password.outputs.password_source }}" == "secret_manager" ]]; then
+            echo "  Connection: Cloud SQL via proxy (localhost:5433)"
+            echo "  Password Source: Secret Manager"
+          else
+            echo "  Connection: Direct DATABASE_URL"
+            echo "  Password Source: GitHub Secrets"
+          fi
+          echo ""
           
-          # Run migration script
-          if ./scripts/migrate.sh "${{ inputs.service_name }}" "${{ inputs.environment }}"; then
+          # Run migration using our automatic migration script
+          if python run_migrations.py 2>&1 | tee "$LOG_FILE"; then
             echo "✅ Migration completed successfully"
             echo "status=success" >> $GITHUB_OUTPUT
           else
@@ -160,6 +221,37 @@ jobs:
             fi
             
             exit 1
+          fi
+
+      - name: Verify Migration Status
+        if: steps.migration.outputs.status == 'success'
+        working-directory: ${{ env.service_dir }}
+        env:
+          DATABASE_URL: ${{ steps.get-db-password.outputs.password_source == 'secret_manager' && format('postgresql+asyncpg://skillforge_user:{0}@localhost:5433/skillforge_db', steps.get-db-password.outputs.db_password) || secrets.DATABASE_URL }}
+        run: |
+          echo "🔍 Verifying migration status..."
+          
+          # Show current migration status
+          if command -v alembic >/dev/null 2>&1; then
+            echo "📊 Current Alembic Status:"
+            # Convert async URL to sync for alembic
+            SYNC_URL="${DATABASE_URL//postgresql+asyncpg/postgresql}"
+            SYNC_URL="${SYNC_URL//sqlite+aiosqlite/sqlite}"
+            DATABASE_URL="$SYNC_URL" alembic current -v || echo "⚠️ Could not get current migration status"
+          fi
+          
+          echo ""
+          echo "✅ Migration verification completed"
+
+      - name: Cleanup Cloud SQL Proxy
+        if: always() && env.PROXY_PID
+        run: |
+          echo "🧹 Stopping Cloud SQL Proxy..."
+          if [[ -n "$PROXY_PID" ]] && kill -0 "$PROXY_PID" 2>/dev/null; then
+            kill "$PROXY_PID"
+            echo "✅ Cloud SQL Proxy stopped"
+          else
+            echo "ℹ️ Cloud SQL Proxy was not running"
           fi
 
       - name: Upload migration logs

@@ -36,10 +36,38 @@ target_metadata = SQLModel.metadata
 # ... etc.
 
 def get_database_url():
-    """Get database URL from environment or config."""
-    # Use Cloud SQL via proxy on localhost:5432
-    # Proxy must be running: cloud-sql-proxy.exe --port=5432 skillforge-ai-mvp-25:europe-west1:skillforge-pg-instance-staging
-    return os.environ.get("DATABASE_URL", "postgresql+asyncpg://skillforge_user:Psaumes@27@localhost:5432/skillforge_db")
+    """Get database URL from environment or config with secrets support."""
+    # 1. Priorité à DATABASE_URL en variable d'environnement
+    if database_url := os.environ.get("DATABASE_URL"):
+        return database_url
+        
+    # 2. Configuration pour Cloud Run (via unix socket)
+    cloud_sql_connection_name = os.environ.get("CLOUD_SQL_CONNECTION_NAME")
+    if cloud_sql_connection_name:
+        postgres_user = os.environ.get("POSTGRES_USER", "skillforge_user")
+        postgres_password = os.environ.get("POSTGRES_PASSWORD")
+        postgres_db = os.environ.get("POSTGRES_DB", "skillforge_db")
+        
+        if postgres_password:
+            return f"postgresql+asyncpg://{postgres_user}:{postgres_password}@/{postgres_db}?host=/cloudsql/{cloud_sql_connection_name}"
+    
+    # 3. Construction depuis les composants individuels avec secrets (local/dev)
+    postgres_user = os.environ.get("POSTGRES_USER", "skillforge_user")
+    postgres_password = os.environ.get("POSTGRES_PASSWORD")
+    postgres_host = os.environ.get("POSTGRES_HOST", "localhost")
+    postgres_port = os.environ.get("POSTGRES_PORT", "5432")
+    postgres_db = os.environ.get("POSTGRES_DB", "skillforge_db")
+    
+    if postgres_password:
+        return f"postgresql+asyncpg://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/{postgres_db}"
+    
+    # 4. Fallback pour développement local avec SQLite
+    settings = get_settings()
+    if not settings.is_production:
+        return "sqlite+aiosqlite:///./skillforge_dev.db"
+        
+    # 5. Erreur si pas de configuration en production
+    raise ValueError("DATABASE_URL or POSTGRES_PASSWORD must be set in production environment")
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
@@ -107,4 +135,31 @@ async def run_migrations_online() -> None:
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    asyncio.run(run_migrations_online())
+    # Pour les migrations automatiques, utiliser la version synchrone
+    from sqlalchemy import engine_from_config
+    
+    configuration = config.get_section(config.config_ini_section)
+    configuration["sqlalchemy.url"] = get_database_url()
+    
+    # Convertir les URLs async en sync pour Alembic
+    sync_url = configuration["sqlalchemy.url"]
+    sync_url = sync_url.replace("postgresql+asyncpg://", "postgresql://")
+    sync_url = sync_url.replace("sqlite+aiosqlite://", "sqlite://")
+    configuration["sqlalchemy.url"] = sync_url
+    
+    connectable = engine_from_config(
+        configuration,
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            compare_server_default=True,
+        )
+
+        with context.begin_transaction():
+            context.run_migrations()
