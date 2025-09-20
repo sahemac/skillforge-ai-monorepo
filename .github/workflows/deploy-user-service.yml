@@ -1,4 +1,3 @@
-# .github/workflows/deploy-user-service.yml
 name: "Deploy - User Service"
 on:
   workflow_dispatch:
@@ -19,13 +18,11 @@ on:
       - 'develop'
     paths:
       - 'apps/backend/user-service/**'
-
 permissions:
   contents: read
   id-token: write
-  security-events: write  # For security scans
-  actions: read          # For workflow status
-
+  security-events: write
+  actions: read
 jobs:
   security-validation:
     name: Security Validation
@@ -45,7 +42,7 @@ jobs:
   build:
     name: Build & Push Docker Image
     needs: [security-validation, test]
-    if: ${{ always() && needs.security-validation.result == 'success' }}  # Build even if tests fail
+    if: ${{ always() && needs.security-validation.result == 'success' }}
     uses: ./.github/workflows/build-push-docker.yml
     with:
       image_name: ${{ inputs.environment == 'production' && 'skillforge-docker-repo-prod' || 'skillforge-docker-repo-staging' }}
@@ -71,7 +68,6 @@ jobs:
       GCP_WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
       GCP_CICD_SERVICE_ACCOUNT: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
 
-  # Job factice pour gérer le cas skip_migration
   migrate_skip:
     name: Migration Skipped
     needs: build
@@ -82,7 +78,7 @@ jobs:
         run: echo "Migration skipped as requested"
 
   deploy:
-    name: Deploy to Cloud Run  
+    name: Deploy to Cloud Run
     needs: [build, migrate, migrate_skip]
     if: ${{ always() && needs.build.result == 'success' && (needs.migrate.result == 'success' || needs.migrate_skip.result == 'success') }}
     uses: ./.github/workflows/deploy-to-cloud-run.yml
@@ -125,7 +121,7 @@ jobs:
           echo "- Review test failures in the test job logs" >> $GITHUB_STEP_SUMMARY
           echo "- Fix failing tests in the next iteration" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
       - name: Migration Failed Notification
         if: ${{ needs.migrate.result == 'failure' }}
         run: |
@@ -144,7 +140,7 @@ jobs:
           echo "2. Review database changes and fix any issues" >> $GITHUB_STEP_SUMMARY
           echo "3. Test migration locally before pushing again" >> $GITHUB_STEP_SUMMARY
           echo "4. Consider running with \`skip_migration: true\` if migration is not needed" >> $GITHUB_STEP_SUMMARY
-          
+
       - name: Deployment Success Summary
         if: ${{ needs.deploy.result == 'success' }}
         run: |
