@@ -43,7 +43,6 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-          audience: 'https://iam.googleapis.com/projects/584748485117/locations/global/workloadIdentityPools/skillforge-pool/providers/github-provider'
       
       - name: Debug Authentication
         run: |
