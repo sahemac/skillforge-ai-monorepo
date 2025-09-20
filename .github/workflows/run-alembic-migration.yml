@@ -142,9 +142,9 @@ jobs:
           INSTANCE_CONNECTION_NAME="$PROJECT_ID:europe-west1:skillforge-pg-instance-staging"
           echo "Instance: $INSTANCE_CONNECTION_NAME"
           
-          # Start Cloud SQL Proxy in background on port 5433 (to avoid conflicts)
+          # Start Cloud SQL Proxy in background on port 5432 (standard PostgreSQL port)
           cloud-sql-proxy \
-            --port=5433 \
+            --port=5432 \
             --private-ip \
             "$INSTANCE_CONNECTION_NAME" &
           
@@ -155,8 +155,8 @@ jobs:
           sleep 10
           
           # Test proxy connection
-          if timeout 30 bash -c 'until nc -z localhost 5433; do sleep 1; done'; then
-            echo "✅ Cloud SQL Proxy is ready on port 5433"
+          if timeout 30 bash -c 'until nc -z localhost 5432; do sleep 1; done'; then
+            echo "✅ Cloud SQL Proxy is ready on port 5432"
           else
             echo "❌ Cloud SQL Proxy failed to start"
             exit 1
@@ -173,11 +173,11 @@ jobs:
         working-directory: ${{ env.service_dir }}
         env:
           # Set database configuration based on available secrets
-          DATABASE_URL: ${{ steps.get-db-password.outputs.password_source == 'secret_manager' && format('postgresql+asyncpg://skillforge_user:{0}@localhost:5433/skillforge_db', steps.get-db-password.outputs.db_password) || secrets.DATABASE_URL }}
+          DATABASE_URL: ${{ steps.get-db-password.outputs.password_source == 'secret_manager' && format('postgresql+asyncpg://skillforge_user:{0}@localhost:5432/skillforge_db', steps.get-db-password.outputs.db_password) || secrets.DATABASE_URL }}
           POSTGRES_USER: "skillforge_user"
           POSTGRES_PASSWORD: ${{ steps.get-db-password.outputs.db_password }}
           POSTGRES_HOST: ${{ steps.get-db-password.outputs.password_source == 'secret_manager' && 'localhost' || '' }}
-          POSTGRES_PORT: ${{ steps.get-db-password.outputs.password_source == 'secret_manager' && '5433' || '' }}
+          POSTGRES_PORT: ${{ steps.get-db-password.outputs.password_source == 'secret_manager' && '5432' || '' }}
           POSTGRES_DB: "skillforge_db"
           ENVIRONMENT: ${{ inputs.environment }}
           SERVICE_URL: ${{ inputs.service_url }}
@@ -198,7 +198,7 @@ jobs:
           echo "  Database User: $POSTGRES_USER"
           echo "  Database Name: $POSTGRES_DB"
           if [[ "${{ steps.get-db-password.outputs.password_source }}" == "secret_manager" ]]; then
-            echo "  Connection: Cloud SQL via proxy (localhost:5433)"
+            echo "  Connection: Cloud SQL via proxy (localhost:5432)"
             echo "  Password Source: Secret Manager"
           else
             echo "  Connection: Direct DATABASE_URL"
@@ -227,7 +227,7 @@ jobs:
         if: steps.migration.outputs.status == 'success'
         working-directory: ${{ env.service_dir }}
         env:
-          DATABASE_URL: ${{ steps.get-db-password.outputs.password_source == 'secret_manager' && format('postgresql+asyncpg://skillforge_user:{0}@localhost:5433/skillforge_db', steps.get-db-password.outputs.db_password) || secrets.DATABASE_URL }}
+          DATABASE_URL: ${{ steps.get-db-password.outputs.password_source == 'secret_manager' && format('postgresql+asyncpg://skillforge_user:{0}@localhost:5432/skillforge_db', steps.get-db-password.outputs.db_password) || secrets.DATABASE_URL }}
         run: |
           echo "🔍 Verifying migration status..."
           
