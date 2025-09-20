@@ -135,7 +135,7 @@ jobs:
           fi
       
       - name: Start Cloud SQL Proxy
-        if: steps.get-db-password.outputs.password_source == 'secret_manager'
+        # Always start proxy in CI/CD environment
         env:
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
@@ -206,6 +206,22 @@ jobs:
             echo "  Password Source: GitHub Secrets"
           fi
           echo ""
+          
+          # Test database connectivity before migration
+          echo "🔍 Testing database connectivity..."
+          if [[ "${{ steps.get-db-password.outputs.password_source }}" == "secret_manager" ]]; then
+            echo "Testing Cloud SQL Proxy connection..."
+            if timeout 10 bash -c 'until nc -z localhost 5432; do sleep 1; done'; then
+              echo "✅ Cloud SQL Proxy connection successful"
+            else
+              echo "❌ Cannot connect to Cloud SQL Proxy on localhost:5432"
+              echo "Checking proxy process..."
+              ps aux | grep cloud-sql-proxy || echo "No proxy process found"
+              echo "Checking port 5432..."
+              netstat -tuln | grep 5432 || echo "Port 5432 not listening"
+              exit 1
+            fi
+          fi
           
           # Run migration using our automatic migration script
           if python run_migrations.py 2>&1 | tee "$LOG_FILE"; then

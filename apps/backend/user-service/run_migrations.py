@@ -85,6 +85,34 @@ class DatabaseMigrator:
             return True
         except Exception as e:
             logger.error(f"ERROR Erreur de connexion à la base de données: {e}")
+            logger.error(f"DEBUG URL utilisée: {database_url}")
+            
+            # Informations de debug pour CI/CD
+            import socket
+            try:
+                # Test de résolution DNS
+                host_port = database_url.split('@')[1].split('/')[0] if '@' in database_url else 'localhost:5432'
+                host = host_port.split(':')[0]
+                port = int(host_port.split(':')[1]) if ':' in host_port else 5432
+                
+                logger.error(f"DEBUG Tentative de résolution DNS pour {host}...")
+                socket.gethostbyname(host)
+                logger.error(f"DEBUG DNS OK pour {host}")
+                
+                logger.error(f"DEBUG Test de connexion TCP {host}:{port}...")
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(5)
+                result = sock.connect_ex((host, port))
+                sock.close()
+                
+                if result == 0:
+                    logger.error(f"DEBUG Port {port} accessible sur {host}")
+                else:
+                    logger.error(f"DEBUG Port {port} inaccessible sur {host} (code: {result})")
+                    
+            except Exception as debug_e:
+                logger.error(f"DEBUG Erreur lors du diagnostic: {debug_e}")
+            
             return False
     
     def run_migrations(self, database_url: str):
@@ -171,7 +199,7 @@ if __name__ == "__main__":
     DATABASE_URL="postgresql+asyncpg://skillforge_user:password@localhost:5433/skillforge_db" python run_migrations.py
     
     # PostgreSQL local
-    POSTGRES_PASSWORD="Psaumes@27" python run_migrations.py
+    POSTGRES_PASSWORD="your_secure_password" python run_migrations.py
     
     # Développement avec SQLite (fallback)
     python run_migrations.py
