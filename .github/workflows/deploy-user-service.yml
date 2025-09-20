@@ -37,7 +37,6 @@ jobs:
     name: Run Unit Tests
     needs: security-validation
     uses: ./.github/workflows/run-python-tests.yml
-    continue-on-error: true  # Allow workflow to continue even if tests fail
     with:
       service-directory: 'apps/backend/user-service'
     secrets:
@@ -45,7 +44,7 @@ jobs:
 
   build:
     name: Build & Push Docker Image
-    needs: test
+    needs: [security-validation, test]
     if: ${{ always() && needs.security-validation.result == 'success' }}  # Build even if tests fail
     uses: ./.github/workflows/build-push-docker.yml
     with:
