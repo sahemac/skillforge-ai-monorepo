@@ -39,28 +39,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         
-      - name: Debug Secrets Before Auth
-        run: |
-          echo "🔍 Debugging secrets validation..."
-          echo "GCP_PROJECT_ID length: ${#GCP_PROJECT_ID}"
-          echo "GCP_WIF_PROVIDER length: ${#GCP_WIF_PROVIDER}"
-          echo "GCP_CICD_SERVICE_ACCOUNT length: ${#GCP_CICD_SERVICE_ACCOUNT}"
-          echo ""
-          echo "Expected lengths:"
-          echo "- PROJECT_ID: 21 chars (skillforge-ai-mvp-25)"
-          echo "- WIF_PROVIDER: 112 chars"
-          echo "- SERVICE_ACCOUNT: 67 chars"
-          echo ""
-          echo "WIF_PROVIDER ends with: ...${GCP_WIF_PROVIDER: -10}"
-          echo "SERVICE_ACCOUNT ends with: ...${GCP_CICD_SERVICE_ACCOUNT: -20}"
-          echo ""
-          echo "Expected WIF ending: ...ers/github"
-          echo "Expected SA ending: ...ice-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com"
-        env:
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          GCP_WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
-          GCP_CICD_SERVICE_ACCOUNT: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-          
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
@@ -68,14 +46,6 @@ jobs:
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
           audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
       
-      - name: Debug Authentication
-        run: |
-          echo "🔍 Debugging authentication..."
-          echo "Service Account from secret: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}"
-          echo "Active service account:"
-          gcloud auth list --filter=status:ACTIVE --format="value(account)"
-          echo "Testing Artifact Registry access:"
-          gcloud artifacts repositories list --project=${{ secrets.GCP_PROJECT_ID }} --location=europe-west1 --filter="name:skillforge-docker-repo-staging" || echo "❌ No access to repositories"
       - name: Configure Docker
         run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
       - name: Build Docker Image
