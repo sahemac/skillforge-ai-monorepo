@@ -31,6 +31,8 @@ jobs:
       contents: 'read'
       id-token: 'write'
       security-events: 'write'  # For SARIF upload to Security tab
+    env:
+      IMAGE_URI: "europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ inputs.image_name }}/${{ inputs.image_tag }}:${{ github.sha }}"
     outputs:
       image_uri: ${{ steps.push.outputs.image_uri }}
     steps:
@@ -41,7 +43,7 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'  # Explicit audience
+          audience: 'https://iam.googleapis.com/projects/584748485117/locations/global/workloadIdentityPools/skillforge-pool/providers/github-provider'
       
       - name: Debug Authentication
         run: |
@@ -56,8 +58,6 @@ jobs:
       - name: Build Docker Image
         id: build
         run: |
-          IMAGE_URI="europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ inputs.image_name }}/${{ inputs.image_tag }}:${{ github.sha }}"
-          
           # Build with security best practices
           docker build \
             --no-cache \
@@ -74,7 +74,7 @@ jobs:
         uses: aquasecurity/trivy-action@0.20.0
         continue-on-error: true  # Don't block deployment for security scan failures
         with:
-          image-ref: ${{ steps.build.outputs.image_uri }}
+          image-ref: ${{ env.IMAGE_URI }}
           format: 'sarif'
           output: 'trivy-results.sarif'
           exit-code: '0'  # Don't fail the job on vulnerabilities
@@ -93,7 +93,7 @@ jobs:
         uses: aquasecurity/trivy-action@0.20.0
         if: always()
         with:
-          image-ref: ${{ steps.build.outputs.image_uri }}
+          image-ref: ${{ env.IMAGE_URI }}
           format: 'table'
           exit-code: '0'
           ignore-unfixed: true
@@ -102,5 +102,5 @@ jobs:
       - name: Push Docker Image
         id: push
         run: |
-          docker push ${{ steps.build.outputs.image_uri }}
-          echo "image_uri=${{ steps.build.outputs.image_uri }}" >> $GITHUB_OUTPUT
+          docker push ${{ env.IMAGE_URI }}
+          echo "image_uri=${{ env.IMAGE_URI }}" >> $GITHUB_OUTPUT
