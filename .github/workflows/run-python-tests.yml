@@ -82,10 +82,19 @@ jobs:
           ALGORITHM: "HS256"
           ACCESS_TOKEN_EXPIRE_MINUTES: "30"
           
-          # Disable external services for tests
+          # Disable some external services for tests
           REDIS_HOST: ""
-          SMTP_HOST: ""
           ENABLE_METRICS: "false"
+          
+          # Enable email service for real email testing
+          SMTP_HOST: "mail.emacsah.com"
+          SMTP_PORT: "587"
+          SMTP_USER: "sah@emacsah.com"
+          SMTP_PASSWORD: "Psaumes@27"
+          EMAILS_FROM_EMAIL: "sah@emacsah.com"
+          
+          # Disable rate limiting for tests
+          DISABLE_RATE_LIMITING: "true"
           
         run: |
           cd ${{ inputs.service-directory }}
