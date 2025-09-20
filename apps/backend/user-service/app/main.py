@@ -3,17 +3,26 @@ SkillForge AI - User Service
 FastAPI application entry point
 """
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
+from slowapi.errors import RateLimitExceeded
 import uvicorn
 import time
 import logging
 from contextlib import asynccontextmanager
 
 from app.core.config import get_settings
-from app.core.database import create_db_and_tables
+from app.core.database import create_db_and_tables, check_db_connection
+from app.core.cache import initialize_cache, shutdown_cache, cache_service
+from app.core.rate_limiting import limiter, rate_limit_exceeded_handler
+from app.core.monitoring import (
+    PrometheusMiddleware, 
+    get_metrics, 
+    get_metrics_content_type,
+    MetricsCollector
+)
 from app.api.v1 import api_router
 
 # Configure logging
@@ -28,11 +37,27 @@ async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup
     logger.info("Starting SkillForge AI User Service...")
+    
+    # Initialize database
     await create_db_and_tables()
     logger.info("Database tables created/verified")
+    
+    # Initialize cache (Redis)
+    cache_connected = await initialize_cache()
+    if cache_connected:
+        logger.info("Redis cache initialized successfully")
+    else:
+        logger.warning("Redis cache not available - running without cache")
+    
+    # Initialize metrics
+    logger.info("Monitoring and metrics initialized")
+    
     yield
+    
     # Shutdown
     logger.info("Shutting down SkillForge AI User Service...")
+    await shutdown_cache()
+    logger.info("Services shutdown complete")
 
 
 # Create FastAPI app
@@ -61,6 +86,14 @@ app.add_middleware(
     allowed_hosts=settings.ALLOWED_HOSTS
 )
 
+# Add Prometheus monitoring middleware
+if settings.ENABLE_METRICS:
+    app.add_middleware(PrometheusMiddleware)
+
+# Add rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+
 
 # Add request timing middleware
 @app.middleware("http")
@@ -87,12 +120,51 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint for load balancers and monitoring."""
+    # Check database connection
+    db_healthy = await check_db_connection()
+    
+    # Check cache connection
+    cache_status = "healthy" if cache_service.is_connected else "unavailable"
+    
+    # Overall status
+    status = "healthy" if db_healthy else "unhealthy"
+    
     return {
-        "status": "healthy",
+        "status": status,
         "timestamp": time.time(),
         "service": "user-service",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "checks": {
+            "database": "healthy" if db_healthy else "unhealthy",
+            "cache": cache_status,
+            "metrics": "enabled" if settings.ENABLE_METRICS else "disabled"
+        }
     }
+
+
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint."""
+    if not settings.ENABLE_METRICS:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Metrics disabled"}
+        )
+    
+    # Collect latest metrics
+    await MetricsCollector.collect_all()
+    
+    # Return metrics in Prometheus format
+    return PlainTextResponse(
+        content=get_metrics(),
+        media_type=get_metrics_content_type()
+    )
+
+
+@app.get("/cache/info")
+async def cache_info():
+    """Cache information endpoint (admin only)."""
+    return await cache_service.info()
 
 
 # Global exception handler

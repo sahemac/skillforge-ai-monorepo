@@ -44,16 +44,20 @@ class Settings(BaseSettings):
     
     # Redis Configuration
     REDIS_URL: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
+    REDIS_HOST: str = Field(default="localhost", env="REDIS_HOST")
+    REDIS_PORT: int = Field(default=6379, env="REDIS_PORT")
+    REDIS_PASSWORD: Optional[str] = Field(default=None, env="REDIS_PASSWORD")
+    REDIS_DB: int = Field(default=0, env="REDIS_DB")
     CACHE_TTL: int = Field(default=300, env="CACHE_TTL")  # 5 minutes
     
-    # Email Configuration
+    # Email Configuration (emacsah.com domain)
     SMTP_TLS: bool = Field(default=True, env="SMTP_TLS")
     SMTP_PORT: Optional[int] = Field(default=587, env="SMTP_PORT")
-    SMTP_HOST: Optional[str] = Field(default=None, env="SMTP_HOST")
-    SMTP_USER: Optional[str] = Field(default=None, env="SMTP_USER")
+    SMTP_HOST: Optional[str] = Field(default="mail.emacsah.com", env="SMTP_HOST")
+    SMTP_USER: Optional[str] = Field(default="sah@emacsah.com", env="SMTP_USER")
     SMTP_PASSWORD: Optional[str] = Field(default=None, env="SMTP_PASSWORD")
-    EMAILS_FROM_EMAIL: Optional[EmailStr] = Field(default=None, env="EMAILS_FROM_EMAIL")
-    EMAILS_FROM_NAME: Optional[str] = Field(default=None, env="EMAILS_FROM_NAME")
+    EMAILS_FROM_EMAIL: Optional[EmailStr] = Field(default="sah@emacsah.com", env="EMAILS_FROM_EMAIL")
+    EMAILS_FROM_NAME: Optional[str] = Field(default="SkillForge AI", env="EMAILS_FROM_NAME")
     
     # First Superuser
     FIRST_SUPERUSER: Optional[EmailStr] = Field(default=None, env="FIRST_SUPERUSER")
