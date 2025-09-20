@@ -42,6 +42,15 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
           audience: 'https://github.com/sahemac/skillforge-ai-monorepo'  # Explicit audience
+      
+      - name: Debug Authentication
+        run: |
+          echo "🔍 Debugging authentication..."
+          echo "Service Account from secret: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}"
+          echo "Active service account:"
+          gcloud auth list --filter=status:ACTIVE --format="value(account)"
+          echo "Testing Artifact Registry access:"
+          gcloud artifacts repositories list --project=${{ secrets.GCP_PROJECT_ID }} --location=europe-west1 --filter="name:skillforge-docker-repo-staging" || echo "❌ No access to repositories"
       - name: Configure Docker
         run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
       - name: Build Docker Image
