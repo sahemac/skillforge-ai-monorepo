@@ -125,13 +125,13 @@ jobs:
           echo "🔐 Retrieving database password from Secret Manager..."
           
           # Try to get password from Secret Manager
-          echo "DEBUG: Attempting to access secret 'postgres-password' in project '$PROJECT_ID'"
+          echo "DEBUG: Attempting to access secret 'postgres-password-staging' in project '$PROJECT_ID'"
           
           # List available secrets first
           echo "Available secrets in project:"
           gcloud secrets list --project="$PROJECT_ID" --format="table(name)" || echo "Failed to list secrets"
           
-          if DB_PASSWORD=$(gcloud secrets versions access latest --secret="postgres-password" --project="$PROJECT_ID" 2>&1); then
+          if DB_PASSWORD=$(gcloud secrets versions access latest --secret="postgres-password-staging" --project="$PROJECT_ID" 2>&1); then
             if [[ ! "$DB_PASSWORD" =~ ^ERROR ]]; then
               echo "✅ Retrieved password from Secret Manager"
               echo "db_password=$DB_PASSWORD" >> $GITHUB_OUTPUT
