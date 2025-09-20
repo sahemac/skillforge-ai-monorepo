@@ -89,11 +89,12 @@ class DatabaseMigrator:
             
             # Informations de debug pour CI/CD
             import socket
+            from urllib.parse import urlparse
             try:
-                # Test de résolution DNS
-                host_port = database_url.split('@')[1].split('/')[0] if '@' in database_url else 'localhost:5432'
-                host = host_port.split(':')[0]
-                port = int(host_port.split(':')[1]) if ':' in host_port else 5432
+                # Parse URL proprement
+                parsed = urlparse(database_url)
+                host = parsed.hostname or 'localhost'
+                port = parsed.port or 5432
                 
                 logger.error(f"DEBUG Tentative de résolution DNS pour {host}...")
                 socket.gethostbyname(host)

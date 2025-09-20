@@ -125,17 +125,32 @@ jobs:
           echo "🔐 Retrieving database password from Secret Manager..."
           
           # Try to get password from Secret Manager
-          if DB_PASSWORD=$(gcloud secrets versions access latest --secret="postgres-password" --project="$PROJECT_ID" 2>/dev/null); then
-            echo "✅ Retrieved password from Secret Manager"
-            echo "db_password=$DB_PASSWORD" >> $GITHUB_OUTPUT
-            echo "password_source=secret_manager" >> $GITHUB_OUTPUT
+          echo "DEBUG: Attempting to access secret 'postgres-password' in project '$PROJECT_ID'"
+          
+          # List available secrets first
+          echo "Available secrets in project:"
+          gcloud secrets list --project="$PROJECT_ID" --format="table(name)" || echo "Failed to list secrets"
+          
+          if DB_PASSWORD=$(gcloud secrets versions access latest --secret="postgres-password" --project="$PROJECT_ID" 2>&1); then
+            if [[ ! "$DB_PASSWORD" =~ ^ERROR ]]; then
+              echo "✅ Retrieved password from Secret Manager"
+              echo "db_password=$DB_PASSWORD" >> $GITHUB_OUTPUT
+              echo "password_source=secret_manager" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Secret Manager error: $DB_PASSWORD"
+              echo "password_source=database_url" >> $GITHUB_OUTPUT
+            fi
           else
-            echo "⚠️ Could not retrieve from Secret Manager, using DATABASE_URL if available"
+            echo "❌ gcloud command failed"
+            echo "Checking gcloud auth status..."
+            gcloud auth list || echo "Auth list failed"
+            echo "Checking project access..."
+            gcloud projects describe "$PROJECT_ID" --format="value(projectId)" || echo "Project access failed"
             echo "password_source=database_url" >> $GITHUB_OUTPUT
           fi
       
       - name: Start Cloud SQL Proxy
-        # Always start proxy in CI/CD environment
+        if: steps.get-db-password.outputs.password_source == 'secret_manager'
         env:
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
