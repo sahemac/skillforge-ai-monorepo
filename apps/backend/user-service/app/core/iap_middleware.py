@@ -33,7 +33,7 @@ class IAPMiddleware(BaseHTTPMiddleware):
         """Process IAP headers if present."""
         
         # Skip IAP validation for health checks and metrics (common bypass endpoints)
-        if request.url.path in ["/health", "/metrics", "/"]:
+        if request.url.path in ["/health", "/metrics", "/", "/api/v1/auth/health"]:
             logger.debug(f"Skipping IAP validation for health endpoint: {request.url.path}")
             return await call_next(request)
         
