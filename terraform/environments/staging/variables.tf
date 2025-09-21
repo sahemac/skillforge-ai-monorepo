@@ -275,7 +275,7 @@ locals {
   postgres_password_full_name = "${var.postgres_password_secret_name}-${local.name_suffix}"
   
   # Load balancer names
-  ssl_cert_name = "${var.project_prefix}-ssl-cert-${local.name_suffix}"
+  ssl_cert_name = "${var.project_prefix}-ssl-cert-multi-${local.name_suffix}"
   urlmap_name = "${var.project_prefix}-urlmap-${local.name_suffix}"
   https_proxy_name = "${var.project_prefix}-https-proxy-${local.name_suffix}"
   https_forwarding_name = "${var.project_prefix}-https-forwarding-${local.name_suffix}"

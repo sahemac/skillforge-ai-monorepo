@@ -14,7 +14,6 @@ from app.core.database import get_session
 from app.core.security import verify_token, check_permission
 from app.crud import user as user_crud
 from app.models.user import User, UserRole
-from app.schemas.user import TokenData
 
 logger = logging.getLogger(__name__)
 

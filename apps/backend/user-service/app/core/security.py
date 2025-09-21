@@ -7,9 +7,9 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, Union
 from uuid import UUID
+
 import jwt
 from passlib.context import CryptContext
-from passlib.handlers.bcrypt import bcrypt
 
 from app.core.config import get_settings
 from app.models.user import UserRole

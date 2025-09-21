@@ -377,3 +377,6 @@ Default compute service account             584748485117-compute@developer.gserv
 Terraform CI/CD                             terraform-ci-cd@skillforge-ai-mvp-25.iam.gserviceaccount.com          False
 Service Account for GitHub Actions CI/CD    sa-github-actions-cicd@skillforge-ai-mvp-25.iam.gserviceaccount.com   False
 Service Account for user-service (Staging)  sa-user-service-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com  False
+
+
+sa-user-service-staging@skillforge-ai-mvp-25.iam.gserviceaccount.

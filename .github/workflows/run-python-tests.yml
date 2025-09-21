@@ -51,6 +51,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y netcat-openbsd
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -64,7 +69,7 @@ jobs:
             pip install fastapi==0.104.1 pytest==7.4.3 pytest-asyncio==0.21.1 sqlmodel==0.0.14 httpx==0.25.2 aiosqlite==0.19.0 pydantic-settings==2.1.0 python-jose==3.3.0 passlib==1.7.4 asyncpg==0.29.0 email-validator==2.1.0 pytest-cov==4.1.0
           fi
           # Install additional test dependencies
-          pip install pytest-postgresql pytest-xdist netcat-openbsd
+          pip install pytest-postgresql pytest-xdist
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2

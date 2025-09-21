@@ -3,11 +3,12 @@ Database configuration and session management for SkillForge AI User Service
 """
 
 import asyncio
+import logging
 from typing import AsyncGenerator, Optional
+
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, AsyncEngine, async_sessionmaker
 from sqlalchemy.pool import NullPool
-from sqlalchemy import text
-import logging
 
 from app.core.config import get_settings
 from app.models.base import SQLModel

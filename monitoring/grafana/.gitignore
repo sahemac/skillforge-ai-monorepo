@@ -1,0 +1,11 @@
+# Grafana Authentication Files
+grafana-sa-key.json
+grafana-oauth-token.txt
+*.key
+*.json
+!README.md
+!wif-setup.md
+
+# Temporary files
+temp_*
+.temp*
