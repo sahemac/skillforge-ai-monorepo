@@ -23,6 +23,7 @@ from app.core.monitoring import (
     get_metrics_content_type,
     MetricsCollector
 )
+from app.core.iap_middleware import IAPMiddleware
 from app.api.v1 import api_router
 
 # Configure logging
@@ -86,12 +87,20 @@ app.add_middleware(
     allowed_hosts=settings.ALLOWED_HOSTS
 )
 
+# Add IAP middleware (before rate limiting for proper auth)
+app.add_middleware(
+    IAPMiddleware,
+    project_number="584748485117",
+    backend_service_id="user-service-backend-staging"
+)
+
 # Add Prometheus monitoring middleware
 if settings.ENABLE_METRICS:
     app.add_middleware(PrometheusMiddleware)
 
 # Add rate limiting
 app.state.limiter = limiter
+app.state.environment = settings.ENVIRONMENT  # For IAP middleware
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 
