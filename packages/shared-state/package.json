@@ -1,0 +1,59 @@
+{
+  "name": "@skillforge-ai/shared-state",
+  "version": "1.0.0",
+  "description": "CQRS State Management for SkillForge AI",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./commands": {
+      "types": "./dist/commands/index.d.ts", 
+      "import": "./dist/commands/index.js"
+    },
+    "./queries": {
+      "types": "./dist/queries/index.d.ts",
+      "import": "./dist/queries/index.js"
+    },
+    "./store": {
+      "types": "./dist/store/index.d.ts",
+      "import": "./dist/store/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint src --ext .ts,.tsx",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage"
+  },
+  "dependencies": {
+    "@reduxjs/toolkit": "^2.4.0",
+    "@tanstack/react-query": "^5.62.7",
+    "@tanstack/react-query-devtools": "^5.62.7",
+    "react": "^19.1.1",
+    "react-redux": "^9.2.0",
+    "redux-persist": "^6.0.0",
+    "immer": "^10.1.1",
+    "zod": "^3.23.8",
+    "@preact/signals-react": "^2.2.0",
+    "mitt": "^3.0.1"
+  },
+  "devDependencies": {
+    "@skillforge-ai/core": "workspace:*",
+    "@types/react": "^19.1.10",
+    "@typescript-eslint/eslint-plugin": "^8.42.0",
+    "@typescript-eslint/parser": "^8.42.0",
+    "eslint": "^9.33.0",
+    "typescript": "~5.8.3",
+    "vitest": "^2.1.8",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/jest-dom": "^6.6.3"
+  },
+  "peerDependencies": {
+    "react": "^19.1.1"
+  }
+}

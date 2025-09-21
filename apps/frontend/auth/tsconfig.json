@@ -1,0 +1,49 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": false,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/domain/*": ["src/domain/*"],
+      "@/application/*": ["src/application/*"],
+      "@/infrastructure/*": ["src/infrastructure/*"],
+      "@/presentation/*": ["src/presentation/*"],
+      "@skillforge-ai/core": ["../../../packages/core/src"],
+      "@skillforge-ai/ui-kit": ["../../../packages/ui-kit/src"],
+      "@skillforge-ai/api-client": ["../../../packages/api-client/src"],
+      "@skillforge-ai/shared": ["../../../packages/shared/src"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "../../../packages/*/src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ],
+  "references": [
+    { "path": "../../../packages/core" },
+    { "path": "../../../packages/ui-kit" },
+    { "path": "../../../packages/api-client" },
+    { "path": "../../../packages/shared" }
+  ]
+}
