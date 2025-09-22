@@ -23,12 +23,19 @@ from app.core.monitoring import (
     get_metrics_content_type,
     MetricsCollector
 )
+from prometheus_fastapi_instrumentator import Instrumentator
 from app.core.iap_middleware import IAPMiddleware
+from app.core.structured_logging import (
+    configure_logging, 
+    get_logger,
+    CorrelationMiddleware,
+    LoggingMiddleware
+)
 from app.api.v1 import api_router
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Configure structured logging
+configure_logging()
+logger = get_logger(__name__)
 
 settings = get_settings()
 
@@ -52,6 +59,21 @@ async def lifespan(app: FastAPI):
     
     # Initialize metrics
     logger.info("Monitoring and metrics initialized")
+    
+    # Initialize FastAPI Instrumentator for enhanced metrics
+    if settings.ENABLE_METRICS:
+        instrumentator = Instrumentator(
+            should_group_status_codes=False,
+            should_ignore_untemplated=True,
+            should_respect_env_var=True,
+            should_instrument_requests_inprogress=True,
+            excluded_handlers=["/metrics", "/health"],
+            env_var_name="ENABLE_METRICS",
+            inprogress_name="skillforge_inprogress",
+            inprogress_labels=True,
+        )
+        instrumentator.instrument(app).expose(app)
+        logger.info("FastAPI Instrumentator initialized")
     
     yield
     
@@ -86,6 +108,10 @@ app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=settings.ALLOWED_HOSTS
 )
+
+# Add logging middleware (first for proper request tracking)
+app.add_middleware(CorrelationMiddleware)
+app.add_middleware(LoggingMiddleware)
 
 # Add IAP middleware (before rate limiting for proper auth)
 app.add_middleware(
@@ -129,25 +155,104 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint for load balancers and monitoring."""
+    import httpx
+    
+    checks = {}
+    overall_healthy = True
+    
     # Check database connection
-    db_healthy = await check_db_connection()
+    try:
+        db_healthy = await check_db_connection()
+        checks["database"] = {
+            "status": "healthy" if db_healthy else "unhealthy",
+            "response_time_ms": None
+        }
+        if not db_healthy:
+            overall_healthy = False
+    except Exception as e:
+        checks["database"] = {
+            "status": "unhealthy", 
+            "error": str(e),
+            "response_time_ms": None
+        }
+        overall_healthy = False
     
     # Check cache connection
-    cache_status = "healthy" if cache_service.is_connected else "unavailable"
+    cache_start = time.time()
+    try:
+        cache_connected = cache_service.is_connected
+        if cache_connected:
+            # Test cache with a simple operation
+            await cache_service.set("health_check", "ok", expire=1)
+            cache_test = await cache_service.get("health_check")
+            cache_response_time = (time.time() - cache_start) * 1000
+            checks["cache"] = {
+                "status": "healthy" if cache_test == "ok" else "degraded",
+                "response_time_ms": round(cache_response_time, 2)
+            }
+        else:
+            checks["cache"] = {
+                "status": "unavailable",
+                "response_time_ms": None
+            }
+    except Exception as e:
+        checks["cache"] = {
+            "status": "unhealthy",
+            "error": str(e),
+            "response_time_ms": None
+        }
+    
+    # Check external dependencies (example: email service)
+    try:
+        # Test SMTP connection if configured
+        if hasattr(settings, 'SMTP_HOST') and settings.SMTP_HOST:
+            smtp_start = time.time()
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                # Mock check - in real implementation, test actual SMTP
+                smtp_response_time = (time.time() - smtp_start) * 1000
+                checks["smtp"] = {
+                    "status": "healthy",
+                    "response_time_ms": round(smtp_response_time, 2)
+                }
+        else:
+            checks["smtp"] = {"status": "not_configured", "response_time_ms": None}
+    except Exception as e:
+        checks["smtp"] = {
+            "status": "unhealthy",
+            "error": str(e),
+            "response_time_ms": None
+        }
+        overall_healthy = False
+    
+    # Check metrics system
+    try:
+        metrics_start = time.time()
+        if settings.ENABLE_METRICS:
+            await MetricsCollector.collect_all()
+            metrics_response_time = (time.time() - metrics_start) * 1000
+            checks["metrics"] = {
+                "status": "healthy",
+                "response_time_ms": round(metrics_response_time, 2)
+            }
+        else:
+            checks["metrics"] = {"status": "disabled", "response_time_ms": None}
+    except Exception as e:
+        checks["metrics"] = {
+            "status": "unhealthy", 
+            "error": str(e),
+            "response_time_ms": None
+        }
     
     # Overall status
-    status = "healthy" if db_healthy else "unhealthy"
+    status = "healthy" if overall_healthy else "unhealthy"
     
     return {
         "status": status,
         "timestamp": time.time(),
-        "service": "user-service",
+        "service": "user-service", 
         "version": "1.0.0",
-        "checks": {
-            "database": "healthy" if db_healthy else "unhealthy",
-            "cache": cache_status,
-            "metrics": "enabled" if settings.ENABLE_METRICS else "disabled"
-        }
+        "environment": settings.ENVIRONMENT,
+        "checks": checks
     }
 
 

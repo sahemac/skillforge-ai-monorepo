@@ -41,3 +41,21 @@ module "user_service" {
   # Préfixe service account
   service_account_prefix         = var.service_account_prefix
 }
+
+# API Gateway Module (Test Version)
+module "api_gateway_test" {
+  source = "../../modules/api-gateway"
+  
+  # Configuration de base
+  project_id      = var.project_id
+  environment     = var.environment
+  region          = var.region
+  
+  # URL du user-service pour le routage
+  user_service_url = module.user_service.service_url
+  
+  # Configuration personnalisée (optionnel)
+  custom_domain    = ""  # Laissé vide pour utiliser l'URL par défaut
+  dns_zone_name    = "emacsah.com"
+  dns_zone_id      = ""
+}

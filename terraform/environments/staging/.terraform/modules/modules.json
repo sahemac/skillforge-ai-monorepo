@@ -1,1 +1,1 @@
-{"Modules":[{"Key":"","Source":"","Dir":"."},{"Key":"user_service","Source":"./services","Dir":"services"}]}
+{"Modules":[{"Key":"","Source":"","Dir":"."},{"Key":"api_gateway_test","Source":"../../modules/api-gateway","Dir":"../../modules/api-gateway"},{"Key":"user_service","Source":"./services","Dir":"services"}]}

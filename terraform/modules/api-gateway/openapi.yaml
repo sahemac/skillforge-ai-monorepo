@@ -1,0 +1,2147 @@
+openapi: 3.0.3
+info:
+  title: SkillForge AI API
+  description: |
+    SkillForge AI platform API providing access to all microservices through a unified gateway.
+    
+    ## Authentication
+    This API supports multiple authentication methods:
+    - JWT Bearer tokens for user authentication
+    - API Keys for service-to-service communication
+    - IAP (Identity-Aware Proxy) for additional security layer
+    
+    ## Rate Limiting
+    API calls are rate limited to ensure fair usage and system stability.
+    
+    ## CORS
+    Cross-Origin Resource Sharing (CORS) is enabled for web applications.
+  version: 1.0.0
+  contact:
+    name: SkillForge AI Team
+    email: api@skillforge.ai
+  license:
+    name: Proprietary
+    url: https://skillforge.ai/license
+
+servers:
+  - url: https://api.skillforge.ai
+    description: Production server
+  - url: https://api-staging.skillforge.ai
+    description: Staging server
+
+# Security Schemes
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for user authentication
+    
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for service authentication
+    
+    ApiKeyQuery:
+      type: apiKey
+      in: query
+      name: api_key
+      description: API key in query parameter
+    
+    IAPAuth:
+      type: http
+      scheme: bearer
+      description: Identity-Aware Proxy authentication
+
+  responses:
+    UnauthorizedError:
+      description: Authentication information is missing or invalid
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Unauthorized"
+              message:
+                type: string
+                example: "Authentication required"
+    
+    ForbiddenError:
+      description: Access forbidden
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Forbidden"
+              message:
+                type: string
+                example: "Insufficient permissions"
+    
+    RateLimitError:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Rate limit exceeded"
+              message:
+                type: string
+                example: "Too many requests"
+              retry_after:
+                type: integer
+                example: 60
+
+# Global security requirements
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+  - ApiKeyQuery: []
+
+# API Paths
+paths:
+  # Health Check Endpoint
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Check API Gateway health status
+      operationId: healthCheck
+      security: []
+      responses:
+        '200':
+          description: API Gateway is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+      x-google-backend:
+        address: "${user_service_url}/health"
+
+  # User Service Routes
+  /api/v1/users:
+    get:
+      summary: List users
+      description: Retrieve a list of users
+      operationId: listUsers
+      tags:
+        - Users
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 100
+      responses:
+        '200':
+          description: List of users
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${user_service_url}"
+    
+    post:
+      summary: Create user
+      description: Create a new user
+      operationId: createUser
+      tags:
+        - Users
+      responses:
+        '201':
+          description: User created successfully
+        '400':
+          description: Invalid input
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${user_service_url}"
+
+  /api/v1/users/{userId}:
+    get:
+      summary: Get user by ID
+      description: Retrieve a specific user by ID
+      operationId: getUserById
+      tags:
+        - Users
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User details
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: User not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${user_service_url}"
+    
+    put:
+      summary: Update user
+      description: Update a specific user
+      operationId: updateUser
+      tags:
+        - Users
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User updated successfully
+        '400':
+          description: Invalid input
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: User not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${user_service_url}"
+    
+    delete:
+      summary: Delete user
+      description: Delete a specific user
+      operationId: deleteUser
+      tags:
+        - Users
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: User deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: User not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${user_service_url}"
+
+  # Auth Service Routes
+  /api/v1/auth/login:
+    post:
+      summary: User login
+      description: Authenticate user and return JWT token
+      operationId: login
+      tags:
+        - Authentication
+      security: []
+      responses:
+        '200':
+          description: Login successful
+        '401':
+          description: Invalid credentials
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${auth_service_url}"
+
+  /api/v1/auth/logout:
+    post:
+      summary: User logout
+      description: Logout user and invalidate token
+      operationId: logout
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: Logout successful
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${auth_service_url}"
+
+  /api/v1/auth/refresh:
+    post:
+      summary: Refresh token
+      description: Refresh JWT token
+      operationId: refreshToken
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: Token refreshed successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${auth_service_url}"
+
+  /api/v1/auth/register:
+    post:
+      summary: User registration
+      description: Register a new user
+      operationId: register
+      tags:
+        - Authentication
+      security: []
+      responses:
+        '201':
+          description: Registration successful
+        '400':
+          description: Invalid input
+        '409':
+          description: User already exists
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${auth_service_url}"
+
+  # Company Service Routes
+  /api/v1/companies:
+    get:
+      summary: List companies
+      description: Retrieve a list of companies
+      operationId: listCompanies
+      tags:
+        - Companies
+      responses:
+        '200':
+          description: List of companies
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${company_service_url}"
+    
+    post:
+      summary: Create company
+      description: Create a new company
+      operationId: createCompany
+      tags:
+        - Companies
+      responses:
+        '201':
+          description: Company created successfully
+        '400':
+          description: Invalid input
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${company_service_url}"
+
+  /api/v1/companies/{companyId}:
+    get:
+      summary: Get company by ID
+      description: Retrieve a specific company by ID
+      operationId: getCompanyById
+      tags:
+        - Companies
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Company details
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Company not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${company_service_url}"
+
+  # Subscription Service Routes
+  /api/v1/subscriptions:
+    get:
+      summary: List subscriptions
+      description: Retrieve user subscriptions
+      operationId: listSubscriptions
+      tags:
+        - Subscriptions
+      responses:
+        '200':
+          description: List of subscriptions
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${subscription_service_url}"
+    
+    post:
+      summary: Create subscription
+      description: Create a new subscription
+      operationId: createSubscription
+      tags:
+        - Subscriptions
+      responses:
+        '201':
+          description: Subscription created successfully
+        '400':
+          description: Invalid input
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${subscription_service_url}"
+
+  /api/v1/subscriptions/{subscriptionId}:
+    get:
+      summary: Get subscription by ID
+      description: Retrieve a specific subscription by ID
+      operationId: getSubscriptionById
+      tags:
+        - Subscriptions
+      parameters:
+        - name: subscriptionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Subscription details
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Subscription not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${subscription_service_url}"
+
+  # Payment Service Routes
+  /api/v1/payments:
+    get:
+      summary: List payments
+      description: Retrieve payment history
+      operationId: listPayments
+      tags:
+        - Payments
+      responses:
+        '200':
+          description: List of payments
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${payment_service_url}"
+    
+    post:
+      summary: Process payment
+      description: Process a new payment
+      operationId: processPayment
+      tags:
+        - Payments
+      responses:
+        '201':
+          description: Payment processed successfully
+        '400':
+          description: Invalid payment data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${payment_service_url}"
+
+  # Notification Service Routes
+  /api/v1/notifications:
+    get:
+      summary: List notifications
+      description: Retrieve user notifications
+      operationId: listNotifications
+      tags:
+        - Notifications
+      responses:
+        '200':
+          description: List of notifications
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${notification_service_url}"
+    
+    post:
+      summary: Send notification
+      description: Send a new notification
+      operationId: sendNotification
+      tags:
+        - Notifications
+      responses:
+        '201':
+          description: Notification sent successfully
+        '400':
+          description: Invalid notification data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${notification_service_url}"
+
+  # Analytics Service Routes
+  /api/v1/analytics/events:
+    post:
+      summary: Track event
+      description: Track analytics event
+      operationId: trackEvent
+      tags:
+        - Analytics
+      responses:
+        '201':
+          description: Event tracked successfully
+        '400':
+          description: Invalid event data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${analytics_service_url}"
+
+  /api/v1/analytics/reports:
+    get:
+      summary: Get analytics reports
+      description: Retrieve analytics reports
+      operationId: getReports
+      tags:
+        - Analytics
+      responses:
+        '200':
+          description: Analytics reports
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${analytics_service_url}"
+
+  # Content Service Routes
+  /api/v1/content:
+    get:
+      summary: List content
+      description: Retrieve content items
+      operationId: listContent
+      tags:
+        - Content
+      responses:
+        '200':
+          description: List of content
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${content_service_url}"
+    
+    post:
+      summary: Create content
+      description: Create new content
+      operationId: createContent
+      tags:
+        - Content
+      responses:
+        '201':
+          description: Content created successfully
+        '400':
+          description: Invalid content data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${content_service_url}"
+
+  /api/v1/content/{contentId}:
+    get:
+      summary: Get content by ID
+      description: Retrieve specific content by ID
+      operationId: getContentById
+      tags:
+        - Content
+      parameters:
+        - name: contentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Content details
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Content not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${content_service_url}"
+
+  # Search Service Routes
+  /api/v1/search:
+    get:
+      summary: Search
+      description: Search across platform content
+      operationId: search
+      tags:
+        - Search
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query
+        - name: type
+          in: query
+          schema:
+            type: string
+          description: Content type filter
+      responses:
+        '200':
+          description: Search results
+        '400':
+          description: Invalid search query
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${search_service_url}"
+
+  # Storage Service Routes
+  /api/v1/storage/upload:
+    post:
+      summary: Upload file
+      description: Upload a file to storage
+      operationId: uploadFile
+      tags:
+        - Storage
+      responses:
+        '201':
+          description: File uploaded successfully
+        '400':
+          description: Invalid file data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '413':
+          description: File too large
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${storage_service_url}"
+
+  /api/v1/storage/files/{fileId}:
+    get:
+      summary: Get file
+      description: Retrieve file metadata or download file
+      operationId: getFile
+      tags:
+        - Storage
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File data or metadata
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: File not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${storage_service_url}"
+
+  # Workflow Service Routes
+  /api/v1/workflows:
+    get:
+      summary: List workflows
+      description: Retrieve user workflows
+      operationId: listWorkflows
+      tags:
+        - Workflows
+      responses:
+        '200':
+          description: List of workflows
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${workflow_service_url}"
+    
+    post:
+      summary: Create workflow
+      description: Create a new workflow
+      operationId: createWorkflow
+      tags:
+        - Workflows
+      responses:
+        '201':
+          description: Workflow created successfully
+        '400':
+          description: Invalid workflow data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${workflow_service_url}"
+
+  /api/v1/workflows/{workflowId}/execute:
+    post:
+      summary: Execute workflow
+      description: Execute a specific workflow
+      operationId: executeWorkflow
+      tags:
+        - Workflows
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Workflow executed successfully
+        '400':
+          description: Invalid execution parameters
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Workflow not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${workflow_service_url}"
+
+  # Audit Service Routes
+  /api/v1/audit/logs:
+    get:
+      summary: Get audit logs
+      description: Retrieve audit logs
+      operationId: getAuditLogs
+      tags:
+        - Audit
+      parameters:
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: user_id
+          in: query
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Audit logs
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${audit_service_url}"
+
+  # AI Orchestrator Service Routes
+  /api/v1/ai:
+    get:
+      summary: List AI capabilities
+      description: Retrieve available AI capabilities and models
+      operationId: listAICapabilities
+      tags:
+        - AI Orchestrator
+      responses:
+        '200':
+          description: List of AI capabilities
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${ai_orchestrator_service_url}"
+
+  /api/v1/ai/process:
+    post:
+      summary: Process AI request
+      description: Process an AI request using available models
+      operationId: processAIRequest
+      tags:
+        - AI Orchestrator
+      responses:
+        '200':
+          description: AI processing result
+        '400':
+          description: Invalid AI request
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${ai_orchestrator_service_url}"
+
+  /api/v1/ai/models:
+    get:
+      summary: List AI models
+      description: Retrieve available AI models
+      operationId: listAIModels
+      tags:
+        - AI Orchestrator
+      responses:
+        '200':
+          description: List of AI models
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${ai_orchestrator_service_url}"
+
+  /api/v1/ai/health:
+    get:
+      summary: AI service health check
+      description: Check AI orchestrator service health
+      operationId: aiHealthCheck
+      tags:
+        - AI Orchestrator
+      security: []
+      responses:
+        '200':
+          description: AI service is healthy
+      x-google-backend:
+        address: "${ai_orchestrator_service_url}/health"
+
+  # Chat Messaging Service Routes
+  /api/v1/chat/conversations:
+    get:
+      summary: List conversations
+      description: Retrieve user chat conversations
+      operationId: listConversations
+      tags:
+        - Chat Messaging
+      responses:
+        '200':
+          description: List of conversations
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${chat_messaging_service_url}"
+
+    post:
+      summary: Create conversation
+      description: Create a new chat conversation
+      operationId: createConversation
+      tags:
+        - Chat Messaging
+      responses:
+        '201':
+          description: Conversation created successfully
+        '400':
+          description: Invalid conversation data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${chat_messaging_service_url}"
+
+  /api/v1/chat/conversations/{conversationId}/messages:
+    get:
+      summary: Get messages
+      description: Retrieve messages from a conversation
+      operationId: getMessages
+      tags:
+        - Chat Messaging
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of messages
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Conversation not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${chat_messaging_service_url}"
+
+    post:
+      summary: Send message
+      description: Send a message in a conversation
+      operationId: sendMessage
+      tags:
+        - Chat Messaging
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Message sent successfully
+        '400':
+          description: Invalid message data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Conversation not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${chat_messaging_service_url}"
+
+  /api/v1/chat/health:
+    get:
+      summary: Chat service health check
+      description: Check chat messaging service health
+      operationId: chatHealthCheck
+      tags:
+        - Chat Messaging
+      security: []
+      responses:
+        '200':
+          description: Chat service is healthy
+      x-google-backend:
+        address: "${chat_messaging_service_url}/health"
+
+  # Recommendation Service Routes
+  /api/v1/recommendations:
+    get:
+      summary: Get recommendations
+      description: Retrieve personalized recommendations for user
+      operationId: getRecommendations
+      tags:
+        - Recommendations
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [skills, courses, mentors, projects]
+          description: Type of recommendations
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 50
+      responses:
+        '200':
+          description: List of recommendations
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${recommendation_service_url}"
+
+  /api/v1/recommendations/feedback:
+    post:
+      summary: Submit recommendation feedback
+      description: Provide feedback on recommendations to improve future suggestions
+      operationId: submitRecommendationFeedback
+      tags:
+        - Recommendations
+      responses:
+        '201':
+          description: Feedback submitted successfully
+        '400':
+          description: Invalid feedback data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${recommendation_service_url}"
+
+  /api/v1/recommendations/health:
+    get:
+      summary: Recommendation service health check
+      description: Check recommendation service health
+      operationId: recommendationHealthCheck
+      tags:
+        - Recommendations
+      security: []
+      responses:
+        '200':
+          description: Recommendation service is healthy
+      x-google-backend:
+        address: "${recommendation_service_url}/health"
+
+  # Scheduling Service Routes
+  /api/v1/scheduling/appointments:
+    get:
+      summary: List appointments
+      description: Retrieve user appointments
+      operationId: listAppointments
+      tags:
+        - Scheduling
+      parameters:
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: List of appointments
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${scheduling_service_url}"
+
+    post:
+      summary: Schedule appointment
+      description: Schedule a new appointment
+      operationId: scheduleAppointment
+      tags:
+        - Scheduling
+      responses:
+        '201':
+          description: Appointment scheduled successfully
+        '400':
+          description: Invalid appointment data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          description: Time slot conflict
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${scheduling_service_url}"
+
+  /api/v1/scheduling/appointments/{appointmentId}:
+    get:
+      summary: Get appointment
+      description: Retrieve specific appointment details
+      operationId: getAppointment
+      tags:
+        - Scheduling
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Appointment details
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Appointment not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${scheduling_service_url}"
+
+    put:
+      summary: Update appointment
+      description: Update an existing appointment
+      operationId: updateAppointment
+      tags:
+        - Scheduling
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Appointment updated successfully
+        '400':
+          description: Invalid appointment data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Appointment not found
+        '409':
+          description: Time slot conflict
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${scheduling_service_url}"
+
+    delete:
+      summary: Cancel appointment
+      description: Cancel an existing appointment
+      operationId: cancelAppointment
+      tags:
+        - Scheduling
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Appointment cancelled successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Appointment not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${scheduling_service_url}"
+
+  /api/v1/scheduling/availability:
+    get:
+      summary: Get availability
+      description: Check availability for scheduling
+      operationId: getAvailability
+      tags:
+        - Scheduling
+      parameters:
+        - name: user_id
+          in: query
+          schema:
+            type: string
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Availability information
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${scheduling_service_url}"
+
+  /api/v1/scheduling/health:
+    get:
+      summary: Scheduling service health check
+      description: Check scheduling service health
+      operationId: schedulingHealthCheck
+      tags:
+        - Scheduling
+      security: []
+      responses:
+        '200':
+          description: Scheduling service is healthy
+      x-google-backend:
+        address: "${scheduling_service_url}/health"
+
+  # Evaluation Service Routes
+  /api/v1/evaluations:
+    get:
+      summary: List evaluations
+      description: Retrieve user evaluations
+      operationId: listEvaluations
+      tags:
+        - Evaluations
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [skill, course, project]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, in_progress, completed]
+      responses:
+        '200':
+          description: List of evaluations
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${evaluation_service_url}"
+
+    post:
+      summary: Create evaluation
+      description: Create a new evaluation
+      operationId: createEvaluation
+      tags:
+        - Evaluations
+      responses:
+        '201':
+          description: Evaluation created successfully
+        '400':
+          description: Invalid evaluation data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${evaluation_service_url}"
+
+  /api/v1/evaluations/{evaluationId}:
+    get:
+      summary: Get evaluation
+      description: Retrieve specific evaluation details
+      operationId: getEvaluation
+      tags:
+        - Evaluations
+      parameters:
+        - name: evaluationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Evaluation details
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Evaluation not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${evaluation_service_url}"
+
+  /api/v1/evaluations/{evaluationId}/submit:
+    post:
+      summary: Submit evaluation
+      description: Submit evaluation responses
+      operationId: submitEvaluation
+      tags:
+        - Evaluations
+      parameters:
+        - name: evaluationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Evaluation submitted successfully
+        '400':
+          description: Invalid submission data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Evaluation not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${evaluation_service_url}"
+
+  /api/v1/evaluations/{evaluationId}/results:
+    get:
+      summary: Get evaluation results
+      description: Retrieve evaluation results
+      operationId: getEvaluationResults
+      tags:
+        - Evaluations
+      parameters:
+        - name: evaluationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Evaluation results
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Evaluation not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${evaluation_service_url}"
+
+  /api/v1/evaluations/health:
+    get:
+      summary: Evaluation service health check
+      description: Check evaluation service health
+      operationId: evaluationHealthCheck
+      tags:
+        - Evaluations
+      security: []
+      responses:
+        '200':
+          description: Evaluation service is healthy
+      x-google-backend:
+        address: "${evaluation_service_url}/health"
+
+  # Matching Service Routes
+  /api/v1/matching/mentors:
+    get:
+      summary: Find mentors
+      description: Find matching mentors based on skills and preferences
+      operationId: findMentors
+      tags:
+        - Matching
+      parameters:
+        - name: skills
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: experience_level
+          in: query
+          schema:
+            type: string
+            enum: [beginner, intermediate, advanced]
+        - name: location
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of matching mentors
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${matching_service_url}"
+
+  /api/v1/matching/mentees:
+    get:
+      summary: Find mentees
+      description: Find matching mentees for mentoring
+      operationId: findMentees
+      tags:
+        - Matching
+      parameters:
+        - name: skills
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: experience_level
+          in: query
+          schema:
+            type: string
+            enum: [beginner, intermediate, advanced]
+      responses:
+        '200':
+          description: List of matching mentees
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${matching_service_url}"
+
+  /api/v1/matching/collaborators:
+    get:
+      summary: Find collaborators
+      description: Find potential project collaborators
+      operationId: findCollaborators
+      tags:
+        - Matching
+      parameters:
+        - name: project_type
+          in: query
+          schema:
+            type: string
+        - name: skills_needed
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: List of potential collaborators
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${matching_service_url}"
+
+  /api/v1/matching/health:
+    get:
+      summary: Matching service health check
+      description: Check matching service health
+      operationId: matchingHealthCheck
+      tags:
+        - Matching
+      security: []
+      responses:
+        '200':
+          description: Matching service is healthy
+      x-google-backend:
+        address: "${matching_service_url}/health"
+
+  # Project Service Routes
+  /api/v1/projects:
+    get:
+      summary: List projects
+      description: Retrieve user projects
+      operationId: listProjects
+      tags:
+        - Projects
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [planning, active, completed, archived]
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of projects
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${project_service_url}"
+
+    post:
+      summary: Create project
+      description: Create a new project
+      operationId: createProject
+      tags:
+        - Projects
+      responses:
+        '201':
+          description: Project created successfully
+        '400':
+          description: Invalid project data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${project_service_url}"
+
+  /api/v1/projects/{projectId}:
+    get:
+      summary: Get project
+      description: Retrieve specific project details
+      operationId: getProject
+      tags:
+        - Projects
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project details
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Project not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${project_service_url}"
+
+    put:
+      summary: Update project
+      description: Update an existing project
+      operationId: updateProject
+      tags:
+        - Projects
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project updated successfully
+        '400':
+          description: Invalid project data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Project not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${project_service_url}"
+
+    delete:
+      summary: Delete project
+      description: Delete a project
+      operationId: deleteProject
+      tags:
+        - Projects
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Project deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Project not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${project_service_url}"
+
+  /api/v1/projects/{projectId}/tasks:
+    get:
+      summary: List project tasks
+      description: Retrieve tasks for a specific project
+      operationId: listProjectTasks
+      tags:
+        - Projects
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of project tasks
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Project not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${project_service_url}"
+
+    post:
+      summary: Create project task
+      description: Create a new task for a project
+      operationId: createProjectTask
+      tags:
+        - Projects
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Task created successfully
+        '400':
+          description: Invalid task data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Project not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${project_service_url}"
+
+  /api/v1/projects/health:
+    get:
+      summary: Project service health check
+      description: Check project service health
+      operationId: projectHealthCheck
+      tags:
+        - Projects
+      security: []
+      responses:
+        '200':
+          description: Project service is healthy
+      x-google-backend:
+        address: "${project_service_url}/health"
+
+  # Portfolio Service Routes
+  /api/v1/portfolios:
+    get:
+      summary: Get user portfolio
+      description: Retrieve user's portfolio
+      operationId: getUserPortfolio
+      tags:
+        - Portfolios
+      responses:
+        '200':
+          description: User portfolio
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${portfolio_service_url}"
+
+    put:
+      summary: Update portfolio
+      description: Update user's portfolio
+      operationId: updatePortfolio
+      tags:
+        - Portfolios
+      responses:
+        '200':
+          description: Portfolio updated successfully
+        '400':
+          description: Invalid portfolio data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${portfolio_service_url}"
+
+  /api/v1/portfolios/projects:
+    get:
+      summary: Get portfolio projects
+      description: Retrieve projects in user's portfolio
+      operationId: getPortfolioProjects
+      tags:
+        - Portfolios
+      responses:
+        '200':
+          description: List of portfolio projects
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${portfolio_service_url}"
+
+    post:
+      summary: Add project to portfolio
+      description: Add a project to user's portfolio
+      operationId: addProjectToPortfolio
+      tags:
+        - Portfolios
+      responses:
+        '201':
+          description: Project added to portfolio successfully
+        '400':
+          description: Invalid project data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${portfolio_service_url}"
+
+  /api/v1/portfolios/skills:
+    get:
+      summary: Get portfolio skills
+      description: Retrieve skills in user's portfolio
+      operationId: getPortfolioSkills
+      tags:
+        - Portfolios
+      responses:
+        '200':
+          description: List of portfolio skills
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${portfolio_service_url}"
+
+    post:
+      summary: Add skill to portfolio
+      description: Add a skill to user's portfolio
+      operationId: addSkillToPortfolio
+      tags:
+        - Portfolios
+      responses:
+        '201':
+          description: Skill added to portfolio successfully
+        '400':
+          description: Invalid skill data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${portfolio_service_url}"
+
+  /api/v1/portfolios/health:
+    get:
+      summary: Portfolio service health check
+      description: Check portfolio service health
+      operationId: portfolioHealthCheck
+      tags:
+        - Portfolios
+      security: []
+      responses:
+        '200':
+          description: Portfolio service is healthy
+      x-google-backend:
+        address: "${portfolio_service_url}/health"
+
+  # Gamification Service Routes
+  /api/v1/gamification/badges:
+    get:
+      summary: Get user badges
+      description: Retrieve user's earned badges
+      operationId: getUserBadges
+      tags:
+        - Gamification
+      responses:
+        '200':
+          description: List of user badges
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${gamification_service_url}"
+
+  /api/v1/gamification/points:
+    get:
+      summary: Get user points
+      description: Retrieve user's points and ranking
+      operationId: getUserPoints
+      tags:
+        - Gamification
+      responses:
+        '200':
+          description: User points and ranking
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${gamification_service_url}"
+
+  /api/v1/gamification/leaderboard:
+    get:
+      summary: Get leaderboard
+      description: Retrieve leaderboard rankings
+      operationId: getLeaderboard
+      tags:
+        - Gamification
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [overall, weekly, monthly, skills]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 100
+      responses:
+        '200':
+          description: Leaderboard rankings
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${gamification_service_url}"
+
+  /api/v1/gamification/achievements:
+    get:
+      summary: Get achievements
+      description: Retrieve user's achievements and progress
+      operationId: getUserAchievements
+      tags:
+        - Gamification
+      responses:
+        '200':
+          description: List of achievements
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${gamification_service_url}"
+
+  /api/v1/gamification/reward:
+    post:
+      summary: Award points
+      description: Award points for completed activities
+      operationId: awardPoints
+      tags:
+        - Gamification
+      responses:
+        '201':
+          description: Points awarded successfully
+        '400':
+          description: Invalid reward data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${gamification_service_url}"
+
+  /api/v1/gamification/health:
+    get:
+      summary: Gamification service health check
+      description: Check gamification service health
+      operationId: gamificationHealthCheck
+      tags:
+        - Gamification
+      security: []
+      responses:
+        '200':
+          description: Gamification service is healthy
+      x-google-backend:
+        address: "${gamification_service_url}/health"
+
+  # Localization Service Routes
+  /api/v1/localization/translations:
+    get:
+      summary: Get translations
+      description: Retrieve translations for specified language
+      operationId: getTranslations
+      tags:
+        - Localization
+      parameters:
+        - name: language
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [en, fr, es, de, it, pt, zh, ja, ko]
+        - name: namespace
+          in: query
+          schema:
+            type: string
+            description: Translation namespace/module
+      responses:
+        '200':
+          description: Translation data
+        '400':
+          description: Invalid language or namespace
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${localization_service_url}"
+
+  /api/v1/localization/languages:
+    get:
+      summary: Get supported languages
+      description: Retrieve list of supported languages
+      operationId: getSupportedLanguages
+      tags:
+        - Localization
+      responses:
+        '200':
+          description: List of supported languages
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${localization_service_url}"
+
+  /api/v1/localization/detect:
+    post:
+      summary: Detect language
+      description: Detect language of provided text
+      operationId: detectLanguage
+      tags:
+        - Localization
+      responses:
+        '200':
+          description: Detected language information
+        '400':
+          description: Invalid text data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${localization_service_url}"
+
+  /api/v1/localization/translate:
+    post:
+      summary: Translate text
+      description: Translate text to target language
+      operationId: translateText
+      tags:
+        - Localization
+      responses:
+        '200':
+          description: Translated text
+        '400':
+          description: Invalid translation request
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${localization_service_url}"
+
+  /api/v1/localization/health:
+    get:
+      summary: Localization service health check
+      description: Check localization service health
+      operationId: localizationHealthCheck
+      tags:
+        - Localization
+      security: []
+      responses:
+        '200':
+          description: Localization service is healthy
+      x-google-backend:
+        address: "${localization_service_url}/health"
+
+  # Real-time Collaboration Service Routes
+  /api/v1/collaboration/sessions:
+    get:
+      summary: List collaboration sessions
+      description: Retrieve active collaboration sessions
+      operationId: listCollaborationSessions
+      tags:
+        - Real-time Collaboration
+      responses:
+        '200':
+          description: List of collaboration sessions
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${realtime_collaboration_service_url}"
+
+    post:
+      summary: Create collaboration session
+      description: Create a new collaboration session
+      operationId: createCollaborationSession
+      tags:
+        - Real-time Collaboration
+      responses:
+        '201':
+          description: Collaboration session created successfully
+        '400':
+          description: Invalid session data
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${realtime_collaboration_service_url}"
+
+  /api/v1/collaboration/sessions/{sessionId}:
+    get:
+      summary: Get collaboration session
+      description: Retrieve specific collaboration session details
+      operationId: getCollaborationSession
+      tags:
+        - Real-time Collaboration
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Collaboration session details
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Session not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${realtime_collaboration_service_url}"
+
+  /api/v1/collaboration/sessions/{sessionId}/join:
+    post:
+      summary: Join collaboration session
+      description: Join an existing collaboration session
+      operationId: joinCollaborationSession
+      tags:
+        - Real-time Collaboration
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully joined session
+        '400':
+          description: Cannot join session
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Session not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${realtime_collaboration_service_url}"
+
+  /api/v1/collaboration/sessions/{sessionId}/leave:
+    post:
+      summary: Leave collaboration session
+      description: Leave a collaboration session
+      operationId: leaveCollaborationSession
+      tags:
+        - Real-time Collaboration
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully left session
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Session not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${realtime_collaboration_service_url}"
+
+  /api/v1/collaboration/whiteboard/{sessionId}:
+    get:
+      summary: Get whiteboard state
+      description: Retrieve current whiteboard state for session
+      operationId: getWhiteboardState
+      tags:
+        - Real-time Collaboration
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Whiteboard state
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Session not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-google-backend:
+        address: "${realtime_collaboration_service_url}"
+
+  /api/v1/collaboration/health:
+    get:
+      summary: Collaboration service health check
+      description: Check real-time collaboration service health
+      operationId: collaborationHealthCheck
+      tags:
+        - Real-time Collaboration
+      security: []
+      responses:
+        '200':
+          description: Collaboration service is healthy
+      x-google-backend:
+        address: "${realtime_collaboration_service_url}/health"
+
+# Google Cloud API Gateway Extensions
+x-google-management:
+  metrics:
+    - name: request_count
+      metric_kind: COUNTER
+      value_type: INT64
+    - name: request_latency
+      metric_kind: HISTOGRAM
+      value_type: DISTRIBUTION
+  quota:
+    limits:
+      - name: RequestsPerMinutePerUser
+        metric: request_count
+        unit: "1/min/{project}"
+        values:
+          STANDARD: ${rate_limit_requests_per_minute}
+      - name: RequestsPerDayPerUser
+        metric: request_count
+        unit: "1/day/{project}"
+        values:
+          STANDARD: ${rate_limit_requests_per_day}
+
+x-google-endpoints:
+  - name: api.skillforge.ai
+    allowCors: true
+    
+x-google-allow: configured

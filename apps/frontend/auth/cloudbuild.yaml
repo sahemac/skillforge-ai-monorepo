@@ -1,0 +1,58 @@
+steps:
+  # Build de l'image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '-f'
+      - 'Dockerfile.simple'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/skillforge-auth:$BUILD_ID'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/skillforge-auth:latest'
+      - '.'
+    timeout: '1200s'
+
+  # Push des images
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/skillforge-auth:$BUILD_ID'
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/skillforge-auth:latest'
+
+  # Déploiement sur Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'skillforge-auth'
+      - '--image=gcr.io/$PROJECT_ID/skillforge-auth:$BUILD_ID'
+      - '--platform=managed'
+      - '--region=europe-west1'
+      - '--allow-unauthenticated'
+      - '--port=80'
+      - '--memory=512Mi'
+      - '--cpu=1'
+      - '--min-instances=0'
+      - '--max-instances=10'
+      - '--concurrency=80'
+      - '--timeout=300'
+      - '--ingress=all'
+      - '--set-env-vars=NODE_ENV=production,APP_TYPE=auth,MODULE_FEDERATION_REMOTE=true'
+      - '--labels=app=skillforge,component=frontend,type=auth,environment=production'
+      - '--quiet'
+
+images:
+  - 'gcr.io/$PROJECT_ID/skillforge-auth:$BUILD_ID'
+  - 'gcr.io/$PROJECT_ID/skillforge-auth:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+  substitution_option: 'ALLOW_LOOSE'
+
+timeout: '1800s'

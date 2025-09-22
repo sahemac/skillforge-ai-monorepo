@@ -41,8 +41,22 @@ export default defineConfig({
   ],
   build: {
     target: 'esnext',
-    minify: false,
+    minify: 'terser',
     cssCodeSplit: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          router: ['react-router-dom'],
+        },
+      },
+    },
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    },
   },
   server: {
     port: 3001,
@@ -64,5 +78,6 @@ export default defineConfig({
   },
   define: {
     __DEV__: JSON.stringify(process.env.NODE_ENV === 'development'),
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
   },
 });

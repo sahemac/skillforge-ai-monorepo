@@ -8,10 +8,10 @@ export default defineConfig({
     federation({
       name: 'shell',
       remotes: {
-        auth: 'http://localhost:3001/assets/remoteEntry.js',
-        learner: 'http://localhost:3002/assets/remoteEntry.js',
-        company: 'http://localhost:3003/assets/remoteEntry.js',
-        admin: 'http://localhost:3004/assets/remoteEntry.js',
+        auth: 'https://skillforge-auth-koi53iwqbq-ew.a.run.app/assets/remoteEntry.js',
+        learner: 'https://skillforge-learner-koi53iwqbq-ew.a.run.app/assets/remoteEntry.js',
+        company: 'https://skillforge-company-koi53iwqbq-ew.a.run.app/assets/remoteEntry.js',
+        admin: 'https://skillforge-admin-koi53iwqbq-ew.a.run.app/assets/remoteEntry.js',
       },
       shared: {
         react: {
@@ -43,8 +43,22 @@ export default defineConfig({
   ],
   build: {
     target: 'esnext',
-    minify: false,
+    minify: 'terser',
     cssCodeSplit: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          router: ['react-router-dom'],
+        },
+      },
+    },
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    },
   },
   server: {
     port: 3000,
@@ -66,5 +80,6 @@ export default defineConfig({
   },
   define: {
     __DEV__: JSON.stringify(process.env.NODE_ENV === 'development'),
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
   },
 });

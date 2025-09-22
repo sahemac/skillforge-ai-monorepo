@@ -1,0 +1,151 @@
+swagger: "2.0"
+info:
+  title: "SkillForge AI API Gateway - Test"
+  description: "API Gateway pour SkillForge AI (Version Test - User Service Only)"
+  version: "1.0.0"
+host: "skillforge-api-staging-${project_id}.ew.gateway.dev"
+schemes:
+  - "https"
+produces:
+  - "application/json"
+
+# No authentication for test version
+
+paths:
+  # User Service Routes
+  "/api/v1/users":
+    get:
+      summary: "List users"
+      operationId: "listUsers"
+      tags:
+        - "Users"
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "List of users"
+        401:
+          description: "Unauthorized"
+        429:
+          description: "Rate limit exceeded"
+
+  "/api/v1/users/{user_id}":
+    get:
+      summary: "Get user by ID"
+      operationId: "getUserById"
+      tags:
+        - "Users"
+      parameters:
+        - name: "user_id"
+          in: "path"
+          required: true
+          type: "string"
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "User details"
+        404:
+          description: "User not found"
+        401:
+          description: "Unauthorized"
+
+  # Auth Routes (dans user-service actuellement)
+  "/api/v1/auth/register":
+    post:
+      summary: "User registration"
+      operationId: "register"
+      tags:
+        - "Authentication"
+      parameters:
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+            required:
+              - email
+              - password
+              - username
+              - first_name
+              - last_name
+            properties:
+              email:
+                type: string
+                format: email
+              password:
+                type: string
+              username:
+                type: string
+              first_name:
+                type: string
+              last_name:
+                type: string
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        201:
+          description: "User created"
+        400:
+          description: "Invalid input"
+
+  # Health check endpoints (no auth required)
+  "/health":
+    get:
+      summary: "API Gateway health check"
+      operationId: "gatewayHealth"
+      tags:
+        - "Health"
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Gateway is healthy"
+
+  "/api/v1/auth/login":
+    post:
+      summary: "User login"
+      operationId: "login"
+      tags:
+        - "Authentication"
+      parameters:
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+            required:
+              - email
+              - password
+            properties:
+              email:
+                type: string
+                format: email
+              password:
+                type: string
+              remember_me:
+                type: boolean
+                default: false
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Login successful"
+        401:
+          description: "Invalid credentials"
+
+# Rate limiting disabled for test version
+
+# Global parameters
+parameters:
+  user_id:
+    name: "user_id"
+    in: "path"
+    description: "User ID"
+    required: true
+    type: "string"

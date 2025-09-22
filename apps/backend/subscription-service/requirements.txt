@@ -1,0 +1,42 @@
+# FastAPI and ASGI
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Database
+sqlmodel==0.0.14
+asyncpg==0.29.0
+psycopg2-binary
+alembic==1.13.1
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+PyJWT==2.8.0
+cryptography==46.0.1
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# HTTP Requests
+httpx==0.25.2
+requests==2.31.0
+
+# Environment & Configuration
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
+
+# Validation & Serialization
+email-validator==2.1.0
+pydantic[email]==2.5.2
+
+# Date & Time
+python-dateutil==2.8.2
+
+# Utilities
+tenacity==8.2.3
+redis==5.0.1
+
+# Monitoring & Logging
+prometheus-client==0.19.0
+structlog==23.2.0
+
+# Service-specific dependencies
+stripe==7.7.0

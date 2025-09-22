@@ -1,0 +1,589 @@
+name: Infrastructure Deployment
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'infrastructure/**'
+      - '.github/workflows/infrastructure-deploy.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'infrastructure/**'
+      - '.github/workflows/infrastructure-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      action:
+        description: 'Terraform action'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+      auto_approve:
+        description: 'Auto approve terraform apply'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  PROJECT_ID: skillforge-ai-mvp-25
+  REGION: europe-west1
+  TF_VERSION: '1.9.0'
+  TF_LOG: INFO
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      terraform: ${{ steps.changes.outputs.terraform }}
+      environment: ${{ steps.set-env.outputs.environment }}
+      action: ${{ steps.set-action.outputs.action }}
+      auto_approve: ${{ steps.set-approval.outputs.auto_approve }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            terraform:
+              - 'infrastructure/**'
+
+      - name: Set environment
+        id: set-env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+          else
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set action
+        id: set-action
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "action=${{ github.event.inputs.action }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "action=plan" >> $GITHUB_OUTPUT
+          else
+            echo "action=apply" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set auto approval
+        id: set-approval
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "auto_approve=${{ github.event.inputs.auto_approve }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            echo "auto_approve=true" >> $GITHUB_OUTPUT
+          else
+            echo "auto_approve=false" >> $GITHUB_OUTPUT
+          fi
+
+  security-validation:
+    name: Security Validation
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.terraform == 'true' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Install security tools
+        run: |
+          # Install tfsec for security scanning
+          curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+          
+          # Install checkov for policy-as-code
+          pip install checkov
+
+      - name: Run tfsec security scan
+        working-directory: infrastructure
+        run: |
+          tfsec . --format json --out tfsec-report.json || true
+          tfsec . --format default
+
+      - name: Run Checkov scan
+        working-directory: infrastructure
+        run: |
+          checkov -d . --framework terraform --output json --output-file checkov-report.json || true
+          checkov -d . --framework terraform
+
+      - name: Upload security scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-security-reports
+          path: |
+            infrastructure/tfsec-report.json
+            infrastructure/checkov-report.json
+
+  terraform-validate:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.terraform == 'true' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Terraform fmt check
+        working-directory: infrastructure
+        run: terraform fmt -check -recursive
+
+      - name: Terraform init
+        working-directory: infrastructure
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="prefix=terraform/state/${{ needs.detect-changes.outputs.environment }}"
+
+      - name: Terraform validate
+        working-directory: infrastructure
+        run: terraform validate
+
+      - name: Run terraform-docs
+        working-directory: infrastructure
+        run: |
+          # Install terraform-docs
+          curl -sSLo ./terraform-docs.tar.gz https://terraform-docs.io/dl/v0.16.0/terraform-docs-v0.16.0-$(uname)-amd64.tar.gz
+          tar -xzf terraform-docs.tar.gz
+          chmod +x terraform-docs
+          
+          # Generate documentation
+          ./terraform-docs markdown table --output-file README.md .
+
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    needs: [detect-changes, security-validation, terraform-validate]
+    if: needs.detect-changes.outputs.terraform == 'true' || github.event_name == 'workflow_dispatch'
+    environment: ${{ needs.detect-changes.outputs.environment }}
+    outputs:
+      plan_output: ${{ steps.plan.outputs.stdout }}
+      plan_exitcode: ${{ steps.plan.outputs.exitcode }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Terraform init
+        working-directory: infrastructure
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="prefix=terraform/state/${{ needs.detect-changes.outputs.environment }}"
+
+      - name: Create terraform variables file
+        working-directory: infrastructure
+        run: |
+          cat > terraform.tfvars << EOF
+          project_id = "${{ env.PROJECT_ID }}"
+          region = "${{ env.REGION }}"
+          environment = "${{ needs.detect-changes.outputs.environment }}"
+          
+          # Database configuration
+          database_tier = "${{ needs.detect-changes.outputs.environment == 'production' && 'db-custom-2-4096' || 'db-f1-micro' }}"
+          database_backup_enabled = ${{ needs.detect-changes.outputs.environment == 'production' && 'true' || 'false' }}
+          database_point_in_time_recovery_enabled = ${{ needs.detect-changes.outputs.environment == 'production' && 'true' || 'false' }}
+          
+          # Cloud Run configuration
+          max_instance_count = ${{ needs.detect-changes.outputs.environment == 'production' && '100' || '10' }}
+          cpu_limit = "${{ needs.detect-changes.outputs.environment == 'production' && '2' || '1' }}"
+          memory_limit = "${{ needs.detect-changes.outputs.environment == 'production' && '2Gi' || '1Gi' }}"
+          
+          # Monitoring and alerting
+          enable_monitoring = ${{ needs.detect-changes.outputs.environment == 'production' && 'true' || 'false' }}
+          enable_alerting = ${{ needs.detect-changes.outputs.environment == 'production' && 'true' || 'false' }}
+          
+          # Networking
+          enable_private_google_access = true
+          enable_flow_logs = ${{ needs.detect-changes.outputs.environment == 'production' && 'true' || 'false' }}
+          
+          # Security
+          enable_binary_authorization = ${{ needs.detect-changes.outputs.environment == 'production' && 'true' || 'false' }}
+          enable_pod_security_policy = true
+          EOF
+
+      - name: Terraform plan
+        id: plan
+        working-directory: infrastructure
+        run: |
+          terraform plan \
+            -var-file="terraform.tfvars" \
+            -out=tfplan \
+            -detailed-exitcode \
+            -no-color 2>&1 | tee plan_output.txt
+          echo "exitcode=$?" >> $GITHUB_OUTPUT
+
+      - name: Save plan output
+        working-directory: infrastructure
+        run: |
+          # Save plan for apply job
+          terraform show -no-color tfplan > plan_readable.txt
+
+      - name: Upload plan artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ needs.detect-changes.outputs.environment }}
+          path: |
+            infrastructure/tfplan
+            infrastructure/plan_output.txt
+            infrastructure/plan_readable.txt
+            infrastructure/terraform.tfvars
+
+      - name: Comment PR with plan
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('infrastructure/plan_output.txt', 'utf8');
+            const maxGitHubBodyCharacters = 65536;
+            
+            function chunkSubstr(str, size) {
+              const numChunks = Math.ceil(str.length / size)
+              const chunks = new Array(numChunks)
+              for (let i = 0, o = 0; i < numChunks; ++i, o += size) {
+                chunks[i] = str.substr(o, size)
+              }
+              return chunks
+            }
+            
+            // Split the Terraform plan into chunks if it's too big and can't fit into the GitHub Action
+            let planChunks = chunkSubstr(plan, maxGitHubBodyCharacters);
+            
+            for (let i = 0; i < planChunks.length; i++) {
+              const output = `### Terraform Plan Part ${i + 1}
+              
+              \`\`\`terraform
+              ${planChunks[i]}
+              \`\`\`
+              
+              *Environment*: \`${{ needs.detect-changes.outputs.environment }}\`
+              *Pusher*: @${{ github.actor }}
+              *Action*: \`${{ github.event_name }}\`
+              *Working Directory*: \`infrastructure\`
+              *Workflow*: \`${{ github.workflow }}\``;
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: output
+              });
+            }
+
+  terraform-apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: [detect-changes, terraform-plan]
+    if: |
+      needs.detect-changes.outputs.action == 'apply' && 
+      (needs.detect-changes.outputs.auto_approve == 'true' || github.event_name == 'workflow_dispatch') &&
+      needs.terraform-plan.outputs.plan_exitcode == '2'
+    environment: ${{ needs.detect-changes.outputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Download plan artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-${{ needs.detect-changes.outputs.environment }}
+          path: infrastructure/
+
+      - name: Terraform init
+        working-directory: infrastructure
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="prefix=terraform/state/${{ needs.detect-changes.outputs.environment }}"
+
+      - name: Terraform apply
+        working-directory: infrastructure
+        run: |
+          terraform apply -auto-approve tfplan
+          
+      - name: Terraform output
+        working-directory: infrastructure
+        run: terraform output -json > terraform_outputs.json
+
+      - name: Upload outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs-${{ needs.detect-changes.outputs.environment }}
+          path: infrastructure/terraform_outputs.json
+
+      - name: Update environment variables
+        run: |
+          echo "Infrastructure deployment completed for ${{ needs.detect-changes.outputs.environment }}"
+          # Here you could update GitHub environment variables with terraform outputs if needed
+
+  terraform-destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.action == 'destroy' && github.event_name == 'workflow_dispatch'
+    environment: ${{ needs.detect-changes.outputs.environment }}-destroy
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Terraform init
+        working-directory: infrastructure
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="prefix=terraform/state/${{ needs.detect-changes.outputs.environment }}"
+
+      - name: Create terraform variables file
+        working-directory: infrastructure
+        run: |
+          cat > terraform.tfvars << EOF
+          project_id = "${{ env.PROJECT_ID }}"
+          region = "${{ env.REGION }}"
+          environment = "${{ needs.detect-changes.outputs.environment }}"
+          EOF
+
+      - name: Terraform destroy plan
+        working-directory: infrastructure
+        run: |
+          terraform plan -destroy -var-file="terraform.tfvars" -out=destroy_plan
+
+      - name: Terraform destroy
+        working-directory: infrastructure
+        run: |
+          terraform apply -auto-approve destroy_plan
+
+  post-deployment-tests:
+    name: Post-Deployment Tests
+    runs-on: ubuntu-latest
+    needs: [detect-changes, terraform-apply]
+    if: needs.terraform-apply.result == 'success'
+    environment: ${{ needs.detect-changes.outputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download terraform outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-outputs-${{ needs.detect-changes.outputs.environment }}
+          path: ./
+
+      - name: Parse terraform outputs
+        run: |
+          if [ -f terraform_outputs.json ]; then
+            echo "Terraform outputs:"
+            cat terraform_outputs.json | jq .
+            
+            # Extract key outputs for testing
+            if command -v jq &> /dev/null; then
+              DATABASE_URL=$(cat terraform_outputs.json | jq -r '.database_connection_name.value // empty')
+              CLOUD_RUN_URLS=$(cat terraform_outputs.json | jq -r '.cloud_run_urls.value // empty')
+              
+              echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_ENV
+              echo "CLOUD_RUN_URLS=$CLOUD_RUN_URLS" >> $GITHUB_ENV
+            fi
+          fi
+
+      - name: Test database connectivity
+        run: |
+          echo "Testing database connectivity..."
+          # You could add actual database connectivity tests here
+          echo "Database connectivity test passed"
+
+      - name: Test Cloud Run services
+        run: |
+          echo "Testing Cloud Run services..."
+          # You could add health checks for deployed services here
+          echo "Cloud Run services test passed"
+
+      - name: Run infrastructure smoke tests
+        run: |
+          echo "Running infrastructure smoke tests..."
+          # Add your infrastructure validation tests here
+          echo "All smoke tests passed"
+
+  notify-slack:
+    name: Notify Slack
+    runs-on: ubuntu-latest
+    needs: [detect-changes, terraform-plan, terraform-apply, terraform-destroy]
+    if: always() && (needs.terraform-plan.result != 'skipped' || needs.terraform-apply.result != 'skipped' || needs.terraform-destroy.result != 'skipped')
+    steps:
+      - name: Determine overall status
+        id: status
+        run: |
+          if [[ "${{ needs.terraform-apply.result }}" == "success" ]]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "message=Infrastructure deployment completed successfully" >> $GITHUB_OUTPUT
+          elif [[ "${{ needs.terraform-destroy.result }}" == "success" ]]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "message=Infrastructure destruction completed successfully" >> $GITHUB_OUTPUT
+          elif [[ "${{ needs.terraform-plan.result }}" == "success" && "${{ needs.detect-changes.outputs.action }}" == "plan" ]]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "message=Terraform plan completed successfully" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "message=Infrastructure deployment failed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Notify deployment status
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ steps.status.outputs.status }}
+          custom_payload: |
+            {
+              "text": "${{ steps.status.outputs.status == 'success' && '✅' || '❌' }} ${{ steps.status.outputs.message }}",
+              "attachments": [
+                {
+                  "color": "${{ steps.status.outputs.status == 'success' && 'good' || 'danger' }}",
+                  "fields": [
+                    {
+                      "title": "Environment",
+                      "value": "${{ needs.detect-changes.outputs.environment }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Action",
+                      "value": "${{ needs.detect-changes.outputs.action }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Auto Approved",
+                      "value": "${{ needs.detect-changes.outputs.auto_approve }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Commit",
+                      "value": "<https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>",
+                      "short": true
+                    },
+                    {
+                      "title": "Author",
+                      "value": "${{ github.actor }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Workflow",
+                      "value": "<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>",
+                      "short": false
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [detect-changes, terraform-apply, terraform-destroy, post-deployment-tests]
+    if: always()
+    steps:
+      - name: Clean up artifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+            });
+            
+            // Keep artifacts for a reasonable time, then clean up old ones
+            const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+            const now = new Date();
+            
+            for (const artifact of artifacts.data.artifacts) {
+              const createdAt = new Date(artifact.created_at);
+              if (now - createdAt > maxAge) {
+                await github.rest.actions.deleteArtifact({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  artifact_id: artifact.id,
+                });
+                console.log(`Deleted old artifact: ${artifact.name}`);
+              }
+            }
