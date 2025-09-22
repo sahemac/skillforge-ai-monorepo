@@ -16,7 +16,8 @@ from app.core.config import get_settings
 
 # Import all models to ensure they are registered with SQLModel.metadata
 from app.models.user import User, UserSettings, UserSession  
-from app.models.company import CompanyProfile, TeamMember, Subscription
+# Company models moved to company-service
+# from app.models.company import CompanyProfile, TeamMember, Subscription
 
 # Test database URL - Use real DATABASE_URL from environment
 # CI/CD: Uses DATABASE_URL_STAGING secret for real staging database testing
@@ -195,49 +196,12 @@ def create_test_user(db_session: AsyncSession):
     return _create_user
 
 
-@pytest.fixture
-def create_test_company(db_session: AsyncSession):
-    """Create a test company directly in database."""
-    from app.models.company import CompanyProfile
-    import uuid
-    from datetime import datetime
-    
-    async def _create_company(owner_user, company_data: dict = None):
-        if company_data is None:
-            unique_id = str(uuid.uuid4())[:8]
-            company_data = {
-                "name": f"Test Company {unique_id}",
-                "description": "A test company for unit testing",
-                "industry": "technology",
-                "company_size": "small",
-                "website": "https://testcompany.com",
-                "email": "info@testcompany.com"
-            }
-        
-        # Generate slug if not provided
-        if "slug" not in company_data:
-            # Simple slug generation
-            company_data["slug"] = company_data["name"].lower().replace(" ", "-")
-        
-        # Create company object using CompanyProfile
-        db_company = CompanyProfile(
-            name=company_data["name"],
-            slug=company_data["slug"],
-            description=company_data.get("description"),
-            industry=company_data.get("industry"),
-            company_size=company_data.get("company_size"),
-            website=company_data.get("website"),
-            email=company_data.get("email"),
-            owner_id=owner_user.id,
-            created_at=datetime.utcnow()
-        )
-        
-        db_session.add(db_company)
-        await db_session.commit()
-        await db_session.refresh(db_company)
-        return db_company
-    
-    return _create_company
+# Company test fixture removed - companies are now handled by company-service
+# @pytest.fixture
+# def create_test_company(db_session: AsyncSession):
+#     """Create a test company directly in database."""
+#     ...
+#     Company functionality moved to company-service
 
 
 @pytest.fixture

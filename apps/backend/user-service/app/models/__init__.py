@@ -12,13 +12,14 @@ from .user import (
     UserSession,
     UserSettings
 )
-from .company import (
-    CompanyProfile, 
-    CompanySize, 
-    IndustryType,
-    TeamMember,
-    Subscription
-)
+# Company models moved to company-service
+# from .company import (
+#     CompanyProfile, 
+#     CompanySize, 
+#     IndustryType,
+#     TeamMember,
+#     Subscription
+# )
 
 __all__ = [
     # Base mixins
@@ -33,10 +34,10 @@ __all__ = [
     "UserSession",
     "UserSettings",
     
-    # Company models
-    "CompanyProfile",
-    "CompanySize",
-    "IndustryType", 
-    "TeamMember",
-    "Subscription",
+    # Company models moved to company-service
+    # "CompanyProfile",
+    # "CompanySize",
+    # "IndustryType", 
+    # "TeamMember",
+    # "Subscription",
 ]

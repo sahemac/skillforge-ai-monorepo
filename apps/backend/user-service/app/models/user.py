@@ -75,8 +75,8 @@ class User(SQLModel, UUIDMixin, TimestampMixin, table=True):
     language_preference: str = Field(default="en", nullable=False)
     newsletter_subscribed: bool = Field(default=True, nullable=False)
     
-    # Relationships
-    company_profiles: List["CompanyProfile"] = Relationship(back_populates="owner")
+    # Note: Company relationships are handled by the company-service
+    # company_profiles relationship removed as CompanyProfile moved to company-service
     
     class Config:
         """Pydantic configuration."""

@@ -66,7 +66,8 @@ async def simple_validate():
     # Test 3: Database Models
     print("\n[3/4] Database Models...")
     try:
-        from app.models import User, CompanyProfile
+        from app.models import User
+        # CompanyProfile moved to company-service
         from app.core.database import get_async_session
         
         async with get_async_session() as session:

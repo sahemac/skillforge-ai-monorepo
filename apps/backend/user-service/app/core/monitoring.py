@@ -302,7 +302,8 @@ async def update_business_metrics():
     """Update business metrics (called periodically)."""
     try:
         from app.core.database import get_session
-        from app.models import User, CompanyProfile
+        from app.models import User
+        # CompanyProfile moved to company-service
         from sqlalchemy import func, select
         
         async with get_session() as session:
@@ -315,15 +316,15 @@ async def update_business_metrics():
             for role, status, count in user_counts:
                 users_total.labels(role=role.value, status=status.value).set(count)
             
-            # Count companies by size and status  
-            company_counts = await session.execute(
-                select(CompanyProfile.size, func.count(CompanyProfile.id))
-                .where(CompanyProfile.is_active == True)
-                .group_by(CompanyProfile.size)
-            )
-            
-            for size, count in company_counts:
-                companies_total.labels(size=size.value, status="active").set(count)
+            # Company metrics moved to company-service
+            # company_counts = await session.execute(
+            #     select(CompanyProfile.size, func.count(CompanyProfile.id))
+            #     .where(CompanyProfile.is_active == True)
+            #     .group_by(CompanyProfile.size)
+            # )
+            # 
+            # for size, count in company_counts:
+            #     companies_total.labels(size=size.value, status="active").set(count)
                 
     except Exception as e:
         logger.error(f"Failed to update business metrics: {str(e)}")

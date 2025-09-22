@@ -15,7 +15,8 @@ from app.models.base import SQLModel
 
 # Import all models so Alembic can detect them
 from app.models.user import User, UserSettings, UserSession
-from app.models.company import CompanyProfile, TeamMember, Subscription
+# Company models moved to company-service
+# from app.models.company import CompanyProfile, TeamMember, Subscription
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -100,10 +100,8 @@ async def create_db_and_tables() -> None:
         from app.models import (
             User, 
             UserSettings, 
-            UserSession,
-            CompanyProfile, 
-            TeamMember, 
-            Subscription
+            UserSession
+            # CompanyProfile, TeamMember, Subscription moved to company-service
         )
         
         engine = get_engine()
@@ -212,10 +210,8 @@ async def reset_database() -> None:
         from app.models import (
             User, 
             UserSettings, 
-            UserSession,
-            CompanyProfile, 
-            TeamMember, 
-            Subscription
+            UserSession
+            # CompanyProfile, TeamMember, Subscription moved to company-service
         )
         
         engine = get_engine()
