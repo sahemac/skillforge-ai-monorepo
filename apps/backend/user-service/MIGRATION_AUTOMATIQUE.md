@@ -41,7 +41,7 @@ DATABASE_URL="postgresql+asyncpg://skillforge_user:password@localhost:5432/skill
 
 ### CI/CD (GitHub Actions)
 Le workflow utilise automatiquement :
-1. **Cloud SQL Proxy** sur port 5433
+1. **Cloud SQL Proxy** sur port 5432
 2. **Secret Manager** pour récupérer le mot de passe
 3. **Fallback** sur DATABASE_URL des secrets GitHub
 
@@ -85,7 +85,7 @@ gcloud secrets versions access latest --secret="postgres-password" --project="sk
 1. **Authentification GCP** via Workload Identity Federation
 2. **Installation Cloud SQL Proxy** (version 2.11.0)
 3. **Récupération mot de passe** depuis Secret Manager
-4. **Démarrage proxy** sur port 5433
+4. **Démarrage proxy** sur port 5432
 5. **Exécution migrations** via `run_migrations.py`
 6. **Vérification statut** avec `alembic current`
 7. **Nettoyage proxy**

@@ -10,24 +10,23 @@ RUN apk add --no-cache git python3 make g++
 # Définition du répertoire de travail
 WORKDIR /app
 
-# Copie des fichiers de configuration du workspace
-COPY package.json pnpm-lock.yaml* ./
-COPY ../../package.json ../../pnpm-lock.yaml* ../../
+# Copie des fichiers de configuration du workspace depuis la racine
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
 
 # Installation de pnpm globalement
 RUN npm install -g pnpm@latest
 
 # Copie des packages partagés nécessaires au build
-COPY ../../packages ./packages
-
-# Installation des dépendances
-RUN pnpm install --frozen-lockfile
+COPY packages ./packages
 
 # Copie du code source de l'application admin
-COPY . .
+COPY apps/frontend/admin ./apps/frontend/admin
+
+# Installation des dépendances depuis la racine
+RUN pnpm install --frozen-lockfile
 
 # Build de l'application pour la production
-RUN pnpm build
+RUN cd apps/frontend/admin && pnpm build
 
 # Stage 2: Production
 FROM nginx:alpine AS production
@@ -39,7 +38,7 @@ RUN apk add --no-cache ca-certificates tzdata
 RUN addgroup -g 1001 -S nodejs && adduser -S nginx -u 1001 -G nodejs
 
 # Copie des fichiers buildés depuis le stage builder
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/apps/frontend/admin/dist /usr/share/nginx/html
 
 # Configuration nginx pour SPA avec support module federation
 COPY <<'EOF' /etc/nginx/conf.d/default.conf
@@ -47,12 +46,11 @@ server {
     listen 80;
     server_name localhost;
     
-    # Configuration pour la sécurité renforcée (app admin)
-    add_header X-Frame-Options DENY;
+    # Configuration pour la sécurité
+    add_header X-Frame-Options SAMEORIGIN;
     add_header X-Content-Type-Options nosniff;
     add_header X-XSS-Protection "1; mode=block";
     add_header Referrer-Policy strict-origin-when-cross-origin;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     
     # Configuration CORS pour module federation
     add_header Access-Control-Allow-Origin *;

@@ -1,0 +1,27 @@
+{
+  "name": "skillforge-ai-monorepo",
+  "version": "1.0.0", 
+  "private": true,
+  "description": "SkillForge AI Monorepo",
+  "workspaces": {
+    "packages": [
+      "packages/*",
+      "apps/frontend/*"
+    ]
+  },
+  "scripts": {
+    "build:packages": "pnpm -r --filter './packages/*' build",
+    "build:frontend": "pnpm -r --filter './apps/frontend/*' build",
+    "build:all": "pnpm run build:packages && pnpm run build:frontend",
+    "dev:shell": "pnpm --filter shell dev",
+    "install:all": "pnpm install"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.0.0"
+}

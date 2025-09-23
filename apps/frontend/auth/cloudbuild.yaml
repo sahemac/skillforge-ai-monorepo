@@ -4,24 +4,23 @@ steps:
     args: 
       - 'build'
       - '-f'
-      - 'Dockerfile.simple'
+      - 'apps/frontend/auth/Dockerfile'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/skillforge-auth:$BUILD_ID'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/skillforge-ai-registry/skillforge-auth-frontend:$BUILD_ID'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/skillforge-auth:latest'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/skillforge-ai-registry/skillforge-auth-frontend:latest'
       - '.'
-    timeout: '1200s'
 
   # Push des images
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/skillforge-auth:$BUILD_ID'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/skillforge-ai-registry/skillforge-auth-frontend:$BUILD_ID'
   
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/skillforge-auth:latest'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/skillforge-ai-registry/skillforge-auth-frontend:latest'
 
   # Déploiement sur Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -29,13 +28,13 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'skillforge-auth'
-      - '--image=gcr.io/$PROJECT_ID/skillforge-auth:$BUILD_ID'
+      - 'skillforge-auth-frontend-staging'
+      - '--image=europe-west1-docker.pkg.dev/$PROJECT_ID/skillforge-ai-registry/skillforge-auth-frontend:$BUILD_ID'
       - '--platform=managed'
       - '--region=europe-west1'
       - '--allow-unauthenticated'
       - '--port=80'
-      - '--memory=512Mi'
+      - '--memory=1Gi'
       - '--cpu=1'
       - '--min-instances=0'
       - '--max-instances=10'
@@ -43,12 +42,12 @@ steps:
       - '--timeout=300'
       - '--ingress=all'
       - '--set-env-vars=NODE_ENV=production,APP_TYPE=auth,MODULE_FEDERATION_REMOTE=true'
-      - '--labels=app=skillforge,component=frontend,type=auth,environment=production'
+      - '--labels=app=skillforge,component=frontend,type=auth,environment=staging'
       - '--quiet'
 
 images:
-  - 'gcr.io/$PROJECT_ID/skillforge-auth:$BUILD_ID'
-  - 'gcr.io/$PROJECT_ID/skillforge-auth:latest'
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/skillforge-ai-registry/skillforge-auth-frontend:$BUILD_ID'
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/skillforge-ai-registry/skillforge-auth-frontend:latest'
 
 options:
   logging: CLOUD_LOGGING_ONLY

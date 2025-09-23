@@ -191,8 +191,8 @@ if __name__ == "__main__":
 
     Exemples d'utilisation:
 
-    # Cloud SQL (via proxy sur port 5433)
-    DATABASE_URL="postgresql+asyncpg://skillforge_user:password@localhost:5433/skillforge_db" python run_migrations.py
+    # Cloud SQL (via proxy sur port 5432)
+    DATABASE_URL="postgresql+asyncpg://skillforge_user:password@localhost:5432/skillforge_db" python run_migrations.py
 
     # PostgreSQL local
     POSTGRES_PASSWORD="your_secure_password" python run_migrations.py
