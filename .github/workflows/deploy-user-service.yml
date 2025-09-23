@@ -49,7 +49,7 @@ jobs:
     if: ${{ always() && needs.security-validation.result == 'success' }}
     uses: ./.github/workflows/build-push-docker.yml
     with:
-      image_name: ${{ inputs.environment == 'production' && 'skillforge-docker-repo-prod' || 'skillforge-docker-repo-staging' }}
+      image_name: 'skillforge-ai-registry'
       image_tag: 'user-service'
       dockerfile_path: 'apps/backend/user-service/Dockerfile'
     secrets:
