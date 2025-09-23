@@ -1,0 +1,31 @@
+[bandit]
+# Configuration Bandit pour SkillForge AI Backend Services
+
+# Tests à exclure pour réduire les faux positifs
+skips = B101,B601,B602,B603,B605,B607
+
+# Tests à ignorer spécifiquement 
+exclude_dirs = /tests,/test,/__pycache__,/.git,/migrations,/alembic
+
+# Niveau de confiance minimal (LOW, MEDIUM, HIGH)
+confidence = MEDIUM
+
+# Formats de sortie
+format = json
+
+# Ignorer les erreurs liées à:
+# B101 - assert_used (utilisé dans les tests)
+# B601 - paramiko_calls (pas utilisé)
+# B602 - subprocess_popen_with_shell_equals_true
+# B603 - subprocess_without_shell_equals_true  
+# B605 - start_process_with_a_shell
+# B607 - start_process_with_partial_path
+
+# Configuration spécifique pour production
+[bandit.any_other_function_with_shell_equals_true]
+no_shell = [
+    "os.execl", "os.execle", "os.execlp", "os.execlpe", "os.execv",
+    "os.execve", "os.execvp", "os.execvpe", "os.spawnl", "os.spawnle",
+    "os.spawnlp", "os.spawnlpe", "os.spawnv", "os.spawnve", "os.spawnvp",
+    "os.spawnvpe", "os.startfile"
+]

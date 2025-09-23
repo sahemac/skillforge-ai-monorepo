@@ -76,7 +76,7 @@ class User(SQLModel, UUIDMixin, TimestampMixin, table=True):
     newsletter_subscribed: bool = Field(default=True, nullable=False)
     
     # Note: Company relationships are handled by the company-service
-    # company_profiles relationship removed as CompanyProfile moved to company-service
+    # CompanyProfile moved to company-service microservice
     
     class Config:
         """Pydantic configuration."""
