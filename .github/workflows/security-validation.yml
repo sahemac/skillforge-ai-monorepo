@@ -670,50 +670,13 @@ jobs:
             echo "message=Multiple security scans failed: ${FAILED_SCANS[*]}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Notify via Slack
-        uses: 8398a7/action-slack@v3
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        with:
-          status: ${{ steps.urgency.outputs.status }}
-          custom_payload: |
-            {
-              "text": "${{ steps.urgency.outputs.status == 'success' && '🔒✅' || steps.urgency.outputs.status == 'warning' && '🔒⚠️' || '🔒❌' }} Security Validation Results",
-              "attachments": [
-                {
-                  "color": "${{ steps.urgency.outputs.status == 'success' && 'good' || steps.urgency.outputs.status == 'warning' && 'warning' || 'danger' }}",
-                  "fields": [
-                    {
-                      "title": "Status",
-                      "value": "${{ steps.urgency.outputs.message }}",
-                      "short": false
-                    },
-                    {
-                      "title": "Urgency Level",
-                      "value": "${{ steps.urgency.outputs.urgency }}",
-                      "short": true
-                    },
-                    {
-                      "title": "Scan Type",
-                      "value": "${{ github.event.inputs.scan_type || 'full' }}",
-                      "short": true
-                    },
-                    {
-                      "title": "Branch",
-                      "value": "${{ github.ref_name }}",
-                      "short": true
-                    },
-                    {
-                      "title": "Triggered By",
-                      "value": "${{ github.event_name == 'schedule' && 'Scheduled' || github.actor }}",
-                      "short": true
-                    },
-                    {
-                      "title": "Workflow Details",
-                      "value": "<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Full Report>",
-                      "short": false
-                    }
-                  ]
-                }
-              ]
-            }
+      - name: Log security validation results
+        run: |
+          echo "${{ steps.urgency.outputs.status == 'success' && '🔒✅' || steps.urgency.outputs.status == 'warning' && '🔒⚠️' || '🔒❌' }} Security Validation Results"
+          echo "Status: ${{ steps.urgency.outputs.message }}"
+          echo "Urgency Level: ${{ steps.urgency.outputs.urgency }}"
+          echo "Scan Type: ${{ github.event.inputs.scan_type || 'full' }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Triggered By: ${{ github.event_name == 'schedule' && 'Scheduled' || github.actor }}"
+          echo "Time: $(date)"
+          echo "Workflow Details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"

@@ -491,40 +491,11 @@ jobs:
             echo "message=Environment configuration or validation failed" >> $GITHUB_OUTPUT
           fi
 
-      - name: Notify via Slack
-        uses: 8398a7/action-slack@v3
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        with:
-          status: ${{ steps.status.outputs.status }}
-          custom_payload: |
-            {
-              "text": "${{ steps.status.outputs.status == 'success' && '✅' || '❌' }} ${{ steps.status.outputs.message }}",
-              "attachments": [
-                {
-                  "color": "${{ steps.status.outputs.status == 'success' && 'good' || 'danger' }}",
-                  "fields": [
-                    {
-                      "title": "Environment",
-                      "value": "${{ github.event.inputs.environment || 'All' }}",
-                      "short": true
-                    },
-                    {
-                      "title": "Action",
-                      "value": "${{ github.event.inputs.action || 'scheduled-audit' }}",
-                      "short": true
-                    },
-                    {
-                      "title": "Triggered By",
-                      "value": "${{ github.event_name == 'schedule' && 'Scheduled' || github.actor }}",
-                      "short": true
-                    },
-                    {
-                      "title": "Workflow",
-                      "value": "<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>",
-                      "short": false
-                    }
-                  ]
-                }
-              ]
-            }
+      - name: Log completion status
+        run: |
+          echo "${{ steps.status.outputs.status == 'success' && '✅' || '❌' }} ${{ steps.status.outputs.message }}"
+          echo "Environment: ${{ github.event.inputs.environment || 'All' }}"
+          echo "Action: ${{ github.event.inputs.action || 'scheduled-audit' }}"
+          echo "Triggered By: ${{ github.event_name == 'schedule' && 'Scheduled' || github.actor }}"
+          echo "Time: $(date)"
+          echo "Workflow: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"

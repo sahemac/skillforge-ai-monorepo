@@ -484,8 +484,8 @@ jobs:
           # Add your infrastructure validation tests here
           echo "All smoke tests passed"
 
-  notify-slack:
-    name: Notify Slack
+  log-deployment-status:
+    name: Log Deployment Status
     runs-on: ubuntu-latest
     needs: [detect-changes, terraform-plan, terraform-apply, terraform-destroy]
     if: always() && (needs.terraform-plan.result != 'skipped' || needs.terraform-apply.result != 'skipped' || needs.terraform-destroy.result != 'skipped')
@@ -507,53 +507,16 @@ jobs:
             echo "message=Infrastructure deployment failed" >> $GITHUB_OUTPUT
           fi
 
-      - name: Notify deployment status
-        uses: 8398a7/action-slack@v3
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        with:
-          status: ${{ steps.status.outputs.status }}
-          custom_payload: |
-            {
-              "text": "${{ steps.status.outputs.status == 'success' && '✅' || '❌' }} ${{ steps.status.outputs.message }}",
-              "attachments": [
-                {
-                  "color": "${{ steps.status.outputs.status == 'success' && 'good' || 'danger' }}",
-                  "fields": [
-                    {
-                      "title": "Environment",
-                      "value": "${{ needs.detect-changes.outputs.environment }}",
-                      "short": true
-                    },
-                    {
-                      "title": "Action",
-                      "value": "${{ needs.detect-changes.outputs.action }}",
-                      "short": true
-                    },
-                    {
-                      "title": "Auto Approved",
-                      "value": "${{ needs.detect-changes.outputs.auto_approve }}",
-                      "short": true
-                    },
-                    {
-                      "title": "Commit",
-                      "value": "<https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>",
-                      "short": true
-                    },
-                    {
-                      "title": "Author",
-                      "value": "${{ github.actor }}",
-                      "short": true
-                    },
-                    {
-                      "title": "Workflow",
-                      "value": "<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>",
-                      "short": false
-                    }
-                  ]
-                }
-              ]
-            }
+      - name: Log deployment status
+        run: |
+          echo "${{ steps.status.outputs.status == 'success' && '✅' || '❌' }} ${{ steps.status.outputs.message }}"
+          echo "Environment: ${{ needs.detect-changes.outputs.environment }}"
+          echo "Action: ${{ needs.detect-changes.outputs.action }}"
+          echo "Auto Approved: ${{ needs.detect-changes.outputs.auto_approve }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Author: ${{ github.actor }}"
+          echo "Time: $(date)"
+          echo "Workflow: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
   cleanup:
     name: Cleanup

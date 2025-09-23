@@ -468,49 +468,6 @@ jobs:
             gcloud run revisions delete $revision --region=$REGION --quiet || true
           done
 
-  notify-slack:
-    name: Notify Slack
-    runs-on: ubuntu-latest
-    needs: [detect-changes, build-and-deploy]
-    if: always() && needs.detect-changes.outputs.matrix != '{"app":[]}' && secrets.SLACK_WEBHOOK_URL != ''
-    steps:
-      - name: Notify deployment status
-        uses: 8398a7/action-slack@v3
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        with:
-          status: ${{ job.status }}
-          custom_payload: |
-            {
-              "text": "${{ job.status == 'success' && '✅' || '❌' }} Frontend Deployment ${{ job.status }}",
-              "attachments": [
-                {
-                  "color": "${{ job.status == 'success' && 'good' || 'danger' }}",
-                  "fields": [
-                    {
-                      "title": "Environment",
-                      "value": "${{ needs.detect-changes.outputs.environment }}",
-                      "short": true
-                    },
-                    {
-                      "title": "Apps Deployed",
-                      "value": "${{ needs.detect-changes.outputs.matrix }}",
-                      "short": true
-                    },
-                    {
-                      "title": "Commit",
-                      "value": "<https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>",
-                      "short": true
-                    },
-                    {
-                      "title": "Author",
-                      "value": "${{ github.actor }}",
-                      "short": true
-                    }
-                  ]
-                }
-              ]
-            }
   rollback:
     name: Rollback on Failure
     runs-on: ubuntu-latest
@@ -551,31 +508,9 @@ jobs:
             fi
           done
 
-      - name: Notify rollback
-        uses: 8398a7/action-slack@v3
-        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        with:
-          status: 'warning'
-          custom_payload: |
-            {
-              "text": "🔄 Frontend Production Rollback Completed",
-              "attachments": [
-                {
-                  "color": "warning",
-                  "fields": [
-                    {
-                      "title": "Reason",
-                      "value": "Deployment failure detected",
-                      "short": false
-                    },
-                    {
-                      "title": "Commit",
-                      "value": "<https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>",
-                      "short": true
-                    }
-                  ]
-                }
-              ]
-            }
+      - name: Log rollback completion
+        run: |
+          echo "🔄 Frontend Production Rollback Completed"
+          echo "Reason: Deployment failure detected"
+          echo "Commit: ${{ github.sha }}"
+          echo "Time: $(date)"

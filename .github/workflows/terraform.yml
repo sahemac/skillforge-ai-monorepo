@@ -598,14 +598,18 @@ jobs:
     needs: [validate, plan, deploy-staging, deploy-production]
     if: always()
     steps:
-      - name: "📧 Slack Notification"
+      - name: "📧 Log Notification"
         if: failure()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          channel: '#devops-alerts'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-          fields: repo,message,commit,author,action,eventName,ref,workflow
+        run: |
+          echo "🚨 Terraform Workflow Failed"
+          echo "Status: ${{ job.status }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Author: ${{ github.actor }}"
+          echo "Event: ${{ github.event_name }}"
+          echo "Branch: ${{ github.ref }}"
+          echo "Workflow: ${{ github.workflow }}"
+          echo "Time: $(date)"
 
       - name: "📧 Teams Notification"
         if: failure()
