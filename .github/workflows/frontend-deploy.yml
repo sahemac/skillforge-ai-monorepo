@@ -472,10 +472,12 @@ jobs:
     name: Notify Slack
     runs-on: ubuntu-latest
     needs: [detect-changes, build-and-deploy]
-    if: always() && needs.detect-changes.outputs.matrix != '{"app":[]}'
+    if: always() && needs.detect-changes.outputs.matrix != '{"app":[]}' && secrets.SLACK_WEBHOOK_URL != ''
     steps:
       - name: Notify deployment status
         uses: 8398a7/action-slack@v3
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         with:
           status: ${{ job.status }}
           custom_payload: |
@@ -551,6 +553,9 @@ jobs:
 
       - name: Notify rollback
         uses: 8398a7/action-slack@v3
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         with:
           status: 'warning'
           custom_payload: |
