@@ -34,7 +34,6 @@ on:
 env:
   PROJECT_ID: skillforge-ai-mvp-25
   REGION: europe-west1
-  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
 jobs:
   dependency-scan:
@@ -716,5 +715,3 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

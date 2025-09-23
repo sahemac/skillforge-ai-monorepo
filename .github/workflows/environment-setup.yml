@@ -59,7 +59,6 @@ jobs:
             "REDIS_URL"
             "SECRET_KEY"
             "JWT_SECRET_KEY"
-            "SLACK_WEBHOOK_URL"
             "WIF_PROVIDER"
             "WIF_SERVICE_ACCOUNT"
             "TF_STATE_BUCKET"
@@ -88,7 +87,6 @@ jobs:
           REDIS_URL: ${{ secrets.REDIS_URL }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
           JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
           WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT }}
           TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
@@ -528,5 +526,3 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

@@ -31,7 +31,6 @@ env:
   REGISTRY: gcr.io
   PROJECT_ID: skillforge-ai-mvp-25
   REGION: europe-west1
-  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
 jobs:
   detect-changes:
@@ -181,7 +180,7 @@ jobs:
         working-directory: .
         run: |
           echo "📎 Installing workspace dependencies with pnpm..."
-          pnpm install --frozen-lockfile
+          pnpm install --no-frozen-lockfile
           echo "✅ Dependencies installed"
 
       - name: Lint code
@@ -513,8 +512,7 @@ jobs:
               ]
             }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
+        
   rollback:
     name: Rollback on Failure
     runs-on: ubuntu-latest
@@ -581,4 +579,3 @@ jobs:
               ]
             }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

@@ -41,7 +41,6 @@ env:
   REGION: europe-west1
   TF_VERSION: '1.9.0'
   TF_LOG: INFO
-  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
 jobs:
   detect-changes:
@@ -553,8 +552,6 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   cleanup:
     name: Cleanup

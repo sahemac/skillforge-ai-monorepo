@@ -39,7 +39,6 @@ env:
   PROJECT_ID: skillforge-ai-mvp-25
   REGION: europe-west1
   PYTHON_VERSION: '3.11'
-  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
 jobs:
   detect-changes:
@@ -665,8 +664,6 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   rollback:
     name: Rollback on Failure
@@ -733,5 +730,3 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
