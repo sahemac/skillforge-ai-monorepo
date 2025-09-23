@@ -1,5 +1,5 @@
 """
-Configuration settings for SkillForge AI Orchestrator Service
+Configuration settings for SkillForge AI Project Service
 """
 
 import secrets
@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     """Application settings."""
     
     # Basic App Configuration
-    PROJECT_NAME: str = "SkillForge AI Orchestrator Service"
+    PROJECT_NAME: str = "SkillForge AI Project Service"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = Field(default="development", env="ENVIRONMENT")
     DEBUG: bool = Field(default=True, env="DEBUG")
@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32), env="SECRET_KEY")
     ALGORITHM: str = Field(default="HS256", env="ALGORITHM")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7, env="REFRESH_TOKEN_EXPIRE_DAYS")
     
     # CORS
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = Field(
@@ -33,11 +34,11 @@ class Settings(BaseSettings):
         env="ALLOWED_HOSTS"
     )
     
-    # Database - AI Orchestrator specific
+    # Database - Project Service specific
     DATABASE_URL: Optional[str] = Field(default=None, env="DATABASE_URL")
     POSTGRES_USER: str = Field(default="skillforge_user", env="POSTGRES_USER")
     POSTGRES_PASSWORD: Optional[str] = Field(default=None, env="POSTGRES_PASSWORD") 
-    POSTGRES_DB: str = Field(default="skillforge_ai_orchestrator", env="POSTGRES_DB")
+    POSTGRES_DB: str = Field(default="skillforge_projects", env="POSTGRES_DB")
     POSTGRES_HOST: str = Field(default="localhost", env="POSTGRES_HOST")
     POSTGRES_PORT: int = Field(default=5432, env="POSTGRES_PORT")
     
@@ -49,26 +50,22 @@ class Settings(BaseSettings):
     REDIS_DB: int = Field(default=0, env="REDIS_DB")
     CACHE_TTL: int = Field(default=300, env="CACHE_TTL")  # 5 minutes
     
-    # AI Services Configuration
-    OPENAI_API_KEY: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
-    ANTHROPIC_API_KEY: Optional[str] = Field(default=None, env="ANTHROPIC_API_KEY")
-    GOOGLE_AI_API_KEY: Optional[str] = Field(default=None, env="GOOGLE_AI_API_KEY")
-    HUGGINGFACE_API_KEY: Optional[str] = Field(default=None, env="HUGGINGFACE_API_KEY")
+    # Email Configuration (emacsah.com domain)
+    SMTP_TLS: bool = Field(default=True, env="SMTP_TLS")
+    SMTP_PORT: Optional[int] = Field(default=587, env="SMTP_PORT")
+    SMTP_HOST: Optional[str] = Field(default="mail.emacsah.com", env="SMTP_HOST")
+    SMTP_USER: Optional[str] = Field(default="sah@emacsah.com", env="SMTP_USER")
+    SMTP_PASSWORD: Optional[str] = Field(default=None, env="SMTP_PASSWORD")
+    EMAILS_FROM_EMAIL: Optional[EmailStr] = Field(default="sah@emacsah.com", env="EMAILS_FROM_EMAIL")
+    EMAILS_FROM_NAME: Optional[str] = Field(default="SkillForge AI", env="EMAILS_FROM_NAME")
     
-    # AI Models Configuration
-    DEFAULT_LANGUAGE_MODEL: str = Field(default="gpt-4", env="DEFAULT_LANGUAGE_MODEL")
-    DEFAULT_EMBEDDING_MODEL: str = Field(default="text-embedding-ada-002", env="DEFAULT_EMBEDDING_MODEL")
-    MAX_TOKENS: int = Field(default=4000, env="MAX_TOKENS")
-    TEMPERATURE: float = Field(default=0.7, env="TEMPERATURE")
-    
-    # Agent Configuration
-    MAX_CONCURRENT_AGENTS: int = Field(default=10, env="MAX_CONCURRENT_AGENTS")
-    AGENT_TIMEOUT_SECONDS: int = Field(default=300, env="AGENT_TIMEOUT_SECONDS")
-    TASK_QUEUE_SIZE: int = Field(default=100, env="TASK_QUEUE_SIZE")
-    
-    # Vector Database Configuration
-    VECTOR_DB_URL: Optional[str] = Field(default=None, env="VECTOR_DB_URL")
-    VECTOR_DB_COLLECTION: str = Field(default="ai_knowledge_base", env="VECTOR_DB_COLLECTION")
+    # File Upload Configuration
+    MAX_FILE_SIZE_MB: int = Field(default=50, env="MAX_FILE_SIZE_MB")
+    UPLOAD_PATH: str = Field(default="/tmp/uploads", env="UPLOAD_PATH")
+    ALLOWED_FILE_TYPES: List[str] = Field(
+        default=["pdf", "doc", "docx", "txt", "md", "jpg", "jpeg", "png", "gif"],
+        env="ALLOWED_FILE_TYPES"
+    )
     
     # Logging
     LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
@@ -79,8 +76,28 @@ class Settings(BaseSettings):
     
     # External Services
     USER_SERVICE_URL: Optional[str] = Field(default="http://user-service:8000", env="USER_SERVICE_URL")
-    CONTENT_SERVICE_URL: Optional[str] = Field(default="http://content-service:8000", env="CONTENT_SERVICE_URL")
+    COMPANY_SERVICE_URL: Optional[str] = Field(default="http://company-service:8000", env="COMPANY_SERVICE_URL")
     NOTIFICATION_SERVICE_URL: Optional[str] = Field(default="http://notification-service:8000", env="NOTIFICATION_SERVICE_URL")
+    STORAGE_SERVICE_URL: Optional[str] = Field(default="http://storage-service:8000", env="STORAGE_SERVICE_URL")
+    
+    # Google Cloud Storage Configuration
+    GCP_PROJECT_ID: str = Field(default="skillforge-ai-mvp-25", env="GCP_PROJECT_ID")
+    GCS_BUCKET_NAME: str = Field(default="skillforge-deliverables", env="GCS_BUCKET_NAME")
+    GCS_LOCATION: str = Field(default="europe-west1", env="GCS_LOCATION")
+    
+    # File Upload Limits
+    MAX_FILE_SIZE_MB: int = Field(default=100, env="MAX_FILE_SIZE_MB")
+    ALLOWED_FILE_EXTENSIONS: List[str] = Field(
+        default=[
+            "pdf", "doc", "docx", "txt", "md",  # Documents
+            "zip", "tar", "gz", "rar",          # Archives
+            "jpg", "jpeg", "png", "gif", "svg", # Images
+            "mp4", "avi", "mov", "mkv",         # Vidéos
+            "py", "js", "ts", "java", "cpp",    # Code
+            "json", "xml", "csv", "xlsx"        # Données
+        ],
+        env="ALLOWED_FILE_EXTENSIONS"
+    )
     
     # Monitoring
     ENABLE_METRICS: bool = Field(default=True, env="ENABLE_METRICS")
@@ -106,21 +123,13 @@ class Settings(BaseSettings):
         raise ValueError(v)
     
     @field_validator("DATABASE_URL", mode="before")
-    def assemble_db_connection(cls, v: Optional[str], values: dict) -> Any:
+    @classmethod
+    def assemble_db_connection(cls, v: Optional[str], info=None) -> Any:
         if isinstance(v, str) and v:
             return v
-        # Build from individual components if not provided
-        user = values.get("POSTGRES_USER")
-        password = values.get("POSTGRES_PASSWORD") 
-        host = values.get("POSTGRES_HOST", "localhost")
-        port = values.get("POSTGRES_PORT", 5432)
-        db = values.get("POSTGRES_DB", "skillforge_ai_orchestrator")
         
-        # For development only - fallback to SQLite if no password provided
-        if not password or not user:
-            return "sqlite+aiosqlite:///./skillforge_ai_orchestrator_dev.db"
-        
-        return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
+        # For development - use a simple default
+        return "postgresql+asyncpg://skillforge_user:password@localhost:5432/skillforge_project_db"
     
     @property
     def is_production(self) -> bool:
