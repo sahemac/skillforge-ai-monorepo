@@ -40,6 +40,11 @@ env:
   REGION: europe-west1
   PYTHON_VERSION: '3.11'
 
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
+
 jobs:
   detect-changes:
     name: Detect Changes
@@ -209,6 +214,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest-cov black flake8 mypy psycopg2-binary
+      - name: Verify database connection
+        run: |
+          python -c "import psycopg2; conn = psycopg2.connect('postgresql://test_user:test_password@localhost:5432/test_db'); conn.close(); print('Database connection successful')"
       - name: Lint with flake8
         working-directory: apps/backend/${{ matrix.service }}
         run: |
@@ -277,8 +285,6 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
-          
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
       - name: Install dependencies
@@ -333,8 +339,6 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
-          
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
       - name: Configure Docker to use gcloud as credential helper
@@ -578,8 +582,6 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
-          
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
       - name: Rollback to previous revision
