@@ -59,8 +59,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: '${{ matrix.scan-target.path }}/package-lock.json'
+
+      - name: Set up pnpm (for frontend)
+        if: matrix.scan-target.type == 'npm'
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9.0.0'
+          run_install: false
+
+      - name: Cache pnpm modules (for frontend)
+        if: matrix.scan-target.type == 'npm'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pnpm-store
+            ${{ matrix.scan-target.path }}/node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
       - name: Set up Python (for backend)
         if: matrix.scan-target.type == 'python'
@@ -72,23 +88,21 @@ jobs:
         working-directory: ${{ matrix.scan-target.path }}
         run: |
           if [[ "${{ matrix.scan-target.type }}" == "npm" ]]; then
-            if [ -f package-lock.json ]; then
-              npm ci
-            else
-              npm install
-            fi
+            # Change to root directory to install workspace dependencies
+            cd ../../../
+            pnpm install --no-frozen-lockfile
           elif [[ "${{ matrix.scan-target.type }}" == "python" ]]; then
             pip install -r requirements.txt
             pip install safety bandit semgrep
           fi
 
-      - name: Run npm audit (Frontend)
+      - name: Run pnpm audit (Frontend)
         if: matrix.scan-target.type == 'npm'
-        working-directory: ${{ matrix.scan-target.path }}
+        working-directory: .
         continue-on-error: true
         run: |
-          npm audit --audit-level=${{ github.event.inputs.severity_threshold || 'moderate' }} --format=json > npm-audit-report.json || true
-          npm audit --audit-level=${{ github.event.inputs.severity_threshold || 'moderate' }}
+          pnpm audit --audit-level=${{ github.event.inputs.severity_threshold || 'moderate' }} --format=json > pnpm-audit-report.json || true
+          pnpm audit --audit-level=${{ github.event.inputs.severity_threshold || 'moderate' }}
 
       - name: Run Safety check (Python)
         if: matrix.scan-target.type == 'python'
@@ -120,6 +134,7 @@ jobs:
           name: dependency-security-reports-${{ matrix.scan-target.type }}-${{ hashFiles(format('{0}/{1}', matrix.scan-target.path, matrix.scan-target.package-file)) }}
           path: |
             ${{ matrix.scan-target.path }}/*-report.json
+            *-audit-report.json
 
   code-quality-scan:
     name: Code Quality & Security Scan
@@ -165,8 +180,10 @@ jobs:
 
       - name: Run ESLint security scan (Frontend)
         run: |
+          # Install workspace dependencies first
+          pnpm install --no-frozen-lockfile
           cd apps/frontend
-          npm install eslint-plugin-security --no-save
+          pnpm add eslint-plugin-security --save-dev --workspace-root
           npx eslint . --ext .js,.jsx,.ts,.tsx --format json --output-file eslint-security-report.json || true
           npx eslint . --ext .js,.jsx,.ts,.tsx
 
@@ -205,11 +222,26 @@ jobs:
         run: |
           cat > Dockerfile.scan << 'EOF'
           FROM node:20-alpine AS builder
+          
+          # Install pnpm
+          RUN npm install -g pnpm@9.0.0
+          
           WORKDIR /app
-          COPY package*.json ./
-          RUN npm ci --only=production
-          COPY . .
-          RUN npm run build
+          
+          # Copy workspace files
+          COPY pnpm-workspace.yaml ./
+          COPY package.json pnpm-lock.yaml ./
+          
+          # Copy frontend app files
+          COPY ${{ matrix.service.path }}/package.json ./${{ matrix.service.path }}/
+          
+          # Install dependencies
+          RUN pnpm install --frozen-lockfile --prod
+          
+          # Copy source code and build
+          COPY ${{ matrix.service.path }} ./${{ matrix.service.path }}/
+          WORKDIR /app/${{ matrix.service.path }}
+          RUN pnpm run build
 
           FROM nginx:alpine
           RUN addgroup -g 1001 -S nodejs && \

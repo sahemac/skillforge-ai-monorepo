@@ -165,16 +165,16 @@ jobs:
           version: '9.0.0'
           run_install: false
 
-      - name: Cache node modules
+      - name: Cache pnpm modules
         uses: actions/cache@v4
         with:
           path: |
+            ~/.pnpm-store
             apps/frontend/${{ matrix.app }}/node_modules
-            ~/.npm
-          key: ${{ runner.os }}-node-${{ matrix.app }}-${{ hashFiles('apps/frontend/${{ matrix.app }}/package-lock.json') }}
+          key: ${{ runner.os }}-pnpm-${{ matrix.app }}-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-node-${{ matrix.app }}-
-            ${{ runner.os }}-node-
+            ${{ runner.os }}-pnpm-${{ matrix.app }}-
+            ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
         working-directory: .
@@ -244,9 +244,13 @@ jobs:
           cat > Dockerfile << 'EOF'
           # Multi-stage build for optimization
           FROM node:20-alpine AS builder
+          
+          # Install pnpm
+          RUN npm install -g pnpm@9.0.0
+          
           WORKDIR /app
-          COPY package*.json ./
-          RUN npm ci --only=production && npm cache clean --force
+          COPY package.json ./
+          RUN pnpm install --prod --frozen-lockfile && pnpm store prune
           COPY dist ./dist
           
           FROM nginx:alpine AS production
