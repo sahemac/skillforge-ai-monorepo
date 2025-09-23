@@ -2,6 +2,7 @@
   "name": "skillforge-ai-monorepo",
   "version": "1.0.0", 
   "private": true,
+  "type": "module",
   "description": "SkillForge AI Monorepo",
   "workspaces": {
     "packages": [
