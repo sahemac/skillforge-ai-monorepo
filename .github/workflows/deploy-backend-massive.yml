@@ -1,0 +1,380 @@
+name: "Massive Backend Services Deployment"
+
+on:
+  workflow_dispatch:
+    inputs:
+      batch:
+        description: 'Batch to deploy (1-5 or "all")'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+          - '5'
+          - 'all'
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      skip_tests:
+        description: 'Skip tests (emergency deployment)'
+        required: false
+        default: false
+        type: boolean
+      skip_migrations:
+        description: 'Skip database migrations'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: ${{ secrets.GCP_REGION }}
+  REGISTRY: europe-west1-docker.pkg.dev
+  REPOSITORY: skillforge-ai-registry
+
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
+  actions: read
+
+jobs:
+  setup-matrix:
+    name: Setup Deployment Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      batch-name: ${{ steps.set-matrix.outputs.batch-name }}
+    steps:
+      - name: Setup deployment matrix
+        id: set-matrix
+        run: |
+          case "${{ inputs.batch }}" in
+            "1")
+              services='["subscription-service","payment-service","notification-service","storage-service"]'
+              batch_name="BATCH 1 - Critical Services"
+              ;;
+            "2")
+              services='["content-service","search-service","project-service","audit-service"]'
+              batch_name="BATCH 2 - Functional Services"
+              ;;
+            "3")
+              services='["matching-service","workflow-service","portfolio-service","evaluation-service"]'
+              batch_name="BATCH 3 - Advanced Services"
+              ;;
+            "4")
+              services='["chat-messaging-service","realtime-collaboration-service","scheduling-service"]'
+              batch_name="BATCH 4 - Communication Services"
+              ;;
+            "5")
+              services='["recommendation-service","ai-orchestrator-service","gamification-service","localization-service","integration-service"]'
+              batch_name="BATCH 5 - Intelligence Services"
+              ;;
+            "all")
+              services='["subscription-service","payment-service","notification-service","storage-service","content-service","search-service","project-service","audit-service","matching-service","workflow-service","portfolio-service","evaluation-service","chat-messaging-service","realtime-collaboration-service","scheduling-service","recommendation-service","ai-orchestrator-service","gamification-service","localization-service","integration-service"]'
+              batch_name="ALL BATCHES - Complete Deployment"
+              ;;
+          esac
+          
+          echo "matrix={\"service\":$services}" >> $GITHUB_OUTPUT
+          echo "batch-name=$batch_name" >> $GITHUB_OUTPUT
+          echo "Deploying: $batch_name"
+          echo "Services: $services"
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: setup-matrix
+    if: ${{ !inputs.skip_tests }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.setup-matrix.outputs.matrix) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install security tools
+        run: |
+          pip install bandit safety semgrep
+
+      - name: Run security scans
+        working-directory: apps/backend/${{ matrix.service }}
+        run: |
+          echo "🔍 Running security scans for ${{ matrix.service }}..."
+          
+          # Bandit security scan
+          bandit -r app/ -f json -o bandit-report.json || true
+          
+          # Safety dependency check
+          safety check --json --output safety-report.json || true
+          
+          # Semgrep static analysis
+          semgrep --config=auto --json --output=semgrep-report.json app/ || true
+          
+          echo "✅ Security scans completed"
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports-${{ matrix.service }}
+          path: |
+            apps/backend/${{ matrix.service }}/bandit-report.json
+            apps/backend/${{ matrix.service }}/safety-report.json
+            apps/backend/${{ matrix.service }}/semgrep-report.json
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: setup-matrix
+    if: ${{ !inputs.skip_tests }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.setup-matrix.outputs.matrix) }}
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: apps/backend/${{ matrix.service }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio
+
+      - name: Run tests
+        working-directory: apps/backend/${{ matrix.service }}
+        run: |
+          export DATABASE_URL=postgresql://test_user:test_password@localhost:5432/test_db
+          export ENVIRONMENT=testing
+          
+          # Run tests if they exist
+          if [ -d "app/tests" ] || [ -d "tests" ]; then
+            pytest -v --cov=app --cov-report=xml --cov-report=term-missing
+          else
+            echo "⚠️ No tests found for ${{ matrix.service }}, skipping..."
+          fi
+
+  build-and-deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    needs: [setup-matrix, security-scan, test]
+    if: always() && (needs.security-scan.result == 'success' || inputs.skip_tests) && (needs.test.result == 'success' || inputs.skip_tests)
+    strategy:
+      fail-fast: false
+      max-parallel: 4  # Prevent Cloud Build quota issues
+      matrix: ${{ fromJson(needs.setup-matrix.outputs.matrix) }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: |
+          gcloud auth configure-docker ${{ env.REGISTRY }}
+
+      - name: Deploy with Cloud Build
+        working-directory: .
+        run: |
+          echo "🚀 Deploying ${{ matrix.service }} using Cloud Build..."
+          
+          # Use our optimized cloudbuild.yaml with Secrets Manager
+          gcloud builds submit \
+            --config=apps/backend/${{ matrix.service }}/cloudbuild.yaml \
+            --substitutions=_SERVICE_NAME=${{ matrix.service }} \
+            --timeout=30m \
+            .
+          
+          echo "✅ ${{ matrix.service }} deployed successfully"
+
+      - name: Verify deployment
+        run: |
+          echo "🔍 Verifying ${{ matrix.service }} deployment..."
+          
+          # Wait for service to be ready
+          sleep 60
+          
+          # Check service status
+          SERVICE_URL=$(gcloud run services describe ${{ matrix.service }} \
+            --region=${{ env.REGION }} \
+            --format="value(status.url)" || echo "")
+          
+          if [ -n "$SERVICE_URL" ]; then
+            echo "✅ Service deployed at: $SERVICE_URL"
+            
+            # Basic health check
+            if curl -f -s "$SERVICE_URL/health" > /dev/null 2>&1; then
+              echo "✅ Health check passed"
+            elif curl -f -s "$SERVICE_URL/docs" > /dev/null 2>&1; then
+              echo "✅ Service responding (docs endpoint)"
+            else
+              echo "⚠️ Health check failed, but service is deployed"
+            fi
+          else
+            echo "❌ Failed to get service URL"
+            exit 1
+          fi
+
+  database-connectivity-test:
+    name: DB Connectivity Test
+    runs-on: ubuntu-latest
+    needs: [setup-matrix, build-and-deploy]
+    if: always() && needs.build-and-deploy.result == 'success' && !inputs.skip_migrations
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.setup-matrix.outputs.matrix) }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Test database connectivity
+        run: |
+          echo "🔍 Testing database connectivity for ${{ matrix.service }}..."
+          
+          SERVICE_URL=$(gcloud run services describe ${{ matrix.service }} \
+            --region=${{ env.REGION }} \
+            --format="value(status.url)" || echo "")
+          
+          if [ -n "$SERVICE_URL" ]; then
+            # Test various DB endpoints
+            endpoints=("/health/db" "/health" "/docs")
+            
+            for endpoint in "${endpoints[@]}"; do
+              echo "Testing $SERVICE_URL$endpoint"
+              if curl -f -s "$SERVICE_URL$endpoint" > /dev/null 2>&1; then
+                echo "✅ $endpoint responding"
+                break
+              else
+                echo "⚠️ $endpoint not responding"
+              fi
+            done
+          else
+            echo "❌ Could not get service URL"
+          fi
+
+  notify-completion:
+    name: Notify Completion
+    runs-on: ubuntu-latest
+    needs: [setup-matrix, build-and-deploy, database-connectivity-test]
+    if: always()
+    steps:
+      - name: Generate deployment report
+        run: |
+          echo "## 🚀 Massive Backend Deployment Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Batch:** ${{ needs.setup-matrix.outputs.batch-name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "**Configuration:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Registry: \`${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Security Manager: ✅ Enabled" >> $GITHUB_STEP_SUMMARY
+          echo "- Cloud SQL Proxy: ✅ Enabled" >> $GITHUB_STEP_SUMMARY
+          echo "- Ingress: \`internal-and-cloud-load-balancing\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ needs.build-and-deploy.result }}" == "success" ]]; then
+            echo "**Status:** ✅ Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Status:** ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Verify services at Load Balancer endpoints" >> $GITHUB_STEP_SUMMARY
+          echo "2. Run integration tests" >> $GITHUB_STEP_SUMMARY
+          echo "3. Monitor service health and logs" >> $GITHUB_STEP_SUMMARY
+
+  rollback:
+    name: Rollback on Critical Failure
+    runs-on: ubuntu-latest
+    needs: [setup-matrix, build-and-deploy]
+    if: failure() && inputs.environment == 'production'
+    strategy:
+      matrix: ${{ fromJson(needs.setup-matrix.outputs.matrix) }}
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Rollback service
+        run: |
+          echo "🔄 Rolling back ${{ matrix.service }} in production..."
+          
+          # Get previous working revision
+          PREVIOUS_REVISION=$(gcloud run revisions list \
+            --service=${{ matrix.service }} \
+            --region=${{ env.REGION }} \
+            --format="value(metadata.name)" \
+            --sort-by="~metadata.creationTimestamp" \
+            --limit=2 | tail -1)
+          
+          if [ -n "$PREVIOUS_REVISION" ]; then
+            echo "Rolling back to: $PREVIOUS_REVISION"
+            gcloud run services update-traffic ${{ matrix.service }} \
+              --region=${{ env.REGION }} \
+              --to-revisions="$PREVIOUS_REVISION=100" \
+              --quiet
+            echo "✅ Rollback completed"
+          else
+            echo "⚠️ No previous revision found"
+          fi

@@ -213,7 +213,7 @@ def show_troubleshooting():
     print("\n3. If port not accessible:")
     print("   Check cloud-sql-proxy is running")
     print("   Check firewall settings")
-    print("   Try different port: -instances=...=tcp:5433")
+    print("   Try different port: -instances=...=tcp:5432")
     
     print("\n4. If PostgreSQL connection fails:")
     print("   Verify cloud-sql-proxy logs")
