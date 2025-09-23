@@ -205,7 +205,6 @@ jobs:
           pnpm run test:run
           pnpm run test:coverage
           echo "✅ Tests completed"
-        env:
           CI: true
 
       - name: Upload test coverage
@@ -221,7 +220,6 @@ jobs:
           echo "🛠️ Building application..."
           pnpm run build
           echo "✅ Build completed"
-        env:
           NODE_ENV: production
           VITE_API_URL: ${{ vars.VITE_API_URL }}
           VITE_AUTH_DOMAIN: ${{ vars.VITE_AUTH_DOMAIN }}
@@ -511,8 +509,6 @@ jobs:
                 }
               ]
             }
-        env:
-        
   rollback:
     name: Rollback on Failure
     runs-on: ubuntu-latest
@@ -578,4 +574,3 @@ jobs:
                 }
               ]
             }
-        env:
