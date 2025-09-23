@@ -1,0 +1,25 @@
+creationTimestamp: '2025-09-03T15:12:22.302-07:00'
+defaultService: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/user-service-backend-staging
+fingerprint: hETmOe-dl5o=
+hostRules:
+- hosts:
+  - api.emacsah.com
+  pathMatcher: allpaths
+- hosts:
+  - skillforge-ai.emacsah.com
+  pathMatcher: allpaths
+id: 7634173594235634601
+kind: compute#urlMap
+name: skillforge-urlmap-staging
+pathMatchers:
+- defaultService: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/user-service-backend-staging
+  name: allpaths
+  pathRules:
+  - paths:
+    - /api/v1/*
+    service: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/user-service-backend-staging
+  - paths:
+    - /health
+    - /metrics
+    service: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/user-service-backend-staging
+selfLink: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/urlMaps/skillforge-urlmap-staging

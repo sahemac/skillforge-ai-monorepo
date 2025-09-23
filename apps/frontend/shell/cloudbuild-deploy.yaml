@@ -1,0 +1,23 @@
+steps:
+# Build l'image Docker
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-f', 'Dockerfile.minimal', '-t', 'gcr.io/skillforge-ai-mvp-25/skillforge-shell:latest', '.']
+
+# Deployer vers Cloud Run
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+  - 'run'
+  - 'deploy'
+  - 'skillforge-shell'
+  - '--image=gcr.io/skillforge-ai-mvp-25/skillforge-shell:latest'
+  - '--platform=managed'
+  - '--region=europe-west1'
+  - '--allow-unauthenticated'
+  - '--memory=1Gi'
+  - '--cpu=1'
+  - '--max-instances=10'
+  - '--port=80'
+
+images:
+- 'gcr.io/skillforge-ai-mvp-25/skillforge-shell:latest'

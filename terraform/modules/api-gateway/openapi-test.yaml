@@ -12,6 +12,62 @@ produces:
 # No authentication for test version
 
 paths:
+  # Root endpoint
+  "/":
+    get:
+      summary: "Root endpoint"
+      operationId: "root"
+      tags:
+        - "General"
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Service info"
+
+  # Health check endpoints (no auth required)
+  "/health":
+    get:
+      summary: "Service health check"
+      operationId: "healthCheck"
+      tags:
+        - "Health"
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Service is healthy"
+
+  # Metrics endpoint
+  "/metrics":
+    get:
+      summary: "Prometheus metrics"
+      operationId: "metrics"
+      tags:
+        - "Monitoring"
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Prometheus metrics"
+
+  # Cache info endpoint
+  "/cache/info":
+    get:
+      summary: "Cache information"
+      operationId: "cacheInfo"
+      tags:
+        - "Monitoring"
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Cache information"
+
   # User Service Routes
   "/api/v1/users":
     get:
@@ -52,7 +108,7 @@ paths:
         401:
           description: "Unauthorized"
 
-  # Auth Routes (dans user-service actuellement)
+  # Authentication Routes
   "/api/v1/auth/register":
     post:
       summary: "User registration"
@@ -92,20 +148,6 @@ paths:
         400:
           description: "Invalid input"
 
-  # Health check endpoints (no auth required)
-  "/health":
-    get:
-      summary: "API Gateway health check"
-      operationId: "gatewayHealth"
-      tags:
-        - "Health"
-      x-google-backend:
-        address: "${user_service_url}"
-        path_translation: "APPEND_PATH_TO_ADDRESS"
-      responses:
-        200:
-          description: "Gateway is healthy"
-
   "/api/v1/auth/login":
     post:
       summary: "User login"
@@ -139,6 +181,216 @@ paths:
         401:
           description: "Invalid credentials"
 
+  "/api/v1/auth/refresh":
+    post:
+      summary: "Refresh access token"
+      operationId: "refreshToken"
+      tags:
+        - "Authentication"
+      parameters:
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+            required:
+              - refresh_token
+            properties:
+              refresh_token:
+                type: string
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Token refreshed"
+        401:
+          description: "Invalid token"
+
+  "/api/v1/auth/logout":
+    post:
+      summary: "User logout"
+      operationId: "logout"
+      tags:
+        - "Authentication"
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Logged out successfully"
+
+  "/api/v1/auth/logout-all":
+    post:
+      summary: "Logout from all sessions"
+      operationId: "logoutAll"
+      tags:
+        - "Authentication"
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Logged out from all sessions"
+
+  "/api/v1/auth/verify-email-request":
+    post:
+      summary: "Request email verification"
+      operationId: "verifyEmailRequest"
+      tags:
+        - "Authentication"
+      parameters:
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+            required:
+              - email
+            properties:
+              email:
+                type: string
+                format: email
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Verification email sent"
+
+  "/api/v1/auth/verify-email":
+    post:
+      summary: "Confirm email verification"
+      operationId: "verifyEmail"
+      tags:
+        - "Authentication"
+      parameters:
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+            required:
+              - token
+            properties:
+              token:
+                type: string
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Email verified"
+        400:
+          description: "Invalid token"
+
+  "/api/v1/auth/password-reset-request":
+    post:
+      summary: "Request password reset"
+      operationId: "passwordResetRequest"
+      tags:
+        - "Authentication"
+      parameters:
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+            required:
+              - email
+            properties:
+              email:
+                type: string
+                format: email
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Reset email sent"
+
+  "/api/v1/auth/password-reset-confirm":
+    post:
+      summary: "Confirm password reset"
+      operationId: "passwordResetConfirm"
+      tags:
+        - "Authentication"
+      parameters:
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+            required:
+              - token
+              - new_password
+            properties:
+              token:
+                type: string
+              new_password:
+                type: string
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Password reset successful"
+        400:
+          description: "Invalid token"
+
+  # API Gateway health check endpoint
+  "/api/v1/auth/health":
+    get:
+      summary: "Auth service health check"
+      operationId: "authHealthCheck"
+      tags:
+        - "Health"
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "CONSTANT_ADDRESS"
+        path: "/health"
+      responses:
+        200:
+          description: "Auth service is healthy"
+
+  # Companies routes (for future expansion)
+  "/api/v1/companies":
+    get:
+      summary: "List companies"
+      operationId: "listCompanies"
+      tags:
+        - "Companies"
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "List of companies"
+        401:
+          description: "Unauthorized"
+
+  "/api/v1/companies/{company_id}":
+    get:
+      summary: "Get company by ID"
+      operationId: "getCompanyById"
+      tags:
+        - "Companies"
+      parameters:
+        - name: "company_id"
+          in: "path"
+          required: true
+          type: "string"
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Company details"
+        404:
+          description: "Company not found"
+        401:
+          description: "Unauthorized"
+
 # Rate limiting disabled for test version
 
 # Global parameters
@@ -147,5 +399,11 @@ parameters:
     name: "user_id"
     in: "path"
     description: "User ID"
+    required: true
+    type: "string"
+  company_id:
+    name: "company_id"
+    in: "path"
+    description: "Company ID"
     required: true
     type: "string"

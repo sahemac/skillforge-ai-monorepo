@@ -9,23 +9,66 @@ GITHUB_SECRETS_EXACT_VALUES.md
 *secrets*.env
 *credentials*.json
 
+# CRITICAL: Service Account Keys and OAuth Tokens - NEVER commit these
+**/*-sa-key.json
+**/service-account-key.json
+**/grafana-sa-key.json
+**/grafana-oauth-token.txt
+**/*-oauth-token.txt
+**/*-service-account.json
+*.pem
+*.p12
+*.pfx
+gcp-key.json
+google-credentials.json
+
 # CRITICAL: Terraform backup files - NEVER commit these
 *backup-complete*.json
 *backup-state*.json
 *secrets-backup*.json
 terraform-backup*.json
 state-backup*.json
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+.terraform/
+.terraform.lock.hcl
 
 # CRITICAL: Database credentials and connection strings
 .env.local
 .env.production
 .env.staging
+.env.development
 DATABASE_URL
 POSTGRES_PASSWORD
+POSTGRES_USER
+POSTGRES_DB
+POSTGRES_HOST
+POSTGRES_PORT
+DB_PASSWORD
+DB_USER
+DB_HOST
+DB_PORT
+DB_NAME
+CONNECTION_STRING
 
 # DevOps implementation reports - Private documentation
 Documentations/Rapports\ implémentation\ DevOps/
 Documentations/Rapports*
+*rapport*.md
+*RAPPORT*.md
+*.tmp.md
+temp_*.md
+.temp*
+
+# Cloud and Infrastructure files
+kubeconfig
+.kube/
+.docker/
+docker-compose.override.yml
+.gcloud/
+.aws/
+.azure/
 
 # C extensions
 *.so

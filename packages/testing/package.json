@@ -39,7 +39,7 @@
     "jsdom": "^25.0.1",
     "msw": "^2.6.4",
     "happy-dom": "^15.11.6",
-    "faker": "@faker-js/faker@^9.2.0"
+    "@faker-js/faker": "^9.2.0"
   },
   "devDependencies": {
     "@skillforge-ai/core": "workspace:*",

@@ -1,0 +1,26 @@
+{
+  "_comment": "TEMPLATE - Ce fichier doit être remplacé par un vrai service account",
+  "_instructions": [
+    "1. Exécutez: ./scripts/setup-grafana-service-account.sh",
+    "2. Ou créez manuellement un service account avec les permissions monitoring.viewer",
+    "3. Ce fichier sera automatiquement généré avec les bonnes credentials",
+    "4. IMPORTANT: Ce fichier est ignoré par Git pour des raisons de sécurité"
+  ],
+  "_error": "Grafana ne peut pas se connecter car ce fichier ne contient pas de vraies credentials",
+  "_solution": "Exécutez le script setup-grafana-service-account.sh pour générer les vraies credentials",
+  "_required_permissions": [
+    "roles/monitoring.viewer",
+    "roles/monitoring.metricWriter", 
+    "roles/logging.viewer"
+  ],
+  "type": "service_account",
+  "project_id": "skillforge-ai-mvp-25",
+  "private_key_id": "PLACEHOLDER_REPLACE_WITH_REAL_KEY",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nPLACEHOLDER_REPLACE_WITH_REAL_PRIVATE_KEY\n-----END PRIVATE KEY-----\n",
+  "client_email": "grafana-monitoring@skillforge-ai-mvp-25.iam.gserviceaccount.com",
+  "client_id": "PLACEHOLDER_REPLACE_WITH_REAL_CLIENT_ID",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/grafana-monitoring%40skillforge-ai-mvp-25.iam.gserviceaccount.com"
+}

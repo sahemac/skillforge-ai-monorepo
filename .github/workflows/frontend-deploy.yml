@@ -155,14 +155,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Set up Node.js with pnpm
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: |
-            apps/frontend/${{ matrix.app }}/package-lock.json
-            apps/frontend/${{ matrix.app }}/package.json
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '>=9.0.0'
+          run_install: false
 
       - name: Cache node modules
         uses: actions/cache@v4
@@ -176,29 +178,34 @@ jobs:
             ${{ runner.os }}-node-
 
       - name: Install dependencies
-        working-directory: apps/frontend/${{ matrix.app }}
+        working-directory: .
         run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+          echo "📎 Installing workspace dependencies with pnpm..."
+          pnpm install --frozen-lockfile
+          echo "✅ Dependencies installed"
 
       - name: Lint code
         working-directory: apps/frontend/${{ matrix.app }}
         run: |
-          npm run lint
-          npm run format:check
+          echo "🔍 Linting code..."
+          pnpm run lint
+          pnpm run format:check
+          echo "✅ Linting completed"
 
       - name: Type check
         working-directory: apps/frontend/${{ matrix.app }}
-        run: npm run type-check
+        run: |
+          echo "📝 Type checking..."
+          pnpm run type-check
+          echo "✅ Type check completed"
 
       - name: Run unit tests
         working-directory: apps/frontend/${{ matrix.app }}
         run: |
-          npm run test:run
-          npm run test:coverage
+          echo "🧪 Running unit tests..."
+          pnpm run test:run
+          pnpm run test:coverage
+          echo "✅ Tests completed"
         env:
           CI: true
 
@@ -211,7 +218,10 @@ jobs:
 
       - name: Build application
         working-directory: apps/frontend/${{ matrix.app }}
-        run: npm run build
+        run: |
+          echo "🛠️ Building application..."
+          pnpm run build
+          echo "✅ Build completed"
         env:
           NODE_ENV: production
           VITE_API_URL: ${{ vars.VITE_API_URL }}

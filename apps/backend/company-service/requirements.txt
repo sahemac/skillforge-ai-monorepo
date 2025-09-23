@@ -9,6 +9,7 @@ psycopg2-binary
 
 # HTTP Requests
 httpx==0.25.2
+requests==2.31.0
 
 # Environment & Configuration
 pydantic-settings==2.1.0
