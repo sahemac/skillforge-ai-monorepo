@@ -360,7 +360,9 @@ jobs:
       - name: Scan GitHub Actions workflows
         run: |
           # Install actionlint
-          bash <(curl https://raw.githubusercontent.com/rhymond/actionlint/main/scripts/download-actionlint.bash)
+          curl -s https://api.github.com/repos/rhymond/actionlint/releases/latest | grep "browser_download_url.*linux_amd64.tar.gz" | cut -d '"' -f 4 | wget -qi -
+          tar xzf actionlint_*_linux_amd64.tar.gz
+          chmod +x actionlint
           
           # Scan all workflow files
           ./actionlint -format json -shellcheck= -pyflakes= .github/workflows/*.yml > actionlint-report.json || true
@@ -402,8 +404,8 @@ jobs:
       - name: Install and run GitLeaks
         run: |
           # Install GitLeaks
-          wget https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz
-          tar -xzf gitleaks_linux_x64.tar.gz
+          curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep "browser_download_url.*linux_x64.tar.gz" | cut -d '"' -f 4 | wget -qi -
+          tar -xzf gitleaks_*_linux_x64.tar.gz
           chmod +x gitleaks
           
           # Run GitLeaks scan

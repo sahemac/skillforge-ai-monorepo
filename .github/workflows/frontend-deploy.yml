@@ -28,9 +28,10 @@ on:
         type: string
 
 env:
-  REGISTRY: gcr.io
+  REGISTRY: europe-west1-docker.pkg.dev
   PROJECT_ID: skillforge-ai-mvp-25
   REGION: europe-west1
+  REPOSITORY: skillforge-ai-registry
 
 jobs:
   detect-changes:
@@ -236,29 +237,19 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
+          audience: 'https://github.com/sahemac'
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Configure Docker to use gcloud as credential helper
-        run: gcloud auth configure-docker gcr.io
+        run: gcloud auth configure-docker europe-west1-docker.pkg.dev
 
       - name: Create Dockerfile
         working-directory: apps/frontend/${{ matrix.app }}
         run: |
           cat > Dockerfile << 'EOF'
           # Multi-stage build for optimization
-          FROM node:20-alpine AS builder
-
-          # Install pnpm
-          RUN npm install -g pnpm@9.0.0
-
-          WORKDIR /app
-          COPY package.json ./
-          RUN pnpm install --prod --frozen-lockfile && pnpm store prune
-          COPY dist ./dist
-
           FROM nginx:alpine AS production
 
           # Security: Run as non-root user
@@ -266,7 +257,7 @@ jobs:
               adduser -S nextjs -u 1001
 
           # Copy built application
-          COPY --from=builder /app/dist /usr/share/nginx/html
+          COPY dist /usr/share/nginx/html
 
           # Create custom nginx config for SPA
           RUN cat > /etc/nginx/conf.d/default.conf << 'NGINX_EOF'
@@ -331,9 +322,9 @@ jobs:
       - name: Build and push Docker image
         working-directory: apps/frontend/${{ matrix.app }}
         run: |
-          IMAGE_TAG="$REGISTRY/$PROJECT_ID/skillforge-frontend-${{ matrix.app }}:${{ github.sha }}"
-          LATEST_TAG="$REGISTRY/$PROJECT_ID/skillforge-frontend-${{ matrix.app }}:latest"
-          ENV_TAG="$REGISTRY/$PROJECT_ID/skillforge-frontend-${{ matrix.app }}:${{ needs.detect-changes.outputs.environment }}"
+          IMAGE_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-frontend-${{ matrix.app }}:${{ github.sha }}"
+          LATEST_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-frontend-${{ matrix.app }}:latest"
+          ENV_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-frontend-${{ matrix.app }}:${{ needs.detect-changes.outputs.environment }}"
 
           docker build -t $IMAGE_TAG -t $LATEST_TAG -t $ENV_TAG .
           docker push $IMAGE_TAG
@@ -473,7 +464,7 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
+          audience: 'https://github.com/sahemac'
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2

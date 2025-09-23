@@ -98,7 +98,7 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
+          audience: 'https://github.com/sahemac'
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
