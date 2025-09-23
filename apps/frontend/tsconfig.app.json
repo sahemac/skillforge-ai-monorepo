@@ -40,5 +40,5 @@
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true
   },
-  "include": ["src"]
+  "include": ["*/src", "admin/src", "auth/src", "company/src", "learner/src", "shell/src"]
 }
