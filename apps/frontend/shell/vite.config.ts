@@ -2,16 +2,30 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import federation from '@originjs/vite-plugin-federation';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const isProduction = mode === 'production';
+  const remoteBaseUrl = isProduction 
+    ? 'https://skillforge-frontend-{app}-production-koi53iwqbq-ew.a.run.app'
+    : 'http://localhost:{port}';
+
+  return {
   plugins: [
     react(),
     federation({
       name: 'shell',
       remotes: {
-        auth: 'https://skillforge-auth-koi53iwqbq-ew.a.run.app/assets/remoteEntry.js',
-        learner: 'https://skillforge-learner-koi53iwqbq-ew.a.run.app/assets/remoteEntry.js',
-        company: 'https://skillforge-company-koi53iwqbq-ew.a.run.app/assets/remoteEntry.js',
-        admin: 'https://skillforge-admin-koi53iwqbq-ew.a.run.app/assets/remoteEntry.js',
+        auth: isProduction 
+          ? 'https://skillforge-frontend-auth-production-koi53iwqbq-ew.a.run.app/assets/remoteEntry.js'
+          : 'http://localhost:3001/assets/remoteEntry.js',
+        learner: isProduction
+          ? 'https://skillforge-frontend-learner-production-koi53iwqbq-ew.a.run.app/assets/remoteEntry.js'
+          : 'http://localhost:3002/assets/remoteEntry.js',
+        company: isProduction
+          ? 'https://skillforge-frontend-company-production-koi53iwqbq-ew.a.run.app/assets/remoteEntry.js'
+          : 'http://localhost:3003/assets/remoteEntry.js',
+        admin: isProduction
+          ? 'https://skillforge-frontend-admin-production-koi53iwqbq-ew.a.run.app/assets/remoteEntry.js'
+          : 'http://localhost:3004/assets/remoteEntry.js',
       },
       shared: {
         react: {
@@ -82,4 +96,5 @@ export default defineConfig({
     __DEV__: JSON.stringify(process.env.NODE_ENV === 'development'),
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
   },
+  };
 });
