@@ -155,13 +155,8 @@ jobs:
           # Define service configurations
           case "${{ inputs.service }}" in
             "user-service")
-              echo "service_config={
-                \"type\": \"backend\",
-                \"language\": \"python\",
-                \"framework\": \"fastapi\",
-                \"has_migration\": true,
-                \"has_tests\": true
-              }" >> $GITHUB_OUTPUT
+              SERVICE_CONFIG='{"type":"backend","language":"python","framework":"fastapi","has_migration":true,"has_tests":true}'
+              echo "service_config=$SERVICE_CONFIG" >> $GITHUB_OUTPUT
               echo "service_name=${{ inputs.environment }}-user-service" >> $GITHUB_OUTPUT
               echo "service_path=apps/backend/user-service" >> $GITHUB_OUTPUT
               echo "dockerfile_path=apps/backend/user-service/Dockerfile" >> $GITHUB_OUTPUT
@@ -172,23 +167,12 @@ jobs:
               echo "test_command=pytest" >> $GITHUB_OUTPUT
               echo "health_endpoint=/health" >> $GITHUB_OUTPUT
               echo "port=8080" >> $GITHUB_OUTPUT
-              echo "cloud_run_config={
-                \"memory\": \"1Gi\",
-                \"cpu\": \"2\",
-                \"max_instances\": \"10\",
-                \"min_instances\": \"1\",
-                \"concurrency\": \"1000\",
-                \"timeout\": \"300\"
-              }" >> $GITHUB_OUTPUT
+              CLOUD_RUN_CONFIG='{"memory":"1Gi","cpu":"2","max_instances":"10","min_instances":"1","concurrency":"1000","timeout":"300"}'
+              echo "cloud_run_config=$CLOUD_RUN_CONFIG" >> $GITHUB_OUTPUT
               ;;
             "project-service")
-              echo "service_config={
-                \"type\": \"backend\",
-                \"language\": \"python\",
-                \"framework\": \"fastapi\",
-                \"has_migration\": true,
-                \"has_tests\": true
-              }" >> $GITHUB_OUTPUT
+              SERVICE_CONFIG='{"type":"backend","language":"python","framework":"fastapi","has_migration":true,"has_tests":true}'
+              echo "service_config=$SERVICE_CONFIG" >> $GITHUB_OUTPUT
               echo "service_name=${{ inputs.environment }}-project-service" >> $GITHUB_OUTPUT
               echo "service_path=apps/backend/project-service" >> $GITHUB_OUTPUT
               echo "dockerfile_path=apps/backend/project-service/Dockerfile" >> $GITHUB_OUTPUT
@@ -199,23 +183,12 @@ jobs:
               echo "test_command=pytest" >> $GITHUB_OUTPUT
               echo "health_endpoint=/health" >> $GITHUB_OUTPUT
               echo "port=8080" >> $GITHUB_OUTPUT
-              echo "cloud_run_config={
-                \"memory\": \"1Gi\",
-                \"cpu\": \"2\",
-                \"max_instances\": \"10\",
-                \"min_instances\": \"1\",
-                \"concurrency\": \"1000\",
-                \"timeout\": \"300\"
-              }" >> $GITHUB_OUTPUT
+              CLOUD_RUN_CONFIG='{"memory":"1Gi","cpu":"2","max_instances":"10","min_instances":"1","concurrency":"1000","timeout":"300"}'
+              echo "cloud_run_config=$CLOUD_RUN_CONFIG" >> $GITHUB_OUTPUT
               ;;
             "company-service")
-              echo "service_config={
-                \"type\": \"backend\",
-                \"language\": \"python\",
-                \"framework\": \"fastapi\",
-                \"has_migration\": true,
-                \"has_tests\": true
-              }" >> $GITHUB_OUTPUT
+              SERVICE_CONFIG='{"type":"backend","language":"python","framework":"fastapi","has_migration":true,"has_tests":true}'
+              echo "service_config=$SERVICE_CONFIG" >> $GITHUB_OUTPUT
               echo "service_name=${{ inputs.environment }}-company-service" >> $GITHUB_OUTPUT
               echo "service_path=apps/backend/company-service" >> $GITHUB_OUTPUT
               echo "dockerfile_path=apps/backend/company-service/Dockerfile" >> $GITHUB_OUTPUT
@@ -226,23 +199,12 @@ jobs:
               echo "test_command=pytest" >> $GITHUB_OUTPUT
               echo "health_endpoint=/health" >> $GITHUB_OUTPUT
               echo "port=8080" >> $GITHUB_OUTPUT
-              echo "cloud_run_config={
-                \"memory\": \"1Gi\",
-                \"cpu\": \"2\",
-                \"max_instances\": \"10\",
-                \"min_instances\": \"1\",
-                \"concurrency\": \"1000\",
-                \"timeout\": \"300\"
-              }" >> $GITHUB_OUTPUT
+              CLOUD_RUN_CONFIG='{"memory":"1Gi","cpu":"2","max_instances":"10","min_instances":"1","concurrency":"1000","timeout":"300"}'
+              echo "cloud_run_config=$CLOUD_RUN_CONFIG" >> $GITHUB_OUTPUT
               ;;
             "shell"|"admin"|"learner"|"auth")
-              echo "service_config={
-                \"type\": \"frontend\",
-                \"language\": \"typescript\",
-                \"framework\": \"react\",
-                \"has_migration\": false,
-                \"has_tests\": true
-              }" >> $GITHUB_OUTPUT
+              SERVICE_CONFIG='{"type":"frontend","language":"typescript","framework":"react","has_migration":false,"has_tests":true}'
+              echo "service_config=$SERVICE_CONFIG" >> $GITHUB_OUTPUT
               echo "service_name=skillforge-${{ inputs.service }}-${{ inputs.environment }}" >> $GITHUB_OUTPUT
               echo "service_path=apps/frontend/${{ inputs.service }}" >> $GITHUB_OUTPUT
               echo "dockerfile_path=apps/frontend/${{ inputs.service }}/Dockerfile" >> $GITHUB_OUTPUT
@@ -253,14 +215,8 @@ jobs:
               echo "test_command=pnpm run test:run" >> $GITHUB_OUTPUT
               echo "health_endpoint=/health" >> $GITHUB_OUTPUT
               echo "port=80" >> $GITHUB_OUTPUT
-              echo "cloud_run_config={
-                \"memory\": \"1Gi\",
-                \"cpu\": \"1\",
-                \"max_instances\": \"10\",
-                \"min_instances\": \"0\",
-                \"concurrency\": \"100\",
-                \"timeout\": \"300\"
-              }" >> $GITHUB_OUTPUT
+              CLOUD_RUN_CONFIG='{"memory":"1Gi","cpu":"1","max_instances":"10","min_instances":"0","concurrency":"100","timeout":"300"}'
+              echo "cloud_run_config=$CLOUD_RUN_CONFIG" >> $GITHUB_OUTPUT
               ;;
             *)
               echo "❌ Unknown service: ${{ inputs.service }}"
