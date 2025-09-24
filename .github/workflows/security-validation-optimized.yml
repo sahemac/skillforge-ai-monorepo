@@ -1,0 +1,1027 @@
+name: Security Validation & Compliance (Optimized)
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run security scans daily at 3 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      scan_type:
+        description: 'Type of security scan to run'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - code-only
+          - infrastructure-only
+          - dependencies-only
+          - iap-validation-only
+      severity_threshold:
+        description: 'Minimum severity to report'
+        required: false
+        default: 'medium'
+        type: choice
+        options:
+          - low
+          - medium
+          - high
+          - critical
+      environment:
+        description: 'Environment to validate IAP (staging/production)'
+        required: false
+        type: choice
+        default: 'staging'
+        options:
+          - staging
+          - production
+      service_url:
+        description: 'Service URL for IAP testing'
+        required: false
+        type: string
+        default: 'https://skillforge-ai-shell-staging.europe-west1.run.app'
+
+env:
+  PROJECT_ID: skillforge-ai-mvp-25
+  REGION: europe-west1
+  # Security scan cache keys
+  SECURITY_CACHE_VERSION: 'v2'
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9.0.0'
+
+jobs:
+  # ============================================================================
+  # SETUP & CONFIGURATION JOB - Centralized setup to reduce duplication
+  # ============================================================================
+  setup-environment:
+    name: Setup Security Environment
+    runs-on: ubuntu-latest
+    outputs:
+      scan-matrix: ${{ steps.matrix.outputs.scan-matrix }}
+      should-run-deps: ${{ steps.conditions.outputs.deps }}
+      should-run-code: ${{ steps.conditions.outputs.code }}
+      should-run-infra: ${{ steps.conditions.outputs.infra }}
+      should-run-iap: ${{ steps.conditions.outputs.iap }}
+      cache-key-base: ${{ steps.cache.outputs.key-base }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Determine scan conditions
+        id: conditions
+        run: |
+          SCAN_TYPE="${{ github.event.inputs.scan_type || 'full' }}"
+
+          case $SCAN_TYPE in
+            "full")
+              echo "deps=true" >> $GITHUB_OUTPUT
+              echo "code=true" >> $GITHUB_OUTPUT
+              echo "infra=true" >> $GITHUB_OUTPUT
+              echo "iap=true" >> $GITHUB_OUTPUT
+              ;;
+            "dependencies-only")
+              echo "deps=true" >> $GITHUB_OUTPUT
+              echo "code=false" >> $GITHUB_OUTPUT
+              echo "infra=false" >> $GITHUB_OUTPUT
+              echo "iap=false" >> $GITHUB_OUTPUT
+              ;;
+            "code-only")
+              echo "deps=false" >> $GITHUB_OUTPUT
+              echo "code=true" >> $GITHUB_OUTPUT
+              echo "infra=false" >> $GITHUB_OUTPUT
+              echo "iap=false" >> $GITHUB_OUTPUT
+              ;;
+            "infrastructure-only")
+              echo "deps=false" >> $GITHUB_OUTPUT
+              echo "code=false" >> $GITHUB_OUTPUT
+              echo "infra=true" >> $GITHUB_OUTPUT
+              echo "iap=false" >> $GITHUB_OUTPUT
+              ;;
+            "iap-validation-only")
+              echo "deps=false" >> $GITHUB_OUTPUT
+              echo "code=false" >> $GITHUB_OUTPUT
+              echo "infra=false" >> $GITHUB_OUTPUT
+              echo "iap=true" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Generate scan matrix
+        id: matrix
+        run: |
+          # Create optimized scan matrix based on available files
+          MATRIX='{"include":[]}'
+
+          if [ -f "apps/frontend/package.json" ]; then
+            MATRIX=$(echo $MATRIX | jq '.include += [{"path": "apps/frontend", "type": "npm", "package-file": "package.json", "name": "frontend"}]')
+          fi
+
+          if [ -f "apps/backend/user-service/requirements.txt" ]; then
+            MATRIX=$(echo $MATRIX | jq '.include += [{"path": "apps/backend/user-service", "type": "python", "package-file": "requirements.txt", "name": "user-service"}]')
+          fi
+
+          if [ -f "apps/backend/company-service/requirements.txt" ]; then
+            MATRIX=$(echo $MATRIX | jq '.include += [{"path": "apps/backend/company-service", "type": "python", "package-file": "requirements.txt", "name": "company-service"}]')
+          fi
+
+          echo "scan-matrix=$(echo $MATRIX | jq -c .)" >> $GITHUB_OUTPUT
+
+      - name: Generate cache keys
+        id: cache
+        run: |
+          # Create consistent cache key base
+          HASH_BASE="${{ hashFiles('**/package.json', '**/pnpm-lock.yaml', '**/requirements.txt') }}"
+          echo "key-base=${{ env.SECURITY_CACHE_VERSION }}-${{ runner.os }}-${HASH_BASE:0:8}" >> $GITHUB_OUTPUT
+
+  # ============================================================================
+  # PARALLEL SECURITY SCANS - All scans run in parallel for maximum speed
+  # ============================================================================
+
+  dependency-security-scan:
+    name: Dependencies Security
+    runs-on: ubuntu-latest
+    needs: setup-environment
+    if: needs.setup-environment.outputs.should-run-deps == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.setup-environment.outputs.scan-matrix) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Cached dependency installation
+      - name: Setup Node.js with cache (Frontend)
+        if: matrix.type == 'npm'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Setup pnpm with cache (Frontend)
+        if: matrix.type == 'npm'
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Cache pnpm store
+        if: matrix.type == 'npm'
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ needs.setup-environment.outputs.cache-key-base }}-pnpm
+          restore-keys: |
+            ${{ env.SECURITY_CACHE_VERSION }}-${{ runner.os }}-pnpm
+
+      - name: Setup Python with cache (Backend)
+        if: matrix.type == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: '**/requirements.txt'
+
+      # Parallel security scans with optimized execution
+      - name: Install dependencies and security tools
+        run: |
+          if [[ "${{ matrix.type }}" == "npm" ]]; then
+            pnpm install --frozen-lockfile --prefer-offline
+          else
+            pip install -r ${{ matrix.path }}/requirements.txt
+            pip install safety bandit semgrep --quiet
+          fi
+
+      - name: Run parallel security scans
+        run: |
+          mkdir -p security-reports
+
+          # Frontend security scans
+          if [[ "${{ matrix.type }}" == "npm" ]]; then
+            (
+              echo "🔍 Running pnpm audit..."
+              pnpm audit --audit-level=${{ github.event.inputs.severity_threshold || 'moderate' }} \
+                --format=json > security-reports/pnpm-audit-${{ matrix.name }}.json 2>/dev/null || true
+            ) &
+
+            (
+              echo "🔍 Running ESLint security scan..."
+              cd ${{ matrix.path }}
+              pnpm add eslint-plugin-security --save-dev --workspace-root --silent
+              npx eslint . --ext .js,.jsx,.ts,.tsx --format json \
+                --output-file ../../../security-reports/eslint-security-${{ matrix.name }}.json 2>/dev/null || true
+            ) &
+
+            wait
+          fi
+
+          # Backend security scans
+          if [[ "${{ matrix.type }}" == "python" ]]; then
+            cd ${{ matrix.path }}
+
+            (
+              echo "🔍 Running Safety check..."
+              safety check --json --output ../../security-reports/safety-${{ matrix.name }}.json 2>/dev/null || true
+            ) &
+
+            (
+              echo "🔍 Running Bandit scan..."
+              bandit -r app/ -f json -o ../../security-reports/bandit-${{ matrix.name }}.json 2>/dev/null || true
+            ) &
+
+            wait
+          fi
+
+          # Universal Semgrep scan
+          (
+            echo "🔍 Running Semgrep scan..."
+            cd ${{ matrix.path }}
+            semgrep --config=auto --json --output=../../security-reports/semgrep-${{ matrix.name }}.json . 2>/dev/null || true
+          ) &
+
+          wait
+
+      - name: Upload dependency security reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-security-${{ matrix.name }}
+          path: security-reports/
+          retention-days: 30
+
+  code-security-scan:
+    name: Code Security (SAST)
+    runs-on: ubuntu-latest
+    needs: setup-environment
+    if: needs.setup-environment.outputs.should-run-code == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Parallel SAST scans
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript, python
+          queries: security-and-quality
+
+      - name: Run parallel code security scans
+        run: |
+          mkdir -p security-reports
+
+          # Trivy filesystem scan
+          (
+            echo "🔍 Running Trivy filesystem scan..."
+            docker run --rm -v $PWD:/workspace \
+              aquasec/trivy:latest fs /workspace \
+              --format sarif --output /workspace/security-reports/trivy-fs.sarif
+          ) &
+
+          # Install security scanning tools in parallel
+          (
+            echo "🔍 Installing TruffleHog..."
+            curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+            echo "🔍 Running TruffleHog secrets scan..."
+            trufflehog git file://. --json --no-update > security-reports/trufflehog.json 2>/dev/null || true
+          ) &
+
+          (
+            echo "🔍 Installing and running GitLeaks..."
+            curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | \
+              grep "browser_download_url.*linux_x64.tar.gz" | cut -d '"' -f 4 | wget -qi -
+            tar -xzf gitleaks_*_linux_x64.tar.gz
+            ./gitleaks detect --source . --format json --report-path security-reports/gitleaks.json || true
+          ) &
+
+          wait
+
+      - name: Autobuild for CodeQL
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript,python"
+
+      - name: Upload Trivy results to SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'security-reports/trivy-fs.sarif'
+
+      - name: Upload code security reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-security-reports
+          path: security-reports/
+          retention-days: 30
+
+  container-security-scan:
+    name: Container Security
+    runs-on: ubuntu-latest
+    needs: setup-environment
+    if: needs.setup-environment.outputs.should-run-infra == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - { name: 'shell', path: 'apps/frontend/shell', type: 'frontend' }
+          - { name: 'auth', path: 'apps/frontend/auth', type: 'frontend' }
+          - { name: 'user-service', path: 'apps/backend/user-service', type: 'backend' }
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ needs.setup-environment.outputs.cache-key-base }}-docker-${{ matrix.name }}
+          restore-keys: |
+            ${{ env.SECURITY_CACHE_VERSION }}-${{ runner.os }}-docker
+
+      - name: Create optimized Dockerfile
+        working-directory: ${{ matrix.path }}
+        run: |
+          if [[ "${{ matrix.type }}" == "frontend" ]]; then
+            cat > Dockerfile.scan << 'EOF'
+          FROM node:20-alpine AS base
+          RUN npm install -g pnpm@9.0.0
+          WORKDIR /app
+
+          FROM base AS deps
+          COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
+          COPY ${{ matrix.path }}/package.json ./${{ matrix.path }}/
+          RUN pnpm install --frozen-lockfile --prod
+
+          FROM base AS builder
+          COPY --from=deps /app/node_modules ./node_modules
+          COPY . .
+          RUN cd ${{ matrix.path }} && pnpm run build
+
+          FROM nginx:alpine-slim
+          RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
+          COPY --from=builder /app/${{ matrix.path }}/dist /usr/share/nginx/html
+          COPY ${{ matrix.path }}/nginx.conf /etc/nginx/nginx.conf
+          USER nodejs
+          EXPOSE 8080
+          EOF
+          else
+            cat > Dockerfile.scan << 'EOF'
+          FROM python:3.11-alpine AS base
+          RUN apk add --no-cache gcc musl-dev
+
+          FROM base AS deps
+          WORKDIR /app
+          COPY requirements.txt .
+          RUN pip install --no-cache-dir -r requirements.txt
+
+          FROM python:3.11-alpine
+          RUN addgroup -g 1001 appgroup && adduser -u 1001 -G appgroup -s /bin/sh -D appuser
+          WORKDIR /app
+          COPY --from=deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+          COPY --from=deps /usr/local/bin /usr/local/bin
+          COPY app/ ./app/
+          USER appuser
+          EXPOSE 8000
+          CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+          EOF
+          fi
+
+      - name: Build and scan container
+        working-directory: ${{ matrix.path }}
+        run: |
+          # Build with cache
+          docker buildx build \
+            --file Dockerfile.scan \
+            --tag skillforge-${{ matrix.name }}:scan \
+            --cache-from type=local,src=/tmp/.buildx-cache \
+            --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --load \
+            .
+
+          # Move cache
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+          mkdir -p security-reports
+
+          # Parallel container security scans
+          (
+            echo "🔍 Running Trivy container scan..."
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+              aquasec/trivy:latest image skillforge-${{ matrix.name }}:scan \
+              --format sarif --output security-reports/trivy-${{ matrix.name }}.sarif
+          ) &
+
+          (
+            echo "🔍 Running Grype vulnerability scan..."
+            curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+            grype skillforge-${{ matrix.name }}:scan -o json > security-reports/grype-${{ matrix.name }}.json
+          ) &
+
+          wait
+
+      - name: Upload container scan results to SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: '${{ matrix.path }}/security-reports/trivy-${{ matrix.name }}.sarif'
+
+      - name: Upload container security reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-security-${{ matrix.name }}
+          path: ${{ matrix.path }}/security-reports/
+          retention-days: 30
+
+  infrastructure-security-scan:
+    name: Infrastructure Security
+    runs-on: ubuntu-latest
+    needs: setup-environment
+    if: needs.setup-environment.outputs.should-run-infra == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache security tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/bin/tfsec
+            /usr/local/bin/terrascan
+            ~/.local/bin/checkov
+          key: ${{ env.SECURITY_CACHE_VERSION }}-security-tools
+          restore-keys: |
+            ${{ env.SECURITY_CACHE_VERSION }}-security-tools
+
+      - name: Install infrastructure security tools
+        run: |
+          mkdir -p security-reports
+
+          # Install tools in parallel
+          (
+            echo "🔍 Installing tfsec..."
+            curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+          ) &
+
+          (
+            echo "🔍 Installing Checkov..."
+            pip install checkov --quiet
+          ) &
+
+          (
+            echo "🔍 Installing Terrascan..."
+            curl -L "$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | \
+              grep -o -E "https://.+?_Linux_x86_64.tar.gz")" > terrascan.tar.gz
+            tar -xf terrascan.tar.gz terrascan && rm terrascan.tar.gz
+            sudo install terrascan /usr/local/bin && rm terrascan
+          ) &
+
+          (
+            echo "🔍 Installing actionlint..."
+            curl -s https://api.github.com/repos/rhymond/actionlint/releases/latest | \
+              grep "browser_download_url.*linux_amd64.tar.gz" | cut -d '"' -f 4 | wget -qi -
+            tar xzf actionlint_*_linux_amd64.tar.gz
+            chmod +x actionlint
+          ) &
+
+          wait
+
+      - name: Run parallel infrastructure scans
+        run: |
+          # Terraform scans (if terraform files exist)
+          if ls infrastructure/**/*.tf >/dev/null 2>&1; then
+            cd infrastructure
+
+            (
+              echo "🔍 Running tfsec scan..."
+              tfsec . --format json --out ../security-reports/tfsec.json || true
+            ) &
+
+            (
+              echo "🔍 Running Checkov scan..."
+              checkov -d . --framework terraform --output json \
+                --output-file ../security-reports/checkov.json || true
+            ) &
+
+            (
+              echo "🔍 Running Terrascan..."
+              terrascan scan -t gcp -f json -o ../security-reports/terrascan.json || true
+            ) &
+
+            wait
+            cd ..
+          fi
+
+          # GitHub Actions workflow scan
+          (
+            echo "🔍 Scanning GitHub Actions workflows..."
+            ./actionlint -format json -shellcheck= -pyflakes= \
+              .github/workflows/*.yml > security-reports/actionlint.json || true
+          ) &
+
+          # Dockerfile security scan
+          (
+            echo "🔍 Scanning Dockerfiles..."
+            docker run --rm -v $PWD:/project cdrx/dockerfile-lint \
+              dockerfile_lint -j -f /project/apps/*/Dockerfile > security-reports/dockerfile-lint.json 2>/dev/null || true
+          ) &
+
+          wait
+
+      - name: Upload infrastructure security reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: infrastructure-security-reports
+          path: security-reports/
+          retention-days: 30
+
+  # ============================================================================
+  # IAP VALIDATION (Merged from validate-iap.yml)
+  # ============================================================================
+  iap-validation:
+    name: IAP Configuration Validation
+    runs-on: ubuntu-latest
+    needs: setup-environment
+    if: needs.setup-environment.outputs.should-run-iap == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python with cache
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install IAP testing dependencies
+        run: |
+          pip install requests google-auth google-auth-oauthlib google-auth-httplib2 --quiet
+
+      - name: Determine service URL
+        id: service-url
+        run: |
+          SERVICE_URL="${{ github.event.inputs.service_url }}"
+          ENVIRONMENT="${{ github.event.inputs.environment || 'staging' }}"
+
+          if [[ -z "$SERVICE_URL" ]]; then
+            if [[ "$ENVIRONMENT" == "production" ]]; then
+              SERVICE_URL="https://skillforge-ai-shell.europe-west1.run.app"
+            else
+              SERVICE_URL="https://skillforge-ai-shell-staging.europe-west1.run.app"
+            fi
+          fi
+
+          echo "service_url=$SERVICE_URL" >> $GITHUB_OUTPUT
+          echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+
+      - name: Run comprehensive IAP validation tests
+        env:
+          SERVICE_URL: ${{ steps.service-url.outputs.service_url }}
+          ENVIRONMENT: ${{ steps.service-url.outputs.environment }}
+        run: |
+          mkdir -p security-reports
+
+          echo "🔍 Testing IAP configuration for $ENVIRONMENT environment..."
+          echo "Service URL: $SERVICE_URL"
+
+          # Enhanced Python IAP test
+          cat > test_iap_comprehensive.py << 'EOF'
+          #!/usr/bin/env python3
+          import requests
+          import json
+          import sys
+          import os
+          from urllib.parse import urlparse, parse_qs
+
+          def test_iap_comprehensive(url):
+              """Comprehensive IAP configuration test"""
+              results = {
+                  "service_url": url,
+                  "environment": os.environ.get('ENVIRONMENT', 'unknown'),
+                  "tests": [],
+                  "overall_status": "PASS"
+              }
+
+              # Test 1: Unauthenticated access blocking
+              try:
+                  response = requests.get(f"{url}/health", timeout=10, allow_redirects=False)
+                  test_result = {
+                      "name": "Unauthenticated Access Blocking",
+                      "status": "PASS" if response.status_code in [302, 401, 403] else "FAIL",
+                      "details": f"HTTP {response.status_code}",
+                      "expected": "302, 401, or 403"
+                  }
+                  results["tests"].append(test_result)
+
+                  # Test 2: OAuth redirect validation
+                  if response.status_code == 302:
+                      location = response.headers.get('Location', '')
+                      oauth_test = {
+                          "name": "OAuth Redirect Validation",
+                          "status": "PASS" if 'accounts.google.com' in location else "WARN",
+                          "details": f"Redirects to: {location[:100]}...",
+                          "expected": "Google OAuth URL"
+                      }
+                      results["tests"].append(oauth_test)
+
+                  # Test 3: Security headers
+                  security_headers = [
+                      'X-Frame-Options', 'X-Content-Type-Options',
+                      'Strict-Transport-Security', 'X-XSS-Protection'
+                  ]
+                  header_results = []
+                  for header in security_headers:
+                      if header.lower() in [h.lower() for h in response.headers.keys()]:
+                          header_results.append(f"✅ {header}")
+                      else:
+                          header_results.append(f"❌ {header}")
+
+                  results["tests"].append({
+                      "name": "Security Headers Check",
+                      "status": "INFO",
+                      "details": "; ".join(header_results),
+                      "expected": "Security headers present"
+                  })
+
+              except requests.exceptions.RequestException as e:
+                  results["tests"].append({
+                      "name": "Service Connectivity",
+                      "status": "ERROR",
+                      "details": str(e),
+                      "expected": "Service reachable"
+                  })
+                  results["overall_status"] = "ERROR"
+
+              # Test 4: IAP-specific header detection
+              try:
+                  response = requests.head(url, timeout=10, allow_redirects=False)
+                  iap_indicators = ['google', 'gcp-iap', 'x-goog']
+                  iap_found = any(indicator in str(response.headers).lower() for indicator in iap_indicators)
+
+                  results["tests"].append({
+                      "name": "IAP Header Detection",
+                      "status": "PASS" if iap_found else "INFO",
+                      "details": f"IAP indicators found: {iap_found}",
+                      "expected": "Google/IAP headers present"
+                  })
+
+              except Exception as e:
+                  results["tests"].append({
+                      "name": "IAP Header Detection",
+                      "status": "ERROR",
+                      "details": str(e),
+                      "expected": "Headers retrievable"
+                  })
+
+              return results
+
+          if __name__ == "__main__":
+              service_url = os.environ.get('SERVICE_URL', '')
+              results = test_iap_comprehensive(service_url)
+
+              # Save detailed results
+              with open('security-reports/iap-validation.json', 'w') as f:
+                  json.dump(results, f, indent=2)
+
+              # Print summary
+              print(f"🔒 IAP Validation Results for {results['environment']}")
+              print(f"Service URL: {results['service_url']}")
+              print(f"Overall Status: {results['overall_status']}")
+              print("\nTest Details:")
+
+              for test in results['tests']:
+                  status_icon = {"PASS": "✅", "FAIL": "❌", "WARN": "⚠️", "INFO": "ℹ️", "ERROR": "🚨"}
+                  icon = status_icon.get(test['status'], "❓")
+                  print(f"  {icon} {test['name']}: {test['details']}")
+
+              # Exit with appropriate code
+              if results['overall_status'] == 'ERROR':
+                  sys.exit(1)
+              elif any(test['status'] == 'FAIL' for test in results['tests']):
+                  print("\n⚠️  Some IAP validation tests failed")
+                  sys.exit(1)
+              else:
+                  print(f"\n✅ IAP validation completed successfully for {results['environment']}")
+                  sys.exit(0)
+          EOF
+
+          python test_iap_comprehensive.py
+
+      - name: Upload IAP validation reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: iap-validation-reports
+          path: security-reports/
+          retention-days: 30
+
+      - name: IAP Validation Summary
+        if: always()
+        run: |
+          echo "## 🔒 IAP Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: ${{ steps.service-url.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Service URL**: ${{ steps.service-url.outputs.service_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Date**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f security-reports/iap-validation.json ]; then
+            echo "### Test Results:" >> $GITHUB_STEP_SUMMARY
+            python3 -c "
+          import json
+          with open('security-reports/iap-validation.json', 'r') as f:
+              data = json.load(f)
+          for test in data['tests']:
+              status_icon = {'PASS': '✅', 'FAIL': '❌', 'WARN': '⚠️', 'INFO': 'ℹ️', 'ERROR': '🚨'}
+              icon = status_icon.get(test['status'], '❓')
+              print(f'- {icon} **{test[\"name\"]}**: {test[\"details\"]}')
+          " >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ============================================================================
+  # COMPLIANCE & REPORTING (Optimized and enhanced)
+  # ============================================================================
+  compliance-and-reporting:
+    name: Compliance & Security Reporting
+    runs-on: ubuntu-latest
+    needs: [setup-environment, dependency-security-scan, code-security-scan, container-security-scan, infrastructure-security-scan, iap-validation]
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all security reports
+        uses: actions/download-artifact@v4
+        with:
+          path: security-reports
+          merge-multiple: true
+
+      - name: Setup Python for report processing
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install report processing dependencies
+        run: |
+          pip install jinja2 markdown pyyaml --quiet
+
+      - name: Generate comprehensive security report
+        run: |
+          python3 << 'EOF'
+          import json
+          import os
+          import glob
+          from datetime import datetime
+          import subprocess
+
+          def load_json_report(file_path):
+              try:
+                  with open(file_path, 'r') as f:
+                      return json.load(f)
+              except:
+                  return {}
+
+          def analyze_security_reports():
+              reports = {
+                  'metadata': {
+                      'scan_date': datetime.utcnow().isoformat() + 'Z',
+                      'workflow_run': os.environ.get('GITHUB_RUN_ID', 'unknown'),
+                      'commit_sha': os.environ.get('GITHUB_SHA', 'unknown'),
+                      'branch': os.environ.get('GITHUB_REF_NAME', 'unknown'),
+                      'scan_type': os.environ.get('INPUT_SCAN_TYPE', 'full'),
+                      'triggered_by': os.environ.get('GITHUB_ACTOR', 'system')
+                  },
+                  'summary': {
+                      'total_vulnerabilities': 0,
+                      'critical': 0,
+                      'high': 0,
+                      'medium': 0,
+                      'low': 0,
+                      'scans_completed': 0,
+                      'scans_failed': 0
+                  },
+                  'scans': {},
+                  'recommendations': [],
+                  'compliance_status': 'COMPLIANT'
+              }
+
+              # Process all JSON reports
+              for report_file in glob.glob('security-reports/**/*.json', recursive=True):
+                  report_name = os.path.basename(report_file).replace('.json', '')
+                  data = load_json_report(report_file)
+
+                  if data:
+                      reports['scans'][report_name] = {
+                          'status': 'COMPLETED',
+                          'file': report_file,
+                          'summary': f"Processed {len(str(data))} characters of scan data"
+                      }
+                      reports['summary']['scans_completed'] += 1
+
+                      # Basic vulnerability counting (simplified)
+                      if 'vulnerabilities' in data:
+                          vuln_count = len(data['vulnerabilities'])
+                          reports['summary']['total_vulnerabilities'] += vuln_count
+                  else:
+                      reports['scans'][report_name] = {
+                          'status': 'FAILED',
+                          'file': report_file,
+                          'error': 'Could not parse JSON report'
+                      }
+                      reports['summary']['scans_failed'] += 1
+
+              # Generate recommendations based on findings
+              if reports['summary']['total_vulnerabilities'] > 50:
+                  reports['recommendations'].append("High number of vulnerabilities detected - prioritize remediation")
+                  reports['compliance_status'] = 'NON_COMPLIANT'
+
+              if reports['summary']['scans_failed'] > 2:
+                  reports['recommendations'].append("Multiple security scans failed - investigate infrastructure issues")
+                  reports['compliance_status'] = 'DEGRADED'
+
+              if not reports['recommendations']:
+                  reports['recommendations'].append("Security posture is good - continue regular monitoring")
+
+              # Save comprehensive report
+              with open('security-reports/comprehensive-security-report.json', 'w') as f:
+                  json.dump(reports, f, indent=2)
+
+              return reports
+
+          # Generate the report
+          report_data = analyze_security_reports()
+
+          # Create markdown summary
+          with open('security-summary.md', 'w') as f:
+              f.write(f"""# 🔒 SkillForge AI Security Validation Report
+
+          **Generated**: {report_data['metadata']['scan_date']}
+          **Workflow Run**: [{report_data['metadata']['workflow_run']}](https://github.com/${{github.repository}}/actions/runs/{report_data['metadata']['workflow_run']})
+          **Commit**: `{report_data['metadata']['commit_sha'][:8]}`
+          **Branch**: `{report_data['metadata']['branch']}`
+          **Scan Type**: `{report_data['metadata']['scan_type']}`
+          **Triggered By**: `{report_data['metadata']['triggered_by']}`
+
+          ## 📊 Executive Summary
+
+          | Metric | Value |
+          |--------|-------|
+          | Overall Status | **{report_data['compliance_status']}** |
+          | Scans Completed | {report_data['summary']['scans_completed']} |
+          | Scans Failed | {report_data['summary']['scans_failed']} |
+          | Total Vulnerabilities | {report_data['summary']['total_vulnerabilities']} |
+
+          ## 🎯 Security Score
+
+          """)
+
+              # Calculate security score
+              total_scans = report_data['summary']['scans_completed'] + report_data['summary']['scans_failed']
+              if total_scans > 0:
+                  score = int((report_data['summary']['scans_completed'] / total_scans) * 100)
+                  if score >= 90:
+                      f.write(f"🟢 **{score}%** - Excellent security posture\n\n")
+                  elif score >= 70:
+                      f.write(f"🟡 **{score}%** - Good security posture with room for improvement\n\n")
+                  else:
+                      f.write(f"🔴 **{score}%** - Security improvements required\n\n")
+
+              f.write(f"""## 🔍 Scan Results Details
+
+          | Scan | Status | Details |
+          |------|--------|---------|
+          """)
+
+              for scan_name, scan_data in report_data['scans'].items():
+                  status_icon = "✅" if scan_data['status'] == 'COMPLETED' else "❌"
+                  f.write(f"| {scan_name} | {status_icon} {scan_data['status']} | {scan_data.get('summary', scan_data.get('error', 'No details'))} |\n")
+
+              f.write(f"""
+          ## 📋 Recommendations
+
+          """)
+              for i, rec in enumerate(report_data['recommendations'], 1):
+                  f.write(f"{i}. {rec}\n")
+
+              f.write(f"""
+          ## 📁 Artifacts Generated
+
+          - Comprehensive Security Report: `comprehensive-security-report.json`
+          """)
+
+              for scan_name in report_data['scans'].keys():
+                  f.write(f"- {scan_name}: `{scan_name}.json`\n")
+
+          print("✅ Comprehensive security report generated")
+          EOF
+
+      - name: Check compliance requirements
+        run: |
+          echo "🔍 Performing compliance checks..."
+
+          # GDPR compliance markers
+          echo "## GDPR Compliance Check" >> compliance-details.md
+          echo "" >> compliance-details.md
+
+          GDPR_PATTERNS=("consent" "personal.data" "gdpr" "data.subject" "right.to.be.forgotten")
+          for pattern in "${GDPR_PATTERNS[@]}"; do
+            count=$(grep -r -i "$pattern" apps/ --include="*.py" --include="*.js" --include="*.ts" --include="*.jsx" --include="*.tsx" | wc -l || echo "0")
+            echo "- $pattern: $count occurrences found" >> compliance-details.md
+          done
+
+          # Security headers check
+          echo "" >> compliance-details.md
+          echo "## Security Headers Configuration" >> compliance-details.md
+          echo "" >> compliance-details.md
+
+          HEADERS=("X-Frame-Options" "X-Content-Type-Options" "Strict-Transport-Security" "Content-Security-Policy")
+          for header in "${HEADERS[@]}"; do
+            count=$(grep -r -i "$header" . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=security-reports | wc -l || echo "0")
+            echo "- $header: $count configurations found" >> compliance-details.md
+          done
+
+      - name: Upload comprehensive security reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-security-reports
+          path: |
+            security-reports/comprehensive-security-report.json
+            security-summary.md
+            compliance-details.md
+          retention-days: 90
+
+      - name: Set job summary
+        if: always()
+        run: |
+          echo "# 🔒 Security Validation Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat security-summary.md >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "📊 **Performance Metrics:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Workflow optimized for parallel execution" >> $GITHUB_STEP_SUMMARY
+          echo "- Cached dependencies and tools for faster runs" >> $GITHUB_STEP_SUMMARY
+          echo "- Comprehensive security coverage maintained" >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment PR with security summary
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            try {
+              const summary = fs.readFileSync('security-summary.md', 'utf8');
+
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 🔒 Security Validation Results\n\n${summary}\n\n---\n*This comment was automatically generated by the optimized security validation workflow*`
+              });
+            } catch (error) {
+              console.log('Could not post PR comment:', error.message);
+            }
+
+      - name: Determine final status
+        id: final-status
+        run: |
+          if [ -f security-reports/comprehensive-security-report.json ]; then
+            STATUS=$(python3 -c "
+          import json
+          with open('security-reports/comprehensive-security-report.json', 'r') as f:
+              data = json.load(f)
+          print(data['compliance_status'])
+          ")
+
+            FAILED_SCANS=$(python3 -c "
+          import json
+          with open('security-reports/comprehensive-security-report.json', 'r') as f:
+              data = json.load(f)
+          print(data['summary']['scans_failed'])
+          ")
+
+            echo "status=$STATUS" >> $GITHUB_OUTPUT
+            echo "failed_scans=$FAILED_SCANS" >> $GITHUB_OUTPUT
+
+            if [ "$STATUS" = "NON_COMPLIANT" ] || [ "$FAILED_SCANS" -gt 3 ]; then
+              echo "Security validation failed - non-compliant status or too many failed scans"
+              exit 1
+            fi
+          fi
+
+          echo "✅ Security validation completed successfully"

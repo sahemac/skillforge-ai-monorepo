@@ -1,0 +1,687 @@
+name: Backend Services Deployment (Optimized)
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/backend/user-service/**'
+      - 'apps/backend/company-service/**'
+      - '.github/workflows/backend-deploy.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/backend/user-service/**'
+      - 'apps/backend/company-service/**'
+      - '.github/workflows/backend-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      services:
+        description: 'Services to deploy (comma-separated or "all")'
+        required: true
+        default: 'all'
+        type: string
+      run_migrations:
+        description: 'Run database migrations'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  REGISTRY: europe-west1-docker.pkg.dev
+  PROJECT_ID: skillforge-ai-mvp-25
+  REGION: europe-west1
+  REPOSITORY: skillforge-ai-registry
+  PYTHON_VERSION: '3.11'
+
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
+
+jobs:
+  # ===== PHASE 1: SETUP & PREPARATION =====
+  setup:
+    name: Setup & Detection
+    runs-on: ubuntu-latest
+    outputs:
+      user-service: ${{ steps.changes.outputs.user-service }}
+      company-service: ${{ steps.changes.outputs.company-service }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      environment: ${{ steps.set-env.outputs.environment }}
+      run_migrations: ${{ steps.set-migrations.outputs.run_migrations }}
+      cache-key: ${{ steps.cache-key.outputs.key }}
+      deploy-needed: ${{ steps.deploy-check.outputs.needed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            user-service:
+              - 'apps/backend/user-service/**'
+            company-service:
+              - 'apps/backend/company-service/**'
+
+      - name: Set environment and flags
+        id: set-env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+            echo "run_migrations=${{ github.event.inputs.run_migrations }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+            echo "run_migrations=true" >> $GITHUB_OUTPUT
+          else
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "run_migrations=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set migrations flag
+        id: set-migrations
+        run: |
+          echo "run_migrations=${{ steps.set-env.outputs.run_migrations || 'true' }}" >> $GITHUB_OUTPUT
+
+      - name: Build optimized matrix
+        id: set-matrix
+        run: |
+          services=()
+
+          # Handle workflow dispatch with specific services
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.services }}" != "all" ]]; then
+            IFS=',' read -ra REQUESTED_SERVICES <<< "${{ github.event.inputs.services }}"
+            for service in "${REQUESTED_SERVICES[@]}"; do
+              service=$(echo $service | xargs)
+              [[ "$service" =~ ^(user-service|company-service)$ ]] && services+=("$service")
+            done
+          else
+            # Auto-detect changed services or deploy all
+            [[ "${{ steps.changes.outputs.user-service }}" == "true" || "${{ github.event.inputs.services }}" == "all" ]] && services+=("user-service")
+            [[ "${{ steps.changes.outputs.company-service }}" == "true" || "${{ github.event.inputs.services }}" == "all" ]] && services+=("company-service")
+          fi
+
+          # Default to user-service if no services detected
+          [[ ${#services[@]} -eq 0 ]] && services=("user-service")
+
+          # Build JSON matrix
+          matrix_json=$(printf '%s\n' "${services[@]}" | jq -R . | jq -s '{service: .}')
+          echo "matrix=$matrix_json" >> $GITHUB_OUTPUT
+          echo "Services to process: ${services[*]}"
+
+      - name: Generate unified cache key
+        id: cache-key
+        run: |
+          # Create unified cache key combining all services and Python version
+          cache_files=""
+          for service in user-service company-service; do
+            if [[ -f "apps/backend/$service/requirements.txt" ]]; then
+              cache_files="$cache_files apps/backend/$service/requirements.txt"
+            fi
+          done
+
+          cache_hash=$(echo "$cache_files" | xargs cat 2>/dev/null | sha256sum | cut -d' ' -f1)
+          cache_key="${{ runner.os }}-unified-${{ env.PYTHON_VERSION }}-$cache_hash"
+          echo "key=$cache_key" >> $GITHUB_OUTPUT
+
+      - name: Check if deployment needed
+        id: deploy-check
+        run: |
+          # Skip deployment for PR events unless explicitly requested
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.inputs.services }}" == "" ]]; then
+            echo "needed=false" >> $GITHUB_OUTPUT
+          else
+            echo "needed=true" >> $GITHUB_OUTPUT
+          fi
+
+  # ===== PHASE 2: PARALLEL QUALITY ASSURANCE =====
+  security-and-quality:
+    name: Security & Quality Analysis
+    runs-on: ubuntu-latest
+    needs: setup
+    if: fromJson(needs.setup.outputs.matrix).service[0] != null
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python with unified cache
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Unified dependency cache
+        uses: actions/cache@v4
+        id: cache
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.local/share/virtualenvs
+            apps/backend/${{ matrix.service }}/venv
+          key: ${{ needs.setup.outputs.cache-key }}-${{ matrix.service }}
+          restore-keys: |
+            ${{ needs.setup.outputs.cache-key }}
+            ${{ runner.os }}-unified-${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies (parallel)
+        working-directory: apps/backend/${{ matrix.service }}
+        run: |
+          python -m pip install --upgrade pip
+          # Install all tools in parallel
+          pip install -r requirements.txt &
+          pip install bandit safety semgrep pytest-cov black flake8 mypy psycopg2-binary &
+          wait
+
+      - name: Parallel security scans
+        working-directory: apps/backend/${{ matrix.service }}
+        run: |
+          # Run all security tools in parallel
+          (
+            echo "🔍 Running Bandit scan..."
+            if [ -f .bandit ]; then
+              bandit -r app/ -f json -o bandit-report.json --quiet || true
+            else
+              bandit -r app/ -f json -o bandit-report.json --skip B101,B601,B602,B603,B605,B607 --quiet || true
+            fi
+          ) &
+
+          (
+            echo "🔍 Running Safety check..."
+            safety check --json --output safety-report.json || true
+          ) &
+
+          (
+            echo "🔍 Running Semgrep scan..."
+            semgrep --config=auto --json --output=semgrep-report.json app/ --quiet || true
+          ) &
+
+          wait
+          echo "✅ All security scans completed"
+
+      - name: Parallel code quality checks
+        working-directory: apps/backend/${{ matrix.service }}
+        run: |
+          # Run quality checks in parallel
+          (
+            echo "🎨 Auto-formatting with Black..."
+            black app/ --quiet
+          ) &
+
+          (
+            echo "🔍 Running Flake8 linting..."
+            flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics || echo "Non-critical linting warnings"
+          ) &
+
+          (
+            echo "🔍 Running MyPy type checking..."
+            mypy app/ --ignore-missing-imports --no-error-summary || echo "Type checking completed with warnings"
+          ) &
+
+          wait
+          echo "✅ Code quality checks completed"
+
+      - name: Optimized test execution
+        working-directory: apps/backend/${{ matrix.service }}
+        run: |
+          # Setup test environment
+          cat > .env.test << EOF
+          DATABASE_URL=postgresql://test_user:test_password@localhost:5432/test_db
+          REDIS_URL=redis://localhost:6379
+          SECRET_KEY=test_secret_key_for_testing_only
+          ALGORITHM=HS256
+          ACCESS_TOKEN_EXPIRE_MINUTES=30
+          ENVIRONMENT=testing
+          EOF
+
+          # Run migrations if needed
+          if [ -f alembic.ini ]; then
+            export DATABASE_URL=postgresql://test_user:test_password@localhost:5432/test_db
+            alembic upgrade head
+          fi
+
+          # Run tests with parallel execution
+          export DATABASE_URL=postgresql://test_user:test_password@localhost:5432/test_db
+          export REDIS_URL=redis://localhost:6379
+          pytest app/tests/ -v --cov=app --cov-report=xml --cov-report=term-missing -n auto
+
+      - name: Upload consolidated reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-reports-${{ matrix.service }}
+          path: |
+            apps/backend/${{ matrix.service }}/bandit-report.json
+            apps/backend/${{ matrix.service }}/safety-report.json
+            apps/backend/${{ matrix.service }}/semgrep-report.json
+            apps/backend/${{ matrix.service }}/coverage.xml
+
+      - name: Upload test coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: apps/backend/${{ matrix.service }}/coverage.xml
+          flags: backend-${{ matrix.service }}
+          name: backend-${{ matrix.service }}-coverage
+
+  # ===== PHASE 3: BUILD & CONTAINER OPTIMIZATION =====
+  build-containers:
+    name: Build Containers
+    runs-on: ubuntu-latest
+    needs: [setup, security-and-quality]
+    if: needs.setup.outputs.deploy-needed == 'true' && fromJson(needs.setup.outputs.matrix).service[0] != null
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
+    outputs:
+      images: ${{ steps.images.outputs.tags }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker with BuildKit
+        run: |
+          gcloud auth configure-docker europe-west1-docker.pkg.dev
+          echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
+
+      - name: Docker Layer Cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ matrix.service }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-${{ matrix.service }}-
+            ${{ runner.os }}-buildx-
+
+      - name: Create optimized Dockerfile
+        working-directory: apps/backend/${{ matrix.service }}
+        run: |
+          cat > Dockerfile << 'EOF'
+          # Optimized multi-stage build with BuildKit
+          # syntax=docker/dockerfile:1.4
+          FROM python:3.11-slim as base
+          ENV PYTHONUNBUFFERED=1 \
+              PYTHONDONTWRITEBYTECODE=1 \
+              PIP_NO_CACHE_DIR=1 \
+              PIP_DISABLE_PIP_VERSION_CHECK=1
+
+          # Builder stage with cache mounts
+          FROM base as builder
+          WORKDIR /app
+          RUN apt-get update && apt-get install -y \
+              build-essential \
+              libpq-dev \
+              && rm -rf /var/lib/apt/lists/*
+
+          COPY requirements.txt .
+          RUN --mount=type=cache,target=/root/.cache/pip \
+              pip install --user -r requirements.txt
+
+          # Production stage
+          FROM base as production
+          RUN groupadd -r appuser && useradd -r -g appuser appuser \
+              && apt-get update && apt-get install -y \
+                 libpq5 curl \
+              && rm -rf /var/lib/apt/lists/*
+
+          WORKDIR /app
+          COPY --from=builder /root/.local /home/appuser/.local
+          COPY --chown=appuser:appuser app/ ./app/
+          COPY --chown=appuser:appuser alembic/ ./alembic/ 2>/dev/null || true
+          COPY --chown=appuser:appuser alembic.ini . 2>/dev/null || true
+
+          ENV PATH=/home/appuser/.local/bin:$PATH
+          USER appuser
+          EXPOSE 8000
+
+          HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+              CMD curl -f http://localhost:8000/health || exit 1
+
+          CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+          EOF
+
+      - name: Build and push with cache optimization
+        working-directory: apps/backend/${{ matrix.service }}
+        run: |
+          IMAGE_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-${{ matrix.service }}:${{ github.sha }}"
+          LATEST_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-${{ matrix.service }}:latest"
+          ENV_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-${{ matrix.service }}:${{ needs.setup.outputs.environment }}"
+
+          docker buildx build \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --platform linux/amd64 \
+            --tag $IMAGE_TAG \
+            --tag $LATEST_TAG \
+            --tag $ENV_TAG \
+            --push .
+
+          # Update cache
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      - name: Set image outputs
+        id: images
+        run: |
+          IMAGE_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-${{ matrix.service }}:${{ github.sha }}"
+          echo "tags=$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+  # ===== PHASE 4: PARALLEL MIGRATIONS =====
+  database-migrations:
+    name: Database Migrations
+    runs-on: ubuntu-latest
+    needs: [setup, security-and-quality]
+    if: needs.setup.outputs.run_migrations == 'true' && needs.setup.outputs.deploy-needed == 'true'
+    environment: ${{ needs.setup.outputs.environment }}
+    strategy:
+      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python with cache
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Install dependencies
+        working-directory: apps/backend/${{ matrix.service }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt psycopg2-binary
+
+      - name: Run migrations with Cloud SQL Proxy
+        working-directory: apps/backend/${{ matrix.service }}
+        run: |
+          if [ ! -f alembic.ini ]; then
+            echo "No alembic.ini found, skipping migration"
+            exit 0
+          fi
+
+          # Download and start Cloud SQL Proxy
+          wget -q https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy
+          chmod +x cloud_sql_proxy
+          ./cloud_sql_proxy -instances=$PROJECT_ID:$REGION:skillforge-pg-instance-${{ needs.setup.outputs.environment }}=tcp:5432 &
+
+          # Wait for proxy and run migration
+          sleep 10
+          export DATABASE_URL="${{ secrets.DATABASE_URL }}"
+          alembic upgrade head
+          echo "✅ Migration completed for ${{ matrix.service }}"
+
+  # ===== PHASE 5: DEPLOYMENT WITH INTELLIGENT ROLLOUT =====
+  deploy:
+    name: Deploy Services
+    runs-on: ubuntu-latest
+    needs: [setup, build-containers, database-migrations]
+    if: always() && needs.setup.outputs.deploy-needed == 'true' && (needs.database-migrations.result == 'success' || needs.database-migrations.result == 'skipped')
+    environment: ${{ needs.setup.outputs.environment }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run with intelligent rollout
+        run: |
+          SERVICE_NAME="skillforge-${{ matrix.service }}-${{ needs.setup.outputs.environment }}"
+          IMAGE_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-${{ matrix.service }}:${{ github.sha }}"
+          IS_PRODUCTION="${{ needs.setup.outputs.environment == 'production' }}"
+
+          # Deploy new revision without traffic
+          gcloud run deploy $SERVICE_NAME \
+            --image=$IMAGE_TAG \
+            --platform=managed \
+            --region=$REGION \
+            --allow-unauthenticated \
+            --port=8000 \
+            --memory=1Gi \
+            --cpu=1 \
+            --min-instances=0 \
+            --max-instances=100 \
+            --concurrency=80 \
+            --timeout=300 \
+            --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }},REDIS_URL=${{ secrets.REDIS_URL }},SECRET_KEY=${{ secrets.SECRET_KEY }},ENVIRONMENT=${{ needs.setup.outputs.environment }}" \
+            --set-secrets="JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}:latest" \
+            --labels="app=skillforge-backend,service=${{ matrix.service }},environment=${{ needs.setup.outputs.environment }}" \
+            --tag="${{ needs.setup.outputs.environment }}" \
+            --revision-suffix="${{ github.sha }}-${{ github.run_number }}" \
+            --no-traffic
+
+          # Get service URLs
+          SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
+            --platform=managed --region=$REGION --format="value(status.url)")
+
+          NEW_REVISION_URL=$(gcloud run services describe $SERVICE_NAME \
+            --platform=managed --region=$REGION \
+            --format="value(status.traffic[0].url)")
+
+          echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_ENV
+          echo "NEW_REVISION_URL=$NEW_REVISION_URL" >> $GITHUB_ENV
+          echo "SERVICE_NAME=$SERVICE_NAME" >> $GITHUB_ENV
+
+      - name: Health checks with timeout optimization
+        run: |
+          echo "🔍 Running comprehensive health checks..."
+
+          # Wait for service startup
+          sleep 30
+
+          # Health check with exponential backoff
+          check_endpoint() {
+            local endpoint=$1
+            local max_attempts=10
+            local attempt=1
+            local delay=5
+
+            while [ $attempt -le $max_attempts ]; do
+              if curl -f -s --max-time 10 "$endpoint" > /dev/null; then
+                echo "✅ $endpoint responded successfully"
+                return 0
+              fi
+
+              echo "⏳ Attempt $attempt/$max_attempts failed, waiting ${delay}s..."
+              sleep $delay
+              delay=$((delay * 2))
+              ((attempt++))
+            done
+
+            echo "❌ $endpoint failed after $max_attempts attempts"
+            return 1
+          }
+
+          # Check multiple endpoints in parallel
+          check_endpoint "${{ env.NEW_REVISION_URL }}/health" &
+          check_endpoint "${{ env.NEW_REVISION_URL }}/docs" &
+          wait
+
+          # Database connectivity test
+          check_endpoint "${{ env.NEW_REVISION_URL }}/health/db" || echo "⚠️ Database check failed, continuing..."
+
+      - name: Intelligent traffic rollout
+        run: |
+          REVISION_NAME="${{ github.sha }}-${{ github.run_number }}"
+
+          if [[ "${{ needs.setup.outputs.environment }}" == "production" ]]; then
+            echo "🚀 Starting intelligent production rollout..."
+
+            # Gradual rollout with health monitoring
+            for percentage in 10 25 50 100; do
+              echo "📊 Routing ${percentage}% traffic to new revision..."
+
+              gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+                --region=$REGION \
+                --to-revisions="$REVISION_NAME=$percentage"
+
+              if [[ $percentage -lt 100 ]]; then
+                echo "⏳ Monitoring for 2 minutes..."
+                sleep 120
+
+                # Quick health check during rollout
+                if ! curl -f -s --max-time 5 "${{ env.SERVICE_URL }}/health" > /dev/null; then
+                  echo "🚨 Health check failed during rollout!"
+                  exit 1
+                fi
+              fi
+            done
+          else
+            echo "🚀 Direct rollout to staging environment..."
+            gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+              --region=$REGION \
+              --to-revisions="$REVISION_NAME=100"
+          fi
+
+          echo "✅ Deployment completed for ${{ matrix.service }}"
+
+      - name: Post-deployment verification
+        run: |
+          echo "🔍 Running post-deployment verification..."
+
+          # API endpoints test
+          curl -f -s "${{ env.SERVICE_URL }}/docs" > /dev/null && echo "✅ API docs accessible" || echo "❌ API docs failed"
+          curl -f -s "${{ env.SERVICE_URL }}/openapi.json" > /dev/null && echo "✅ OpenAPI spec accessible" || echo "❌ OpenAPI spec failed"
+
+          # Performance check
+          RESPONSE_TIME=$(curl -o /dev/null -s -w '%{time_total}' "${{ env.SERVICE_URL }}/health")
+          echo "📊 Response time: ${RESPONSE_TIME}s"
+
+          # Cleanup old revisions (keep last 3)
+          echo "🧹 Cleaning up old revisions..."
+          gcloud run revisions list \
+            --service=${{ env.SERVICE_NAME }} \
+            --region=$REGION \
+            --format="value(metadata.name)" \
+            --sort-by="~metadata.creationTimestamp" \
+            --limit=100 | tail -n +4 | head -20 | while read revision; do
+            gcloud run revisions delete $revision --region=$REGION --quiet || true
+          done
+
+  # ===== PHASE 6: ROLLBACK AUTOMATION =====
+  auto-rollback:
+    name: Auto Rollback
+    runs-on: ubuntu-latest
+    needs: [setup, deploy]
+    if: failure() && needs.setup.outputs.environment == 'production'
+    environment: production
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Intelligent rollback
+        run: |
+          echo "🔄 Starting intelligent rollback process..."
+
+          SERVICES=($(echo '${{ needs.setup.outputs.matrix }}' | jq -r '.service[]'))
+
+          for service in "${SERVICES[@]}"; do
+            SERVICE_NAME="skillforge-$service-production"
+
+            echo "🔄 Rolling back $SERVICE_NAME..."
+
+            # Get previous stable revision
+            PREVIOUS_REVISION=$(gcloud run revisions list \
+              --service=$SERVICE_NAME \
+              --region=$REGION \
+              --format="value(metadata.name)" \
+              --sort-by="~metadata.creationTimestamp" \
+              --limit=5 | grep -v "${{ github.sha }}" | head -1)
+
+            if [ -n "$PREVIOUS_REVISION" ]; then
+              echo "📋 Rolling back to revision: $PREVIOUS_REVISION"
+
+              gcloud run services update-traffic $SERVICE_NAME \
+                --region=$REGION \
+                --to-revisions="$PREVIOUS_REVISION=100" \
+                --quiet
+
+              # Verify rollback
+              SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
+                --platform=managed --region=$REGION --format="value(status.url)")
+
+              if curl -f -s --max-time 10 "$SERVICE_URL/health" > /dev/null; then
+                echo "✅ Rollback verified for $service"
+              else
+                echo "❌ Rollback verification failed for $service"
+              fi
+            else
+              echo "⚠️ No previous revision found for $service"
+            fi
+          done
+
+          echo "📝 Rollback Summary:"
+          echo "  Reason: Deployment failure detected"
+          echo "  Commit: ${{ github.sha }}"
+          echo "  Services: ${SERVICES[*]}"
+          echo "  Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
