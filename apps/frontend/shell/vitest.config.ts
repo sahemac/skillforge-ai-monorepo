@@ -37,6 +37,16 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@/domain': path.resolve(__dirname, './src/domain'),
+      '@/application': path.resolve(__dirname, './src/application'),
+      '@/infrastructure': path.resolve(__dirname, './src/infrastructure'),
+      '@/presentation': path.resolve(__dirname, './src/presentation'),
+      '@skillforge-ai/core': path.resolve(__dirname, '../../../packages/core/src'),
+      '@skillforge-ai/ui-kit': path.resolve(__dirname, '../../../packages/ui-kit/src'),
+      '@skillforge-ai/api-client': path.resolve(__dirname, '../../../packages/api-client/src'),
+      '@skillforge-ai/shared': path.resolve(__dirname, '../../../packages/shared/src'),
+      '@skillforge-ai/shared-state': path.resolve(__dirname, '../../../packages/shared-state/src'),
+      '@skillforge-ai/testing': path.resolve(__dirname, '../../../packages/testing/src'),
     },
   },
 });

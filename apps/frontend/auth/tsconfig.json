@@ -29,12 +29,13 @@
       "@skillforge-ai/core": ["../../../packages/core/src"],
       "@skillforge-ai/ui-kit": ["../../../packages/ui-kit/src"],
       "@skillforge-ai/api-client": ["../../../packages/api-client/src"],
-      "@skillforge-ai/shared": ["../../../packages/shared/src"]
+      "@skillforge-ai/shared": ["../../../packages/shared/src"],
+      "@skillforge-ai/shared-state": ["../../../packages/shared-state/src"],
+      "@skillforge-ai/testing": ["../../../packages/testing/src"]
     }
   },
   "include": [
-    "src/**/*",
-    "../../../packages/*/src/**/*"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules",
@@ -44,6 +45,8 @@
     { "path": "../../../packages/core" },
     { "path": "../../../packages/ui-kit" },
     { "path": "../../../packages/api-client" },
-    { "path": "../../../packages/shared" }
+    { "path": "../../../packages/shared" },
+    { "path": "../../../packages/shared-state" },
+    { "path": "../../../packages/testing" }
   ]
 }

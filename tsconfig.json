@@ -28,7 +28,11 @@
       "@skillforge-ai/api-client": ["./packages/api-client/src"],
       "@skillforge-ai/api-client/*": ["./packages/api-client/src/*"],
       "@skillforge-ai/shared": ["./packages/shared/src"],
-      "@skillforge-ai/shared/*": ["./packages/shared/src/*"]
+      "@skillforge-ai/shared/*": ["./packages/shared/src/*"],
+      "@skillforge-ai/shared-state": ["./packages/shared-state/src"],
+      "@skillforge-ai/shared-state/*": ["./packages/shared-state/src/*"],
+      "@skillforge-ai/testing": ["./packages/testing/src"],
+      "@skillforge-ai/testing/*": ["./packages/testing/src/*"]
     }
   },
   "include": [],
@@ -37,6 +41,8 @@
     { "path": "./packages/ui-kit" },
     { "path": "./packages/api-client" },
     { "path": "./packages/shared" },
+    { "path": "./packages/shared-state" },
+    { "path": "./packages/testing" },
     { "path": "./apps/frontend/shell" },
     { "path": "./apps/frontend/auth" }
   ]

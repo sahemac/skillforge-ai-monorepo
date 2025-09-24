@@ -24,7 +24,12 @@
     "rootDir": "src",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "composite": true
+    "composite": true,
+    "baseUrl": ".",
+    "paths": {
+      "@skillforge-ai/core": ["../core/src"],
+      "@skillforge-ai/core/*": ["../core/src/*"]
+    }
   },
   "include": [
     "src/**/*"
@@ -34,5 +39,8 @@
     "dist",
     "**/*.test.ts",
     "**/*.spec.ts"
+  ],
+  "references": [
+    { "path": "../core" }
   ]
 }
