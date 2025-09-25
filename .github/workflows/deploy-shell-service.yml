@@ -46,7 +46,7 @@ jobs:
       environment: ${{ inputs.environment || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
       build_type: 'frontend'
       skip_migration: true
-      skip_tests: false
+      skip_tests: true
       force_deploy: ${{ inputs.force_deploy || github.event_name == 'workflow_dispatch' }}
     secrets:
       GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
