@@ -26,8 +26,8 @@
     "@skillforge-ai/shared": "workspace:*",
     "@skillforge-ai/shared-state": "workspace:*",
     "@skillforge-ai/testing": "workspace:*",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "react-router-dom": "^6.20.1",
     "@tanstack/react-query": "^5.8.4",
     "@reduxjs/toolkit": "^2.0.1",
@@ -36,13 +36,14 @@
     "mitt": "^3.0.1",
     "zod": "^3.22.4",
     "jwt-decode": "^4.0.0",
-    "axios": "^1.6.2"
+    "axios": "^1.6.2",
+    "framer-motion": "^11.18.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
     "@types/node": "^24.3.0",
-    "@types/react": "^19.1.10",
-    "@types/react-dom": "^19.1.7",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
     "@typescript-eslint/eslint-plugin": "^8.42.0",
     "@typescript-eslint/parser": "^8.42.0",
     "@vitejs/plugin-react": "^5.0.0",
