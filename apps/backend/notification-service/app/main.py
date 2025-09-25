@@ -13,6 +13,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from app.core.config import get_settings
+from app.api.v1 import api_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -74,6 +75,9 @@ async def add_process_time_header(request: Request, call_next):
     
     return response
 
+
+# Include API routes
+app.include_router(api_router, prefix=settings.API_V1_STR)
 
 # Health check endpoints
 @app.get("/")

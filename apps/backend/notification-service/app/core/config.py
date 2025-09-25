@@ -46,9 +46,16 @@ class Settings(BaseSettings):
     CACHE_TTL: int = Field(default=300, env="CACHE_TTL")
     
     # External Services
-    USER_SERVICE_URL: Optional[str] = Field(default="http://user-service:8000", env="USER_SERVICE_URL")\n    
+    USER_SERVICE_URL: Optional[str] = Field(default="http://user-service:8000", env="USER_SERVICE_URL")
+
     # Service-specific Configuration
-    SMTP_HOST: Optional[str] = Field(default=None, env="SMTP_HOST")\n    SMTP_USER: Optional[str] = Field(default=None, env="SMTP_USER")\n    SMTP_PASSWORD: Optional[str] = Field(default=None, env="SMTP_PASSWORD")\n    TWILIO_ACCOUNT_SID: Optional[str] = Field(default=None, env="TWILIO_ACCOUNT_SID")\n    TWILIO_AUTH_TOKEN: Optional[str] = Field(default=None, env="TWILIO_AUTH_TOKEN")\n    FIREBASE_CREDENTIALS: Optional[str] = Field(default=None, env="FIREBASE_CREDENTIALS")\n    
+    SMTP_HOST: Optional[str] = Field(default=None, env="SMTP_HOST")
+    SMTP_USER: Optional[str] = Field(default=None, env="SMTP_USER")
+    SMTP_PASSWORD: Optional[str] = Field(default=None, env="SMTP_PASSWORD")
+    TWILIO_ACCOUNT_SID: Optional[str] = Field(default=None, env="TWILIO_ACCOUNT_SID")
+    TWILIO_AUTH_TOKEN: Optional[str] = Field(default=None, env="TWILIO_AUTH_TOKEN")
+    FIREBASE_CREDENTIALS: Optional[str] = Field(default=None, env="FIREBASE_CREDENTIALS")
+
     # Monitoring
     ENABLE_METRICS: bool = Field(default=True, env="ENABLE_METRICS")
     
