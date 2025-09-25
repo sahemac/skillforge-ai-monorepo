@@ -1,10 +1,28 @@
 /// <reference types="react" />
 /// <reference types="react-dom" />
+/// <reference types="react/jsx-runtime" />
+
+declare module 'react' {
+  const React: any;
+  export = React;
+}
+
+declare module 'react/jsx-runtime' {
+  export const jsx: any;
+  export const jsxs: any;
+  export const Fragment: any;
+}
 
 declare namespace JSX {
   interface Element extends React.ReactElement<any, any> {}
   interface IntrinsicElements {
     [elemName: string]: any;
+  }
+  interface ElementAttributesProperty {
+    props: {};
+  }
+  interface ElementChildrenAttribute {
+    children: {};
   }
 }
 
