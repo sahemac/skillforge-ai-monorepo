@@ -25,16 +25,21 @@ from app.models.user import User, UserSettings, UserSession
 
 # Test database URL configuration
 # Priority:
-# 1. DATABASE_URL from environment (CI/CD with real staging database)
+# 1. DATABASE_URL from environment (CI/CD with temporary PostgreSQL service)
 # 2. SQLite in-memory database (local unit tests)
+#
+# IMPORTANT: CI/CD uses a TEMPORARY PostgreSQL database, NOT staging!
+# - Created fresh for each test run
+# - Destroyed after tests complete
+# - Zero risk to staging/production data
 TEST_DATABASE_URL = os.getenv("DATABASE_URL")
 
 # For local/unit tests without DATABASE_URL, use SQLite in-memory
 if not TEST_DATABASE_URL:
     TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
-    print("[TEST] Using SQLite in-memory database for tests")
+    print("[TEST] Using SQLite in-memory database for local tests")
 else:
-    print("[TEST] Using configured DATABASE_URL for tests")
+    print(f"[TEST] Using configured DATABASE_URL: {TEST_DATABASE_URL.split('@')[0]}@***")
 
 # Override settings for testing
 test_settings = get_settings()
@@ -81,16 +86,16 @@ def event_loop():
 @pytest.fixture(scope="session")
 async def test_db_setup():
     """Set up test database schema."""
-    # Create tables for SQLite in-memory database
-    # For PostgreSQL (CI/CD), tables should already exist
-    if TEST_DATABASE_URL.startswith("sqlite"):
-        async with test_engine.begin() as conn:
-            await conn.run_sync(SQLModel.metadata.create_all)
+    # Create tables for both SQLite and PostgreSQL temporary databases
+    # These are EPHEMERAL test databases, safe to create/drop
+    async with test_engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+
     yield
-    # Drop tables for SQLite
-    if TEST_DATABASE_URL.startswith("sqlite"):
-        async with test_engine.begin() as conn:
-            await conn.run_sync(SQLModel.metadata.drop_all)
+
+    # Drop tables after all tests complete
+    async with test_engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.drop_all)
 
 
 @pytest.fixture

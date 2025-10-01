@@ -325,6 +325,24 @@ jobs:
     needs: [config, security-validation]
     if: needs.config.outputs.should_deploy == 'true' && !inputs.skip_tests && needs.config.outputs.needs_tests == 'true'
     runs-on: ubuntu-latest
+
+    # PostgreSQL temporaire pour les tests backend
+    # DB jetable, recréée à chaque run - ZERO risque sur staging
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: skillforge_test
+          POSTGRES_PASSWORD: test_password_secure_123
+          POSTGRES_DB: skillforge_test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -375,9 +393,17 @@ jobs:
       - name: Run tests
         working-directory: ${{ needs.config.outputs.service_path }}
         env:
-          DATABASE_URL: ${{ inputs.environment == 'production' && secrets.DATABASE_URL_PRODUCTION || secrets.DATABASE_URL_STAGING }}
+          # Backend: PostgreSQL temporaire (rapide, isolé, sécurisé)
+          # Frontend: Pas de DB nécessaire
+          DATABASE_URL: ${{ contains(fromJson(needs.config.outputs.service_config).type, 'backend') && 'postgresql+asyncpg://skillforge_test:test_password_secure_123@localhost:5432/skillforge_test_db' || '' }}
+          ENVIRONMENT: testing
         run: |
           echo "🧪 Running tests for ${{ inputs.service }}..."
+          if [[ "${{ fromJson(needs.config.outputs.service_config).type }}" == "backend" ]]; then
+            echo "📊 Using temporary PostgreSQL database for tests"
+            echo "   Database: skillforge_test_db@localhost:5432"
+            echo "   Status: Ephemeral (recreated each run)"
+          fi
           ${{ needs.config.outputs.test_command }}
 
       - name: Upload test results
