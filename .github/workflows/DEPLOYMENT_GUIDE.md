@@ -205,7 +205,7 @@ API_SECRET_KEY             # Clé secrète API
 PROJECT_ID=skillforge-ai-mvp-25
 REGION=europe-west1
 REGISTRY=europe-west1-docker.pkg.dev
-REPOSITORY=skillforge-ai-registry
+REPOSITORY=skillforge-docker-repo-staging
 NODE_VERSION=20
 PNPM_VERSION=9.0.0
 PYTHON_VERSION=3.11

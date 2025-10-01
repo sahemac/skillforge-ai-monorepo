@@ -38,7 +38,7 @@ env:
   REGISTRY: europe-west1-docker.pkg.dev
   PROJECT_ID: skillforge-ai-mvp-25
   REGION: europe-west1
-  REPOSITORY: skillforge-ai-registry
+  REPOSITORY: skillforge-docker-repo-staging
   PYTHON_VERSION: '3.11'
 
 permissions:

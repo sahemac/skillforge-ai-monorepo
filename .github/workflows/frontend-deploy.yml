@@ -40,7 +40,7 @@ env:
   REGISTRY: europe-west1-docker.pkg.dev
   PROJECT_ID: skillforge-ai-mvp-25
   REGION: europe-west1
-  REPOSITORY: skillforge-ai-registry
+  REPOSITORY: skillforge-docker-repo-staging
   # Global cache settings
   PNPM_CACHE_FOLDER: ~/.pnpm-store
   NODE_OPTIONS: --max-old-space-size=4096
