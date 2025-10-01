@@ -35,13 +35,13 @@ jobs:
       environment: ${{ inputs.environment || 'staging' }}
       build_type: 'backend'
       skip_migration: ${{ inputs.skip_migration || false }}
-      skip_tests: true
-      force_deploy: false
+      skip_tests: false
+      force_deploy: true
     secrets:
       GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       GCP_WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
       GCP_CICD_SERVICE_ACCOUNT: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
       DATABASE_URL_STAGING: ${{ secrets.DATABASE_URL_STAGING }}
-      DATABASE_URL_PRODUCTION: ${{ secrets.DATABASE_URL_PRODUCTION }}
+      DATABASE_URL_PRODUCTION: ${{ secrets.DATABASE_URL_STAGING }}
       JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
       API_SECRET_KEY: ${{ secrets.API_SECRET_KEY }}
