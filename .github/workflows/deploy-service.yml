@@ -536,7 +536,7 @@ jobs:
             --task-timeout=600 \
             --vpc-connector=skillforge-vpc-connector \
             --vpc-egress=private-ranges-only \
-            --service-account=skillforge-cloud-run@${{ env.PROJECT_ID }}.iam.gserviceaccount.com || true
+            --service-account=sa-user-service-staging@${{ env.PROJECT_ID }}.iam.gserviceaccount.com || true
 
           # Execute migration
           gcloud run jobs execute $JOB_NAME \
@@ -592,7 +592,7 @@ jobs:
             --set-env-vars="SERVICE_NAME=$SERVICE_NAME" \
             --set-env-vars="ENVIRONMENT=${{ inputs.environment }}" \
             --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }}" \
-            --service-account=skillforge-cloud-run@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --service-account=sa-user-service-staging@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
             --labels="app=skillforge,service=${{ inputs.service }},environment=${{ inputs.environment }}" \
             --revision-suffix="${{ github.sha }}-${{ github.run_number }}" \
             --tag="${{ inputs.environment }}" \
