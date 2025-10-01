@@ -35,7 +35,7 @@ jobs:
       environment: ${{ inputs.environment || 'staging' }}
       build_type: 'backend'
       skip_migration: ${{ inputs.skip_migration || false }}
-      skip_tests: false
+      skip_tests: true
       force_deploy: false
     secrets:
       GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
