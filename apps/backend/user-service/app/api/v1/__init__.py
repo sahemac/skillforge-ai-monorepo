@@ -4,7 +4,7 @@ API v1 router for SkillForge AI User Service
 
 from fastapi import APIRouter
 
-from .endpoints import auth_router, users_router, companies_router
+from .endpoints import auth_router, users_router
 
 # Create API router
 api_router = APIRouter()
@@ -22,10 +22,11 @@ api_router.include_router(
     tags=["users"],
 )
 
-api_router.include_router(
-    companies_router,
-    prefix="/companies", 
-    tags=["companies"],
-)
+# Company functionality has been moved to company-service
+# api_router.include_router(
+#     companies_router,
+#     prefix="/companies",
+#     tags=["companies"],
+# )
 
 __all__ = ["api_router"]

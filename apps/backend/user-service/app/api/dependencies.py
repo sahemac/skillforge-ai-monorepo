@@ -258,38 +258,40 @@ async def get_pagination_params(
     return PaginationParams(page=page, size=size)
 
 
-# Company access dependency
-async def get_user_company(
-    company_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_verified_user)
-):
-    """Check if user has access to company."""
-    from app.crud import company as company_crud, team_member
-    
-    # Check if user owns the company
-    company = await company_crud.get(db, company_id)
-    if not company:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Company not found"
-        )
-    
-    if company.owner_id == current_user.id:
-        return company
-    
-    # Check if user is a team member
-    membership = await team_member.get_by_company_and_user(
-        db, company_id, current_user.id
-    )
-    
-    if not membership or not membership.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access to company denied"
-        )
-    
-    return company
+# Company access dependency - MOVED TO COMPANY-SERVICE
+# Company functionality has been moved to a separate company-service
+# This function is kept for reference but should not be used
+# async def get_user_company(
+#     company_id: UUID,
+#     db: AsyncSession = Depends(get_db),
+#     current_user: User = Depends(get_current_verified_user)
+# ):
+#     """Check if user has access to company."""
+#     from app.crud import company as company_crud, team_member
+#
+#     # Check if user owns the company
+#     company = await company_crud.get(db, company_id)
+#     if not company:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="Company not found"
+#         )
+#
+#     if company.owner_id == current_user.id:
+#         return company
+#
+#     # Check if user is a team member
+#     membership = await team_member.get_by_company_and_user(
+#         db, company_id, current_user.id
+#     )
+#
+#     if not membership or not membership.is_active:
+#         raise HTTPException(
+#             status_code=status.HTTP_403_FORBIDDEN,
+#             detail="Access to company denied"
+#         )
+#
+#     return company
 
 
 # Search and filter dependencies

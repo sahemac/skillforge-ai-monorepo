@@ -76,28 +76,33 @@ class EmailService:
         attachments: Optional[List[Dict[str, Any]]] = None
     ) -> bool:
         """Send email."""
+        # Skip actual sending in test environment
+        if settings.ENVIRONMENT == "testing":
+            logger.info(f"[TEST MODE] Would send email to {to_email} with subject: {subject}")
+            return True
+
         try:
             # Create message
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
             msg['From'] = f"{self.from_name} <{self.from_email}>"
             msg['To'] = to_email
-            
+
             # Add text content
             if text_content:
                 text_part = MIMEText(text_content, 'plain', 'utf-8')
                 msg.attach(text_part)
-            
+
             # Add HTML content
             html_part = MIMEText(html_content, 'html', 'utf-8')
             msg.attach(html_part)
-            
+
             # Add attachments if provided
             if attachments:
                 for attachment in attachments:
                     # This would be implemented based on attachment requirements
                     pass
-            
+
             # Send email
             with self._get_smtp_connection() as server:
                 server.send_message(msg)

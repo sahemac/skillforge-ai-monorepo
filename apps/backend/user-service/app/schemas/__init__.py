@@ -6,7 +6,7 @@ Pydantic models for request/response validation
 from .user import (
     # Base schemas
     UserBase,
-    
+
     # Request schemas
     UserCreate,
     UserUpdate,
@@ -15,77 +15,78 @@ from .user import (
     UserStatusUpdate,
     UserLogin,
     UserRegister,
-    
+
     # Response schemas
     UserResponse,
     UserPublicResponse,
     UserAdminResponse,
     UserListResponse,
     UserPublicListResponse,
-    
+
     # Authentication schemas
     Token,
     TokenData,
     RefreshToken,
-    
+
     # Email verification schemas
     EmailVerificationRequest,
     EmailVerificationConfirm,
-    
+
     # Password reset schemas
     PasswordResetRequest,
     PasswordResetConfirm,
-    
+
     # Settings schemas
     UserSettingsResponse,
     UserSettingsUpdate,
 )
 
-from .company import (
-    # Base schemas
-    CompanyBase,
-    
-    # Request schemas
-    CompanyCreate,
-    CompanyUpdate,
-    
-    # Response schemas
-    CompanyResponse,
-    CompanyPublicResponse,
-    CompanyListResponse,
-    CompanyPublicListResponse,
-    
-    # Team member schemas
-    TeamMemberBase,
-    TeamMemberInvite,
-    TeamMemberUpdate,
-    TeamMemberResponse,
-    TeamMemberListResponse,
-    
-    # Subscription schemas
-    SubscriptionPlan,
-    SubscriptionUpdate,
-    SubscriptionResponse,
-    
-    # Verification schemas
-    CompanyVerificationRequest,
-    
-    # Search schemas
-    CompanySearchFilters,
-)
+# Company functionality has been moved to company-service
+# from .company import (
+#     # Base schemas
+#     CompanyBase,
+#
+#     # Request schemas
+#     CompanyCreate,
+#     CompanyUpdate,
+#
+#     # Response schemas
+#     CompanyResponse,
+#     CompanyPublicResponse,
+#     CompanyListResponse,
+#     CompanyPublicListResponse,
+#
+#     # Team member schemas
+#     TeamMemberBase,
+#     TeamMemberInvite,
+#     TeamMemberUpdate,
+#     TeamMemberResponse,
+#     TeamMemberListResponse,
+#
+#     # Subscription schemas
+#     SubscriptionPlan,
+#     SubscriptionUpdate,
+#     SubscriptionResponse,
+#
+#     # Verification schemas
+#     CompanyVerificationRequest,
+#
+#     # Search schemas
+#     CompanySearchFilters,
+# )
 
 __all__ = [
     # User schemas
     "UserBase",
     "UserCreate",
-    "UserUpdate", 
+    "UserUpdate",
     "UserPasswordUpdate",
     "UserRoleUpdate",
     "UserStatusUpdate",
     "UserLogin",
     "UserRegister",
     "UserResponse",
-    "UserPublicResponse", 
+    "UserPublicResponse",
     "UserAdminResponse",
     "UserListResponse",
     "UserPublicListResponse",
@@ -94,27 +95,8 @@ __all__ = [
     "RefreshToken",
     "EmailVerificationRequest",
     "EmailVerificationConfirm",
-    "PasswordResetRequest", 
+    "PasswordResetRequest",
     "PasswordResetConfirm",
     "UserSettingsResponse",
     "UserSettingsUpdate",
-    
-    # Company schemas
-    "CompanyBase",
-    "CompanyCreate",
-    "CompanyUpdate",
-    "CompanyResponse",
-    "CompanyPublicResponse",
-    "CompanyListResponse",
-    "CompanyPublicListResponse",
-    "TeamMemberBase",
-    "TeamMemberInvite",
-    "TeamMemberUpdate", 
-    "TeamMemberResponse",
-    "TeamMemberListResponse",
-    "SubscriptionPlan",
-    "SubscriptionUpdate",
-    "SubscriptionResponse",
-    "CompanyVerificationRequest",
-    "CompanySearchFilters",
 ]

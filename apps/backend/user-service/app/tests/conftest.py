@@ -19,28 +19,42 @@ from app.models.user import User, UserSettings, UserSession
 # Company models moved to company-service
 # from app.models.company import CompanyProfile, TeamMember, Subscription
 
-# Test database URL - Use real DATABASE_URL from environment
-# CI/CD: Uses DATABASE_URL_STAGING secret for real staging database testing
-# Local: Uses DATABASE_URL with Cloud SQL Proxy connection
+# Test database URL configuration
+# Priority:
+# 1. DATABASE_URL from environment (CI/CD with real staging database)
+# 2. SQLite in-memory database (local unit tests)
 TEST_DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Fallback for local development if no DATABASE_URL set
+# For local/unit tests without DATABASE_URL, use SQLite in-memory
 if not TEST_DATABASE_URL:
-    TEST_DATABASE_URL = "postgresql+asyncpg://skillforge_user:Psaumes@27@localhost:5432/skillforge_db"
+    TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+    print("[TEST] Using SQLite in-memory database for tests")
+else:
+    print("[TEST] Using configured DATABASE_URL for tests")
 
 # Override settings for testing
 test_settings = get_settings()
 test_settings.ENVIRONMENT = "testing"
 test_settings.DATABASE_URL = TEST_DATABASE_URL
 
-# Create test engine for PostgreSQL
-test_engine = create_async_engine(
-    TEST_DATABASE_URL,
-    echo=False,
-    # Use smaller pool size for tests to avoid connection limit issues
-    pool_size=2,
-    max_overflow=5,
-)
+# Create test engine with appropriate configuration
+if TEST_DATABASE_URL.startswith("sqlite"):
+    # SQLite configuration for local testing
+    test_engine = create_async_engine(
+        TEST_DATABASE_URL,
+        echo=False,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+else:
+    # PostgreSQL configuration for CI/CD testing
+    test_engine = create_async_engine(
+        TEST_DATABASE_URL,
+        echo=False,
+        # Use smaller pool size for tests to avoid connection limit issues
+        pool_size=2,
+        max_overflow=5,
+    )
 
 # Create test session factory
 TestSessionLocal = async_sessionmaker(
@@ -62,10 +76,17 @@ def event_loop():
 
 @pytest.fixture(scope="session")
 async def test_db_setup():
-    """Set up test database - no schema changes needed for real DB."""
-    # No table creation needed - using real database with existing schema
+    """Set up test database schema."""
+    # Create tables for SQLite in-memory database
+    # For PostgreSQL (CI/CD), tables should already exist
+    if TEST_DATABASE_URL.startswith("sqlite"):
+        async with test_engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.create_all)
     yield
-    # No cleanup needed - real database should not be altered
+    # Drop tables for SQLite
+    if TEST_DATABASE_URL.startswith("sqlite"):
+        async with test_engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.drop_all)
 
 
 @pytest.fixture
@@ -95,30 +116,47 @@ def override_get_db(db_session: AsyncSession):
 def client(override_get_db) -> Generator[TestClient, None, None]:
     """Create a test client."""
     from fastapi import FastAPI
-    
+
     # Create a minimal test app instead of importing main.py
     test_app = FastAPI(
         title="SkillForge AI User Service - Tests",
         description="Test version of the API",
         version="1.0.0",
     )
-    
-    # Override the database dependency
+
+    # Override the database dependency BEFORE including routers
     test_app.dependency_overrides[get_session] = override_get_db
-    
-    # Import and include only necessary routers for testing
+
+    # Import and include all necessary routers for testing
     try:
         from app.api.v1 import api_router
         test_app.include_router(api_router, prefix="/api/v1")
-    except ImportError:
+
+        # Log available routes for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("Test app routes:")
+        for route in test_app.routes:
+            logger.info(f"  {route.path}")
+
+    except ImportError as e:
         # If routers can't be imported, create minimal test routes
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to import routers: {e}")
+
         @test_app.get("/")
         def read_root():
-            return {"message": "Test API"}
-    
+            return {"message": "Test API - Router import failed"}
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error setting up test app: {e}")
+        raise
+
     with TestClient(test_app) as test_client:
         yield test_client
-    
+
     # Clear overrides after test
     test_app.dependency_overrides.clear()
 
@@ -457,22 +495,29 @@ def real_email_service():
 @pytest.fixture
 def mock_email_service(monkeypatch):
     """Mock email service for testing to prevent sending real emails."""
-    from unittest.mock import Mock
+    from unittest.mock import Mock, MagicMock
 
-    # Mock the email service functions
-    mock_send_email = Mock(return_value=True)
-    mock_send_verification_email = Mock(return_value=True)
-    mock_send_password_reset_email = Mock(return_value=True)
+    # Create a mock email service object
+    mock_service = MagicMock()
+    mock_service.send_email = Mock(return_value=True)
+    mock_service.send_verification_email = Mock(return_value=True)
+    mock_service.send_password_reset_email = Mock(return_value=True)
+    mock_service.detect_language = Mock(return_value="en")
+    mock_service.render_template = Mock(return_value="<html>Test</html>")
 
-    # Apply monkeypatch to email service functions
-    monkeypatch.setattr("app.utils.email.send_email", mock_send_email)
-    monkeypatch.setattr("app.utils.email.send_verification_email", mock_send_verification_email)
-    monkeypatch.setattr("app.utils.email.send_password_reset_email", mock_send_password_reset_email)
+    # Patch the email_service instance
+    monkeypatch.setattr("app.utils.email.email_service", mock_service)
+
+    # Also patch the wrapper functions that use email_service
+    monkeypatch.setattr("app.utils.email.send_email", Mock(return_value=True))
+    monkeypatch.setattr("app.utils.email.send_verification_email", Mock(return_value=True))
+    monkeypatch.setattr("app.utils.email.send_password_reset_email", Mock(return_value=True))
 
     return {
-        "send_email": mock_send_email,
-        "send_verification_email": mock_send_verification_email,
-        "send_password_reset_email": mock_send_password_reset_email
+        "email_service": mock_service,
+        "send_email": mock_service.send_email,
+        "send_verification_email": mock_service.send_verification_email,
+        "send_password_reset_email": mock_service.send_password_reset_email
     }
 
 
