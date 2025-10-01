@@ -102,20 +102,22 @@ class Settings(BaseSettings):
         raise ValueError(v)
     
     @field_validator("DATABASE_URL", mode="before")
-    def assemble_db_connection(cls, v: Optional[str], values: dict) -> Any:
+    def assemble_db_connection(cls, v: Optional[str], info) -> Any:
         if isinstance(v, str) and v:
             return v
         # Build from individual components if not provided
+        # In Pydantic v2, we use info.data to access other fields
+        values = info.data if hasattr(info, 'data') else {}
         user = values.get("POSTGRES_USER")
-        password = values.get("POSTGRES_PASSWORD") 
+        password = values.get("POSTGRES_PASSWORD")
         host = values.get("POSTGRES_HOST", "localhost")
         port = values.get("POSTGRES_PORT", 5432)
         db = values.get("POSTGRES_DB", "skillforge_db")
-        
+
         # For development only - fallback to SQLite if no password provided
         if not password or not user:
             return "sqlite+aiosqlite:///./skillforge_dev.db"
-        
+
         return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
     
     @property
