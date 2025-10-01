@@ -10,6 +10,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import StaticPool
 
+# CRITICAL: Set ENVIRONMENT to testing BEFORE any app imports
+# This ensures EmailService and other modules know we're in test mode
+os.environ["ENVIRONMENT"] = "testing"
+
 from app.core.database import get_session
 from app.models.base import SQLModel
 from app.core.config import get_settings
@@ -103,17 +107,13 @@ async def db_session(test_db_setup) -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest.fixture
-def override_get_db(db_session: AsyncSession):
-    """Override the get_db dependency."""
-    async def _override_get_db():
-        yield db_session
-    
-    # We'll handle dependency override in individual test app instances
-    yield _override_get_db
+async def override_get_db(db_session: AsyncSession):
+    """Override the get_db dependency - returns the session directly."""
+    return db_session
 
 
 @pytest.fixture
-def client(override_get_db) -> Generator[TestClient, None, None]:
+def client(db_session: AsyncSession) -> Generator[TestClient, None, None]:
     """Create a test client."""
     from fastapi import FastAPI
 
@@ -125,7 +125,11 @@ def client(override_get_db) -> Generator[TestClient, None, None]:
     )
 
     # Override the database dependency BEFORE including routers
-    test_app.dependency_overrides[get_session] = override_get_db
+    # Create a dependency that returns the session
+    async def _get_test_db():
+        yield db_session
+
+    test_app.dependency_overrides[get_session] = _get_test_db
 
     # Import and include all necessary routers for testing
     try:
