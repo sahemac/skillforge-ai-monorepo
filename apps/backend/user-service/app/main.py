@@ -6,7 +6,8 @@ FastAPI application entry point
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 import uvicorn
 import time
@@ -141,9 +142,28 @@ async def add_process_time_header(request: Request, call_next):
 
 
 # Health check endpoints
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 async def root():
-    """Root endpoint with service info."""
+    """Root endpoint - serves login page."""
+    import os
+    static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+    login_file = os.path.join(static_dir, "login.html")
+
+    if os.path.exists(login_file):
+        with open(login_file, 'r', encoding='utf-8') as f:
+            return HTMLResponse(content=f.read())
+    else:
+        # Fallback to JSON if login.html doesn't exist
+        return JSONResponse({
+            "service": "skillforge-ai-user-service",
+            "version": "1.0.0",
+            "status": "healthy",
+            "environment": settings.ENVIRONMENT
+        })
+
+@app.get("/api")
+async def api_info():
+    """API endpoint with service info."""
     return {
         "service": "skillforge-ai-user-service",
         "version": "1.0.0",
@@ -290,6 +310,12 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"message": "Internal server error", "detail": str(exc)}
     )
 
+
+# Mount static files
+import os
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Include API routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
