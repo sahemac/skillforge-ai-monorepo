@@ -454,6 +454,28 @@ def real_email_service():
     yield
 
 
+@pytest.fixture
+def mock_email_service(monkeypatch):
+    """Mock email service for testing to prevent sending real emails."""
+    from unittest.mock import Mock
+
+    # Mock the email service functions
+    mock_send_email = Mock(return_value=True)
+    mock_send_verification_email = Mock(return_value=True)
+    mock_send_password_reset_email = Mock(return_value=True)
+
+    # Apply monkeypatch to email service functions
+    monkeypatch.setattr("app.core.email.send_email", mock_send_email)
+    monkeypatch.setattr("app.core.email.send_verification_email", mock_send_verification_email)
+    monkeypatch.setattr("app.core.email.send_password_reset_email", mock_send_password_reset_email)
+
+    return {
+        "send_email": mock_send_email,
+        "send_verification_email": mock_send_verification_email,
+        "send_password_reset_email": mock_send_password_reset_email
+    }
+
+
 # Test data factories
 class UserFactory:
     """Factory for creating test users."""

@@ -374,6 +374,11 @@ jobs:
 
       - name: Run tests
         working-directory: ${{ needs.config.outputs.service_path }}
+        env:
+          DATABASE_URL: ${{
+            inputs.environment == 'production' && secrets.DATABASE_URL_PRODUCTION ||
+            secrets.DATABASE_URL_STAGING
+          }}
         run: |
           echo "🧪 Running tests for ${{ inputs.service }}..."
           ${{ needs.config.outputs.test_command }}
