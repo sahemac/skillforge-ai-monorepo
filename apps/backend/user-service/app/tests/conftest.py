@@ -83,19 +83,31 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture(scope="session")
-async def test_db_setup():
+@pytest.fixture(scope="session", autouse=True)
+async def test_db_setup(event_loop):
     """Set up test database schema."""
     # Create tables for both SQLite and PostgreSQL temporary databases
     # These are EPHEMERAL test databases, safe to create/drop
-    async with test_engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+    print("[TEST DB SETUP] Creating database tables...")
+
+    try:
+        async with test_engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.create_all)
+        print("[TEST DB SETUP] Database tables created successfully")
+    except Exception as e:
+        print(f"[TEST DB SETUP ERROR] Failed to create tables: {e}")
+        raise
 
     yield
 
     # Drop tables after all tests complete
-    async with test_engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.drop_all)
+    print("[TEST DB SETUP] Dropping database tables...")
+    try:
+        async with test_engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.drop_all)
+        print("[TEST DB SETUP] Database tables dropped successfully")
+    except Exception as e:
+        print(f"[TEST DB SETUP ERROR] Failed to drop tables: {e}")
 
 
 @pytest.fixture
