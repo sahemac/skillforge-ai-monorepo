@@ -83,31 +83,58 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture(scope="session", autouse=True)
-async def test_db_setup(event_loop):
-    """Set up test database schema."""
-    # Create tables for both SQLite and PostgreSQL temporary databases
-    # These are EPHEMERAL test databases, safe to create/drop
+def _setup_test_database():
+    """Synchronously set up test database schema - RUNS BEFORE ANY TESTS."""
     print("[TEST DB SETUP] Creating database tables...")
+    print(f"[TEST DB SETUP] Database URL: {TEST_DATABASE_URL.split('@')[0] if '@' in TEST_DATABASE_URL else TEST_DATABASE_URL[:50]}...")
 
     try:
-        async with test_engine.begin() as conn:
-            await conn.run_sync(SQLModel.metadata.create_all)
+        # Run the async setup in a new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        async def create_tables():
+            async with test_engine.begin() as conn:
+                await conn.run_sync(SQLModel.metadata.create_all)
+
+        loop.run_until_complete(create_tables())
+        loop.close()
+
         print("[TEST DB SETUP] Database tables created successfully")
+        print(f"[TEST DB SETUP] Models registered: {list(SQLModel.metadata.tables.keys())}")
     except Exception as e:
         print(f"[TEST DB SETUP ERROR] Failed to create tables: {e}")
+        import traceback
+        traceback.print_exc()
         raise
 
-    yield
 
-    # Drop tables after all tests complete
+def _teardown_test_database():
+    """Synchronously tear down test database schema."""
     print("[TEST DB SETUP] Dropping database tables...")
     try:
-        async with test_engine.begin() as conn:
-            await conn.run_sync(SQLModel.metadata.drop_all)
+        # Run the async teardown in a new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        async def drop_tables():
+            async with test_engine.begin() as conn:
+                await conn.run_sync(SQLModel.metadata.drop_all)
+
+        loop.run_until_complete(drop_tables())
+        loop.close()
+
         print("[TEST DB SETUP] Database tables dropped successfully")
     except Exception as e:
         print(f"[TEST DB SETUP ERROR] Failed to drop tables: {e}")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def test_db_setup():
+    """Set up test database schema - runs once per test session."""
+    _setup_test_database()
+    yield
+    _teardown_test_database()
 
 
 @pytest.fixture
