@@ -68,6 +68,8 @@ on:
           - user-service
           - project-service
           - company-service
+          - matching-service
+          - analytics-service
           - shell
           - admin
           - learner
@@ -200,6 +202,38 @@ jobs:
               echo "health_endpoint=/health" >> $GITHUB_OUTPUT
               echo "port=8080" >> $GITHUB_OUTPUT
               CLOUD_RUN_CONFIG='{"memory":"1Gi","cpu":"2","max_instances":"10","min_instances":"1","concurrency":"1000","timeout":"300"}'
+              echo "cloud_run_config=$CLOUD_RUN_CONFIG" >> $GITHUB_OUTPUT
+              ;;
+            "matching-service")
+              SERVICE_CONFIG='{"type":"backend","language":"python","framework":"fastapi","has_migration":true,"has_tests":true,"ml_dependencies":true}'
+              echo "service_config=$SERVICE_CONFIG" >> $GITHUB_OUTPUT
+              echo "service_name=${{ inputs.environment }}-matching-service" >> $GITHUB_OUTPUT
+              echo "service_path=apps/backend/matching-service" >> $GITHUB_OUTPUT
+              echo "dockerfile_path=apps/backend/matching-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "image_name=matching-service" >> $GITHUB_OUTPUT
+              echo "needs_migration=true" >> $GITHUB_OUTPUT
+              echo "needs_tests=true" >> $GITHUB_OUTPUT
+              echo "build_command=" >> $GITHUB_OUTPUT
+              echo "test_command=pytest" >> $GITHUB_OUTPUT
+              echo "health_endpoint=/health" >> $GITHUB_OUTPUT
+              echo "port=8080" >> $GITHUB_OUTPUT
+              CLOUD_RUN_CONFIG='{"memory":"4Gi","cpu":"4","max_instances":"20","min_instances":"2","concurrency":"200","timeout":"900"}'
+              echo "cloud_run_config=$CLOUD_RUN_CONFIG" >> $GITHUB_OUTPUT
+              ;;
+            "analytics-service")
+              SERVICE_CONFIG='{"type":"backend","language":"python","framework":"fastapi","has_migration":true,"has_tests":true,"bigquery_access":true}'
+              echo "service_config=$SERVICE_CONFIG" >> $GITHUB_OUTPUT
+              echo "service_name=${{ inputs.environment }}-analytics-service" >> $GITHUB_OUTPUT
+              echo "service_path=apps/backend/analytics-service" >> $GITHUB_OUTPUT
+              echo "dockerfile_path=apps/backend/analytics-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "image_name=analytics-service" >> $GITHUB_OUTPUT
+              echo "needs_migration=true" >> $GITHUB_OUTPUT
+              echo "needs_tests=true" >> $GITHUB_OUTPUT
+              echo "build_command=" >> $GITHUB_OUTPUT
+              echo "test_command=pytest" >> $GITHUB_OUTPUT
+              echo "health_endpoint=/health" >> $GITHUB_OUTPUT
+              echo "port=8080" >> $GITHUB_OUTPUT
+              CLOUD_RUN_CONFIG='{"memory":"4Gi","cpu":"2","max_instances":"15","min_instances":"1","concurrency":"500","timeout":"600"}'
               echo "cloud_run_config=$CLOUD_RUN_CONFIG" >> $GITHUB_OUTPUT
               ;;
             "shell"|"admin"|"learner"|"auth")
@@ -409,7 +443,7 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-          audience: 'https://github.com/sahemac'
+          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
 
       - name: Configure Docker
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
@@ -475,7 +509,7 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-          audience: 'https://github.com/sahemac'
+          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
 
       - name: Run database migration
         run: |
@@ -525,7 +559,7 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-          audience: 'https://github.com/sahemac'
+          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
 
       - name: Deploy to Cloud Run
         id: deploy
@@ -646,7 +680,7 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-          audience: 'https://github.com/sahemac'
+          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
 
       - name: Cleanup old revisions
         run: |
@@ -763,7 +797,7 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
-          audience: 'https://github.com/sahemac'
+          audience: 'https://github.com/sahemac/skillforge-ai-monorepo'
 
       - name: Rollback to previous revision
         run: |
