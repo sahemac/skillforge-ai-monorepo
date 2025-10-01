@@ -465,9 +465,9 @@ def mock_email_service(monkeypatch):
     mock_send_password_reset_email = Mock(return_value=True)
 
     # Apply monkeypatch to email service functions
-    monkeypatch.setattr("app.core.email.send_email", mock_send_email)
-    monkeypatch.setattr("app.core.email.send_verification_email", mock_send_verification_email)
-    monkeypatch.setattr("app.core.email.send_password_reset_email", mock_send_password_reset_email)
+    monkeypatch.setattr("app.utils.email.send_email", mock_send_email)
+    monkeypatch.setattr("app.utils.email.send_verification_email", mock_send_verification_email)
+    monkeypatch.setattr("app.utils.email.send_password_reset_email", mock_send_password_reset_email)
 
     return {
         "send_email": mock_send_email,
