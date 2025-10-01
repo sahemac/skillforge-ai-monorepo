@@ -3,6 +3,7 @@ Configuration settings for SkillForge AI Payment Service
 """
 
 import secrets
+from decimal import Decimal
 from typing import List, Optional, Union
 from pydantic import AnyHttpUrl, Field, field_validator
 from pydantic_settings import BaseSettings
@@ -46,9 +47,52 @@ class Settings(BaseSettings):
     CACHE_TTL: int = Field(default=300, env="CACHE_TTL")
     
     # External Services
-    SUBSCRIPTION_SERVICE_URL: Optional[str] = Field(default="http://subscription-service:8000", env="SUBSCRIPTION_SERVICE_URL")\n    USER_SERVICE_URL: Optional[str] = Field(default="http://user-service:8000", env="USER_SERVICE_URL")\n    NOTIFICATION_SERVICE_URL: Optional[str] = Field(default="http://notification-service:8000", env="NOTIFICATION_SERVICE_URL")\n    
-    # Service-specific Configuration
-    STRIPE_SECRET_KEY: Optional[str] = Field(default=None, env="STRIPE_SECRET_KEY")\n    STRIPE_WEBHOOK_SECRET: Optional[str] = Field(default=None, env="STRIPE_WEBHOOK_SECRET")\n    PAYPAL_CLIENT_ID: Optional[str] = Field(default=None, env="PAYPAL_CLIENT_ID")\n    PAYPAL_CLIENT_SECRET: Optional[str] = Field(default=None, env="PAYPAL_CLIENT_SECRET")\n    
+    SUBSCRIPTION_SERVICE_URL: Optional[str] = Field(default="http://subscription-service:8000", env="SUBSCRIPTION_SERVICE_URL")
+    USER_SERVICE_URL: Optional[str] = Field(default="http://user-service:8000", env="USER_SERVICE_URL")
+    NOTIFICATION_SERVICE_URL: Optional[str] = Field(default="http://notification-service:8000", env="NOTIFICATION_SERVICE_URL")
+
+    # Payment Provider Configuration
+    STRIPE_SECRET_KEY: Optional[str] = Field(default=None, env="STRIPE_SECRET_KEY")
+    STRIPE_PUBLISHABLE_KEY: Optional[str] = Field(default=None, env="STRIPE_PUBLISHABLE_KEY")
+    STRIPE_WEBHOOK_SECRET: Optional[str] = Field(default=None, env="STRIPE_WEBHOOK_SECRET")
+
+    PAYPAL_CLIENT_ID: Optional[str] = Field(default=None, env="PAYPAL_CLIENT_ID")
+    PAYPAL_CLIENT_SECRET: Optional[str] = Field(default=None, env="PAYPAL_CLIENT_SECRET")
+    PAYPAL_ENVIRONMENT: str = Field(default="sandbox", env="PAYPAL_ENVIRONMENT")  # sandbox or live
+    PAYPAL_WEBHOOK_ID: Optional[str] = Field(default=None, env="PAYPAL_WEBHOOK_ID")
+
+    # PCI Compliance & Security
+    ENCRYPTION_KEY: Optional[str] = Field(default=None, env="ENCRYPTION_KEY")
+    DATABASE_ENCRYPTION: bool = Field(default=True, env="DATABASE_ENCRYPTION")
+
+    # Invoice & PDF Configuration
+    INVOICE_TEMPLATE_PATH: str = Field(default="templates/invoices", env="INVOICE_TEMPLATE_PATH")
+    PDF_STORAGE_PATH: str = Field(default="/tmp/invoices", env="PDF_STORAGE_PATH")
+
+    # Celery Configuration
+    CELERY_BROKER_URL: str = Field(default="redis://localhost:6379/5", env="CELERY_BROKER_URL")
+    CELERY_RESULT_BACKEND: str = Field(default="redis://localhost:6379/6", env="CELERY_RESULT_BACKEND")
+
+    # Rate Limiting
+    RATE_LIMIT_ENABLED: bool = Field(default=True, env="RATE_LIMIT_ENABLED")
+    PAYMENT_RATE_LIMIT: str = Field(default="10/minute", env="PAYMENT_RATE_LIMIT")
+
+    # Business Configuration
+    DEFAULT_CURRENCY: str = Field(default="EUR", env="DEFAULT_CURRENCY")
+    SUPPORTED_CURRENCIES: List[str] = Field(default=["EUR", "USD", "GBP"], env="SUPPORTED_CURRENCIES")
+
+    # Tax Configuration
+    DEFAULT_TAX_RATE: Decimal = Field(default=Decimal('0.20'), env="DEFAULT_TAX_RATE")  # 20% VAT
+    TAX_ENABLED: bool = Field(default=True, env="TAX_ENABLED")
+
+    # Invoice Configuration
+    INVOICE_PREFIX: str = Field(default="SF", env="INVOICE_PREFIX")
+    INVOICE_NUMBER_LENGTH: int = Field(default=8, env="INVOICE_NUMBER_LENGTH")
+
+    # Webhook Configuration
+    WEBHOOK_TIMEOUT: int = Field(default=30, env="WEBHOOK_TIMEOUT")
+    MAX_WEBHOOK_RETRIES: int = Field(default=3, env="MAX_WEBHOOK_RETRIES")
+
     # Monitoring
     ENABLE_METRICS: bool = Field(default=True, env="ENABLE_METRICS")
     

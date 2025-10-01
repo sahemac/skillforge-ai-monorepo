@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 import uvicorn
 import time
 import logging
@@ -26,11 +27,36 @@ async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup
     logger.info("Starting SkillForge AI Content Service...")
-    
+
+    try:
+        # Initialize database
+        from app.core.database import init_db
+        await init_db()
+        logger.info("✓ Database initialized")
+
+        # Test Redis connection
+        from app.core.cache import get_redis
+        redis_client = await get_redis()
+        await redis_client.ping()
+        logger.info("✓ Redis connection established")
+
+        logger.info("🚀 Content Service started successfully")
+
+    except Exception as e:
+        logger.error(f"❌ Startup failed: {e}")
+        raise
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down SkillForge AI Content Service...")
+    try:
+        from app.core.cache import close_redis
+        await close_redis()
+        logger.info("✓ Redis connection closed")
+        logger.info("🔄 Content Service shutdown complete")
+    except Exception as e:
+        logger.error(f"❌ Shutdown error: {e}")
 
 
 # Create FastAPI app
@@ -75,12 +101,22 @@ async def add_process_time_header(request: Request, call_next):
     return response
 
 
+# Include API routers
+from app.api.v1.content import router as content_router
+
+app.include_router(
+    content_router,
+    prefix=f"{settings.API_V1_STR}/content",
+    tags=["content"]
+)
+
+
 # Health check endpoints
 @app.get("/")
 async def root():
     """Root endpoint with service info."""
     return {
-        "service": "skillforge-ai-content_service-service",
+        "service": "skillforge-ai-content-service",
         "version": "1.0.0",
         "status": "healthy",
         "environment": settings.ENVIRONMENT,
@@ -91,13 +127,40 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint for load balancers and monitoring."""
-    return {
-        "status": "healthy",
-        "timestamp": time.time(),
-        "service": "content-service",
-        "version": "1.0.0",
-        "api_gateway": settings.API_GATEWAY_URL
-    }
+    try:
+        # Test database connection
+        from app.core.database import get_db
+        db = await anext(get_db())
+        await db.execute(text("SELECT 1"))
+
+        # Test Redis connection
+        from app.core.cache import get_redis
+        redis_client = await get_redis()
+        await redis_client.ping()
+
+        return {
+            "status": "healthy",
+            "timestamp": time.time(),
+            "service": "content-service",
+            "version": "1.0.0",
+            "api_gateway": settings.API_GATEWAY_URL,
+            "checks": {
+                "database": "✓ Connected",
+                "redis": "✓ Connected"
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "timestamp": time.time(),
+                "service": "content-service",
+                "error": str(e)
+            }
+        )
 
 
 # Global exception handler

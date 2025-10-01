@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     """Application settings."""
     
     # Basic App Configuration
-    PROJECT_NAME: str = "SkillForge AI Orchestrator Service"
+    PROJECT_NAME: str = "SkillForge AI Localization Service"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = Field(default="development", env="ENVIRONMENT")
     DEBUG: bool = Field(default=True, env="DEBUG")
@@ -33,11 +33,11 @@ class Settings(BaseSettings):
         env="ALLOWED_HOSTS"
     )
     
-    # Database - AI Orchestrator specific
+    # Database - Localization Service specific
     DATABASE_URL: Optional[str] = Field(default=None, env="DATABASE_URL")
     POSTGRES_USER: str = Field(default="skillforge_user", env="POSTGRES_USER")
-    POSTGRES_PASSWORD: Optional[str] = Field(default=None, env="POSTGRES_PASSWORD") 
-    POSTGRES_DB: str = Field(default="skillforge_ai_orchestrator", env="POSTGRES_DB")
+    POSTGRES_PASSWORD: Optional[str] = Field(default=None, env="POSTGRES_PASSWORD")
+    POSTGRES_DB: str = Field(default="skillforge_localization", env="POSTGRES_DB")
     POSTGRES_HOST: str = Field(default="localhost", env="POSTGRES_HOST")
     POSTGRES_PORT: int = Field(default=5432, env="POSTGRES_PORT")
     
@@ -81,6 +81,7 @@ class Settings(BaseSettings):
     USER_SERVICE_URL: Optional[str] = Field(default="http://user-service:8000", env="USER_SERVICE_URL")
     CONTENT_SERVICE_URL: Optional[str] = Field(default="http://content-service:8000", env="CONTENT_SERVICE_URL")
     NOTIFICATION_SERVICE_URL: Optional[str] = Field(default="http://notification-service:8000", env="NOTIFICATION_SERVICE_URL")
+    API_GATEWAY_URL: Optional[str] = Field(default=None, env="API_GATEWAY_URL")
     
     # Monitoring
     ENABLE_METRICS: bool = Field(default=True, env="ENABLE_METRICS")
@@ -106,19 +107,20 @@ class Settings(BaseSettings):
         raise ValueError(v)
     
     @field_validator("DATABASE_URL", mode="before")
-    def assemble_db_connection(cls, v: Optional[str], values: dict) -> Any:
+    def assemble_db_connection(cls, v: Optional[str], info) -> Any:
         if isinstance(v, str) and v:
             return v
         # Build from individual components if not provided
+        values = info.data if info else {}
         user = values.get("POSTGRES_USER")
-        password = values.get("POSTGRES_PASSWORD") 
+        password = values.get("POSTGRES_PASSWORD")
         host = values.get("POSTGRES_HOST", "localhost")
         port = values.get("POSTGRES_PORT", 5432)
-        db = values.get("POSTGRES_DB", "skillforge_ai_orchestrator")
-        
+        db = values.get("POSTGRES_DB", "skillforge_localization")
+
         # For development only - fallback to SQLite if no password provided
         if not password or not user:
-            return "sqlite+aiosqlite:///./skillforge_ai_orchestrator_dev.db"
+            return "sqlite+aiosqlite:///./skillforge_localization_dev.db"
         
         return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
     

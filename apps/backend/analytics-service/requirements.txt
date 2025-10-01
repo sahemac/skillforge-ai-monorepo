@@ -1,1 +1,55 @@
-# FastAPI and ASGI\nfastapi==0.104.1\nuvicorn[standard]==0.24.0\n\n# Database\nsqlmodel==0.0.14\nasyncpg==0.29.0\npsycopg2-binary\nalembic==1.13.1\n\n# Authentication & Security\npython-jose[cryptography]==3.3.0\nPyJWT==2.8.0\ncryptography==46.0.1\npasslib[bcrypt]==1.7.4\npython-multipart==0.0.6\n\n# HTTP Requests\nhttpx==0.25.2\nrequests==2.31.0\n\n# Environment & Configuration\npydantic-settings==2.1.0\npython-dotenv==1.0.0\n\n# Validation & Serialization\nemail-validator==2.1.0\npydantic[email]==2.5.2\n\n# Date & Time\npython-dateutil==2.8.2\n\n# Utilities\ntenacity==8.2.3\nredis==5.0.1\n\n# Monitoring & Logging\nprometheus-client==0.19.0\nstructlog==23.2.0\n\n# Service-specific dependencies\npandas==2.1.4\nnumpy==1.25.2\nscipy==1.11.4
+# FastAPI and ASGI
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Database
+sqlmodel==0.0.14
+asyncpg==0.29.0
+psycopg2-binary
+alembic==1.13.1
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+PyJWT==2.8.0
+cryptography==46.0.1
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# HTTP Requests
+httpx==0.25.2
+requests==2.31.0
+
+# Environment & Configuration
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
+
+# Validation & Serialization
+email-validator==2.1.0
+pydantic[email]==2.5.2
+
+# Date & Time
+python-dateutil==2.8.2
+
+# Utilities
+tenacity==8.2.3
+redis==5.0.1
+
+# Monitoring & Logging
+prometheus-client==0.19.0
+structlog==23.2.0
+
+# Service-specific dependencies
+pandas==2.1.4
+numpy==1.25.2
+scipy==1.11.4
+
+# Analytics specific
+google-cloud-bigquery==3.15.0
+google-cloud-storage==2.20.0
+plotly==5.17.0
+websockets==12.0
+celery[redis]==5.3.5
+reportlab==4.0.7
+openpyxl==3.1.2
+python-socketio==5.10.0
+jinja2==3.1.4

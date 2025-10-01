@@ -1,27 +1,28 @@
 """
-API v1 router for AI Orchestrator Service
+API v1 router for SkillForge AI Matching Service
 """
 
 from fastapi import APIRouter
 
+from .endpoints import matching, preferences, recommendations
+
 api_router = APIRouter()
 
-@api_router.get("/agents")
-async def list_agents():
-    """List AI agents."""
-    return {"agents": []}
+# Include endpoint routers
+api_router.include_router(
+    matching.router,
+    prefix="/matching",
+    tags=["matching"]
+)
 
-@api_router.post("/agents")
-async def create_agent():
-    """Create new AI agent."""
-    return {"message": "Agent created"}
+api_router.include_router(
+    preferences.router,
+    prefix="/preferences",
+    tags=["preferences"]
+)
 
-@api_router.get("/tasks")
-async def list_tasks():
-    """List AI tasks."""
-    return {"tasks": []}
-
-@api_router.post("/tasks")
-async def create_task():
-    """Create new AI task."""
-    return {"message": "Task created"}
+api_router.include_router(
+    recommendations.router,
+    prefix="/recommendations",
+    tags=["recommendations"]
+)

@@ -43,12 +43,19 @@ class Settings(BaseSettings):
     
     # Redis Configuration
     REDIS_URL: str = Field(default="redis://localhost:6379/7", env="REDIS_URL")
+    REDIS_HOST: str = Field(default="localhost", env="REDIS_HOST")
+    REDIS_PORT: int = Field(default=6379, env="REDIS_PORT")
+    REDIS_PASSWORD: Optional[str] = Field(default=None, env="REDIS_PASSWORD")
+    REDIS_DB: int = Field(default=7, env="REDIS_DB")
     CACHE_TTL: int = Field(default=300, env="CACHE_TTL")
     
     # External Services
-    STORAGE_SERVICE_URL: Optional[str] = Field(default="http://storage-service:8000", env="STORAGE_SERVICE_URL")\n    USER_SERVICE_URL: Optional[str] = Field(default="http://user-service:8000", env="USER_SERVICE_URL")\n    SEARCH_SERVICE_URL: Optional[str] = Field(default="http://search-service:8000", env="SEARCH_SERVICE_URL")\n    
+    STORAGE_SERVICE_URL: Optional[str] = Field(default="http://storage-service:8000", env="STORAGE_SERVICE_URL")
+    USER_SERVICE_URL: Optional[str] = Field(default="http://user-service:8000", env="USER_SERVICE_URL")
+    SEARCH_SERVICE_URL: Optional[str] = Field(default="http://search-service:8000", env="SEARCH_SERVICE_URL")
+
     # Service-specific Configuration
-    CONTENT_ENCRYPTION_KEY: Optional[str] = Field(default=None, env="CONTENT_ENCRYPTION_KEY")\n    
+    CONTENT_ENCRYPTION_KEY: Optional[str] = Field(default=None, env="CONTENT_ENCRYPTION_KEY")
     # Monitoring
     ENABLE_METRICS: bool = Field(default=True, env="ENABLE_METRICS")
     

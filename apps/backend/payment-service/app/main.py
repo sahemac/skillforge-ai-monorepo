@@ -13,6 +13,8 @@ import logging
 from contextlib import asynccontextmanager
 
 from app.core.config import get_settings
+from app.core.database import create_db_and_tables, get_db_health
+from app.api.v1 import api_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,9 +28,17 @@ async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup
     logger.info("Starting SkillForge AI Payment Service...")
-    
+
+    # Initialize database
+    try:
+        await create_db_and_tables()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        # Don't fail startup - let health checks handle it
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down SkillForge AI Payment Service...")
 
@@ -75,6 +85,10 @@ async def add_process_time_header(request: Request, call_next):
     return response
 
 
+# Include API routes
+app.include_router(api_router, prefix=settings.API_V1_STR)
+
+
 # Health check endpoints
 @app.get("/")
 async def root():
@@ -91,12 +105,22 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint for load balancers and monitoring."""
+    # Check database health
+    db_health = await get_db_health()
+
+    overall_status = "healthy" if db_health["status"] == "healthy" else "degraded"
+
     return {
-        "status": "healthy",
+        "status": overall_status,
         "timestamp": time.time(),
         "service": "payment-service",
         "version": "1.0.0",
-        "api_gateway": settings.API_GATEWAY_URL
+        "api_gateway": settings.API_GATEWAY_URL,
+        "components": {
+            "database": db_health,
+            "stripe": {"status": "healthy" if settings.STRIPE_SECRET_KEY else "not_configured"},
+            "paypal": {"status": "healthy" if settings.PAYPAL_CLIENT_ID else "not_configured"},
+        }
     }
 
 
