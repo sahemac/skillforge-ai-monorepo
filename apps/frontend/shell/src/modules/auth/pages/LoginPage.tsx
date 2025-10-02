@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { setAuthenticated, setUser, setPermissions } from '@skillforge-ai/shared-state';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -16,22 +19,47 @@ export const LoginPage: React.FC = () => {
     try {
       // Simulation d'authentification avec redirection basée sur l'email
       if (email && password) {
-        // Déterminer le type d'utilisateur et rediriger vers le bon dashboard
+        // Déterminer le type d'utilisateur
+        let userRole: 'admin' | 'company' | 'learner' = 'learner';
         let redirectPath = '/dashboard';
+        let permissions: string[] = [];
 
         if (email.includes('admin@skillforge.ai')) {
+          userRole = 'admin';
           redirectPath = '/admin/users';
+          permissions = ['read:admin', 'write:admin', 'users:read', 'users:write', 'system:admin'];
         } else if (email.includes('company@techcorp.ai')) {
+          userRole = 'company';
           redirectPath = '/company/dashboard';
+          permissions = ['read:company', 'write:company', 'projects:read', 'projects:write'];
         } else if (email.includes('student@skillforge.ai')) {
+          userRole = 'learner';
           redirectPath = '/learner/dashboard';
+          permissions = ['read:content', 'projects:read', 'profile:write'];
         } else {
           // Par défaut, utilisateur normal vers dashboard
           redirectPath = '/dashboard';
+          permissions = ['read:content'];
         }
 
-        // Simulation d'un délai d'authentification avec redirection automatique
+        // Créer l'objet utilisateur
+        const user = {
+          id: '1',
+          email,
+          role: userRole,
+          firstName: email.split('@')[0],
+          lastName: 'User',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        // Simulation d'un délai d'authentification
         setTimeout(() => {
+          // Mettre à jour le state Redux AVANT la navigation
+          dispatch(setAuthenticated(true));
+          dispatch(setUser(user));
+          dispatch(setPermissions(permissions));
+
           // Navigation avec React Router
           navigate(redirectPath);
         }, 1500);
