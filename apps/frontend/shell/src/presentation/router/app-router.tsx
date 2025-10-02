@@ -13,9 +13,14 @@ const LoginPage = lazy(() => import('@/modules/auth/pages/LoginPage').then(m => 
 const RegisterPage = lazy(() => import('@/modules/auth/pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
 const ForgotPasswordPage = lazy(() => import('@/modules/auth/pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
 
-// TODO: Lazy load other modules when migrated
-// const LearnerDashboard = lazy(() => import('@/modules/learner/pages/LearnerDashboard'));
-// const CompanyDashboard = lazy(() => import('@/modules/company/pages/CompanyDashboard'));
+// Lazy load learner module pages
+const LearnerDashboard = lazy(() => import('@/modules/learner/pages/LearnerDashboard').then(m => ({ default: m.LearnerDashboard })));
+
+// Lazy load company module pages
+const CompanyDashboard = lazy(() => import('@/modules/company/pages/CompanyDashboard').then(m => ({ default: m.CompanyDashboard })));
+const ProjectsList = lazy(() => import('@/modules/company/pages/ProjectsList').then(m => ({ default: m.ProjectsList })));
+
+// TODO: Lazy load admin module when migrated
 // const AdminUserList = lazy(() => import('@/modules/admin/pages/UserListPage'));
 
 // Route Guard Component
@@ -159,10 +164,7 @@ const router = createBrowserRouter([
         path: 'dashboard',
         element: (
           <PageWrapper>
-            <div className="p-8">
-              <h1 className="text-2xl font-bold">Learner Dashboard</h1>
-              <p className="mt-4 text-gray-600">Module learner en cours de migration...</p>
-            </div>
+            <LearnerDashboard />
           </PageWrapper>
         ),
       },
@@ -180,10 +182,15 @@ const router = createBrowserRouter([
         path: 'dashboard',
         element: (
           <PageWrapper>
-            <div className="p-8">
-              <h1 className="text-2xl font-bold">Company Dashboard</h1>
-              <p className="mt-4 text-gray-600">Module company en cours de migration...</p>
-            </div>
+            <CompanyDashboard />
+          </PageWrapper>
+        ),
+      },
+      {
+        path: 'projects',
+        element: (
+          <PageWrapper>
+            <ProjectsList />
           </PageWrapper>
         ),
       },
