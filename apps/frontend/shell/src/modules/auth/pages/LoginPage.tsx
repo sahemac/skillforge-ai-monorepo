@@ -17,23 +17,23 @@ export const LoginPage: React.FC = () => {
       // Simulation d'authentification avec redirection basée sur l'email
       if (email && password) {
         // Déterminer le type d'utilisateur et rediriger vers le bon dashboard
-        let redirectUrl = '';
+        let redirectPath = '/dashboard';
 
         if (email.includes('admin@skillforge.ai')) {
-          redirectUrl = 'http://localhost:3011/'; // Admin va vers company dashboard
+          redirectPath = '/admin/users';
         } else if (email.includes('company@techcorp.ai')) {
-          redirectUrl = 'http://localhost:3011/'; // Company dashboard
+          redirectPath = '/company/dashboard';
         } else if (email.includes('student@skillforge.ai')) {
-          redirectUrl = 'http://localhost:3009/'; // Learner dashboard
+          redirectPath = '/learner/dashboard';
         } else {
-          // Par défaut, utilisateur normal vers learner dashboard
-          redirectUrl = 'http://localhost:3009/';
+          // Par défaut, utilisateur normal vers dashboard
+          redirectPath = '/dashboard';
         }
 
         // Simulation d'un délai d'authentification avec redirection automatique
         setTimeout(() => {
-          // Redirection directe sans alert bloquante
-          window.location.href = redirectUrl;
+          // Navigation avec React Router
+          navigate(redirectPath);
         }, 1500);
 
       } else {
@@ -122,7 +122,7 @@ export const LoginPage: React.FC = () => {
               </div>
 
               <div className="text-sm">
-                <Link to="/forgot-password" className="font-medium text-indigo-600 hover:text-indigo-500">
+                <Link to="/auth/forgot-password" className="font-medium text-indigo-600 hover:text-indigo-500">
                   Mot de passe oublié ?
                 </Link>
               </div>
@@ -148,7 +148,7 @@ export const LoginPage: React.FC = () => {
             <div className="text-center">
               <span className="text-sm text-gray-600">
                 Pas encore de compte ?{' '}
-                <Link to="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
+                <Link to="/auth/register" className="font-medium text-indigo-600 hover:text-indigo-500">
                   Créer un compte
                 </Link>
               </span>
