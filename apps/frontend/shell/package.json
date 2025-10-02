@@ -20,6 +20,7 @@
     "test:watch": "vitest --watch"
   },
   "dependencies": {
+    "@hookform/resolvers": "^3.3.2",
     "@preact/signals-react": "^2.0.0",
     "@reduxjs/toolkit": "^2.0.1",
     "@skillforge-ai/api-client": "workspace:*",
@@ -35,6 +36,7 @@
     "mitt": "^3.0.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-hook-form": "^7.48.2",
     "react-redux": "^9.0.4",
     "react-router-dom": "^6.20.1",
     "zod": "^3.22.4"

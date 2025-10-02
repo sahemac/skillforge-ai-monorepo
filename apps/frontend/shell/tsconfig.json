@@ -22,12 +22,12 @@
     "emitDecoratorMetadata": true,
     "noImplicitAny": false,
     "noImplicitReturns": false,
-    "suppressImplicitAnyIndexErrors": true,
     "allowJs": true,
     "baseUrl": ".",
     "typeRoots": ["./node_modules/@types", "./src/types"],
     "paths": {
       "@/*": ["src/*"],
+      "@/modules/*": ["src/modules/*"],
       "@/domain/*": ["src/domain/*"],
       "@/application/*": ["src/application/*"],
       "@/infrastructure/*": ["src/infrastructure/*"],
