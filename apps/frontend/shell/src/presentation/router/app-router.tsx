@@ -20,8 +20,8 @@ const LearnerDashboard = lazy(() => import('@/modules/learner/pages/LearnerDashb
 const CompanyDashboard = lazy(() => import('@/modules/company/pages/CompanyDashboard').then(m => ({ default: m.CompanyDashboard })));
 const ProjectsList = lazy(() => import('@/modules/company/pages/ProjectsList').then(m => ({ default: m.ProjectsList })));
 
-// TODO: Lazy load admin module when migrated
-// const AdminUserList = lazy(() => import('@/modules/admin/pages/UserListPage'));
+// Lazy load admin module pages
+const AdminDashboard = lazy(() => import('@/modules/admin/pages/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 
 // Route Guard Component
 const ProtectedRoute: React.FC<{ 
@@ -208,10 +208,7 @@ const router = createBrowserRouter([
         path: 'users',
         element: (
           <PageWrapper>
-            <div className="p-8">
-              <h1 className="text-2xl font-bold">Admin - Users</h1>
-              <p className="mt-4 text-gray-600">Module admin en cours de migration...</p>
-            </div>
+            <AdminDashboard />
           </PageWrapper>
         ),
       },
