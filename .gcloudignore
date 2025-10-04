@@ -1,0 +1,67 @@
+# .gcloudignore - Exclude heavy folders from Cloud Build upload
+
+# Node modules (huge!)
+node_modules/
+**/node_modules/
+
+# Python virtual environments
+venv/
+venv39/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Build outputs
+dist/
+build/
+.output/
+coverage/
+.cache/
+.turbo/
+
+# Development files
+.git/
+.github/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test files
+tests/
+__tests__/
+*.test.js
+*.test.ts
+*.test.tsx
+*.spec.js
+*.spec.ts
+*.spec.tsx
+test-results/
+
+# Documentation
+docs/
+documentation/
+*.md
+!README.md
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Terraform
+terraform/
+infrastructure/
+
+# Scripts (not needed for build)
+scripts/
+
+# Frontend build artifacts
+apps/frontend/*/dist/
+apps/frontend/*/build/
+apps/frontend/*/.cache/
