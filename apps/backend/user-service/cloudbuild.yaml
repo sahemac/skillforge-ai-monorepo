@@ -63,7 +63,7 @@ steps:
       - '--update-env-vars'
       - 'ENVIRONMENT=staging'
       - '--update-secrets'
-      - 'DATABASE_URL=DATABASE_URL:latest,POSTGRES_PASSWORD=POSTGRES_PASSWORD:latest,SMTP_PASSWORD=SMTP_PASSWORD:latest'
+      - 'DATABASE_URL=database-url-staging:latest,POSTGRES_PASSWORD=postgres-password:latest,SMTP_PASSWORD=smtp-password:latest'
       - '--project'
       - 'skillforge-ai-mvp-25'
 
