@@ -59,7 +59,7 @@ steps:
       - '--timeout'
       - '300'
       - '--set-env-vars'
-      - 'ENVIRONMENT=staging,DATABASE_URL=$$DATABASE_URL,POSTGRES_PASSWORD=$$POSTGRES_PASSWORD,SMTP_PASSWORD=$$SMTP_PASSWORD'
+      - 'ENVIRONMENT=staging'
       - '--set-secrets'
       - 'DATABASE_URL=DATABASE_URL:latest,POSTGRES_PASSWORD=POSTGRES_PASSWORD:latest,SMTP_PASSWORD=SMTP_PASSWORD:latest'
       - '--project'
