@@ -64,6 +64,8 @@ steps:
       - 'ENVIRONMENT=staging'
       - '--update-secrets'
       - 'DATABASE_URL=database-url-staging:latest,POSTGRES_PASSWORD=postgres-password:latest,SMTP_PASSWORD=SMTP_PASSWORD:latest'
+      - '--add-cloudsql-instances'
+      - 'skillforge-ai-mvp-25:europe-west1:skillforge-pg-instance-staging'
       - '--project'
       - 'skillforge-ai-mvp-25'
 
