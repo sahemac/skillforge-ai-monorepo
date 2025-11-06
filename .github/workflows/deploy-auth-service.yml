@@ -1,0 +1,47 @@
+name: "Deploy - Auth Service"
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_migration:
+        description: 'Skip database migration'
+        type: boolean
+        default: false
+      environment:
+        description: 'Target environment'
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
+  push:
+    branches:
+      - 'develop'
+    paths:
+      - 'apps/backend/auth-service/**'
+
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
+  actions: read
+
+jobs:
+  deploy-auth-service:
+    name: Deploy Auth Service
+    uses: ./.github/workflows/deploy-service.yml
+    with:
+      service: 'auth-service'
+      environment: ${{ inputs.environment || 'staging' }}
+      build_type: 'backend'
+      skip_migration: ${{ inputs.skip_migration || false }}
+      skip_tests: false
+      force_deploy: true
+    secrets:
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
+      GCP_CICD_SERVICE_ACCOUNT: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+      DATABASE_URL_STAGING: ${{ secrets.DATABASE_URL_STAGING }}
+      DATABASE_URL_PRODUCTION: ${{ secrets.DATABASE_URL_STAGING }}
+      JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+      API_SECRET_KEY: ${{ secrets.API_SECRET_KEY }}
