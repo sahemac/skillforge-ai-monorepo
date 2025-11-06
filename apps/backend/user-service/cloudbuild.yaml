@@ -1,77 +1,59 @@
-# SkillForge AI - User Service Cloud Build Configuration
-# Production deployment to Cloud Run
-
-substitutions:
-  _SERVICE_NAME: "user-service-staging"
-  _IMAGE_NAME: "europe-west1-docker.pkg.dev/skillforge-ai-mvp-25/skillforge-docker-repo-staging/user-service:${BUILD_ID}"
-  _DOCKERFILE: "apps/backend/user-service/Dockerfile"
-  _PORT: "8000"
-  _CPU: "1000m"
-  _MEMORY: "512Mi"
-  _MIN_INSTANCES: "1"
-  _MAX_INSTANCES: "10"
-  _CONCURRENCY: "80"
-  _REGION: "europe-west1"
-
 steps:
-  # Build Docker image from monorepo root
+  # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
-      - '-f'
-      - '${_DOCKERFILE}'
       - '-t'
-      - '${_IMAGE_NAME}'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/skillforge-registry/user-service:$COMMIT_SHA'
+      - '-t'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/skillforge-registry/user-service:latest'
       - '.'
 
-  # Push to Artifact Registry
+  # Push the container image
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - '${_IMAGE_NAME}'
+      - '--all-tags'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/skillforge-registry/user-service'
 
   # Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'gcloud'
+    entrypoint: gcloud
     args:
       - 'run'
       - 'deploy'
-      - '${_SERVICE_NAME}'
+      - 'user-service'
       - '--image'
-      - '${_IMAGE_NAME}'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/skillforge-registry/user-service:$COMMIT_SHA'
       - '--region'
-      - '${_REGION}'
+      - 'europe-west1'
       - '--platform'
       - 'managed'
-      - '--allow-unauthenticated'
-      - '--port'
-      - '${_PORT}'
-      - '--cpu'
-      - '${_CPU}'
-      - '--memory'
-      - '${_MEMORY}'
-      - '--min-instances'
-      - '${_MIN_INSTANCES}'
-      - '--max-instances'
-      - '${_MAX_INSTANCES}'
-      - '--concurrency'
-      - '${_CONCURRENCY}'
-      - '--timeout'
-      - '600'
-      - '--startup-cpu-boost'
-      - '--remove-env-vars'
-      - 'DATABASE_URL,POSTGRES_PASSWORD,SMTP_PASSWORD'
-      - '--update-env-vars'
-      - 'ENVIRONMENT=staging'
-      - '--update-secrets'
-      - 'DATABASE_URL=database-url-staging:latest,POSTGRES_PASSWORD=postgres-password:latest,SMTP_PASSWORD=SMTP_PASSWORD:latest'
+      - '--no-allow-unauthenticated'
+      - '--set-env-vars'
+      - 'ENVIRONMENT=production,USE_SECRET_MANAGER=true,GCP_PROJECT_ID=$PROJECT_ID,GCP_REGION=europe-west1,ENABLE_METRICS=true,LOG_LEVEL=INFO,ALGORITHM=HS256,ACCESS_TOKEN_EXPIRE_MINUTES=30,REFRESH_TOKEN_EXPIRE_DAYS=7,RATE_LIMIT_PER_MINUTE=60,AUTH_RATE_LIMIT_PER_MINUTE=5,SMTP_HOST=smtp.gmail.com,SMTP_PORT=587,SMTP_USER=libressai@gmail.com,FROM_EMAIL=libressai@gmail.com,FROM_NAME=SkillForge AI'
+      - '--set-secrets'
+      - 'DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,SMTP_PASSWORD=SMTP_PASSWORD:latest'
       - '--add-cloudsql-instances'
       - 'skillforge-ai-mvp-25:europe-west1:skillforge-pg-instance-staging'
-      - '--project'
-      - 'skillforge-ai-mvp-25'
+      - '--service-account'
+      - 'user-service@skillforge-ai-mvp-25.iam.gserviceaccount.com'
+      - '--min-instances'
+      - '1'
+      - '--max-instances'
+      - '10'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--cpu-boost'
+      - '--timeout'
+      - '600s'
+
+images:
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/skillforge-registry/user-service:$COMMIT_SHA'
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/skillforge-registry/user-service:latest'
 
 options:
   logging: CLOUD_LOGGING_ONLY
   machineType: 'E2_HIGHCPU_8'
-
-timeout: '600s'
