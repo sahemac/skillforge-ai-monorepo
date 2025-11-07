@@ -617,16 +617,67 @@ jobs:
                   "overall_status": "PASS"
               }
 
-              # Test 1: Unauthenticated access blocking
+              # Test 1: Service availability check
+              service_available = False
               try:
-                  response = requests.get(f"{url}/", timeout=10, allow_redirects=False)
-                  test_result = {
-                      "name": "Unauthenticated Access Blocking",
-                      "status": "PASS" if response.status_code in [302, 401, 403, 404] else "FAIL",
-                      "details": f"HTTP {response.status_code}",
-                      "expected": "302, 401, 403, or 404"
+                  # First verify the service is actually running and responding
+                  # For backends: /health endpoint
+                  # For frontends: / (root) should return HTML or redirect
+                  response = requests.get(f"{url}/", timeout=10, allow_redirects=True, verify=True)
+                  service_available = response.status_code in [200, 302, 401, 403]
+
+                  availability_test = {
+                      "name": "Service Availability",
+                      "status": "PASS" if service_available else "FAIL",
+                      "details": f"HTTP {response.status_code} (with redirects)",
+                      "expected": "200 (service up) or 302/401/403 (IAP protecting)"
                   }
-                  results["tests"].append(test_result)
+                  results["tests"].append(availability_test)
+              except requests.exceptions.RequestException as e:
+                  results["tests"].append({
+                      "name": "Service Availability",
+                      "status": "FAIL",
+                      "details": f"Service unreachable: {str(e)}",
+                      "expected": "Service should respond"
+                  })
+                  results["overall_status"] = "ERROR"
+                  service_available = False
+
+              # Test 2: IAP/Authentication blocking (only if service is available)
+              if service_available:
+                  try:
+                      # Test unauthenticated access WITHOUT following redirects
+                      response = requests.get(f"{url}/", timeout=10, allow_redirects=False)
+
+                      # IAP correctly configured: should return 302 (redirect to OAuth)
+                      # Or 401/403 if auth is required
+                      # 200 means NO authentication required (security issue!)
+                      # 404 means service doesn't exist (should be caught in availability test)
+
+                      if response.status_code == 200:
+                          auth_status = "FAIL"
+                          auth_details = "⚠️ Service accessible without authentication!"
+                      elif response.status_code in [302, 401, 403]:
+                          auth_status = "PASS"
+                          auth_details = f"HTTP {response.status_code} - Authentication required ✓"
+                      else:
+                          auth_status = "WARN"
+                          auth_details = f"HTTP {response.status_code} - Unexpected response"
+
+                      test_result = {
+                          "name": "Authentication/IAP Enforcement",
+                          "status": auth_status,
+                          "details": auth_details,
+                          "expected": "302 (IAP redirect), 401, or 403 (auth required)"
+                      }
+                      results["tests"].append(test_result)
+                  except requests.exceptions.RequestException as e:
+                      results["tests"].append({
+                          "name": "Authentication/IAP Enforcement",
+                          "status": "ERROR",
+                          "details": str(e),
+                          "expected": "302, 401, or 403"
+                      })
 
                   # Test 2: OAuth redirect validation
                   if response.status_code == 302:
