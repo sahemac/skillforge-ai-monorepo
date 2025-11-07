@@ -115,8 +115,8 @@ jobs:
           # Default to user-service if no services detected
           [[ ${#services[@]} -eq 0 ]] && services=("user-service")
 
-          # Build JSON matrix
-          matrix_json=$(printf '%s\n' "${services[@]}" | jq -R . | jq -s '{service: .}')
+          # Build JSON matrix - properly formatted for GitHub Actions
+          matrix_json=$(printf '%s\n' "${services[@]}" | jq -R . | jq -sc '{"service": .}')
           echo "matrix=$matrix_json" >> $GITHUB_OUTPUT
           echo "Services to process: ${services[*]}"
 
