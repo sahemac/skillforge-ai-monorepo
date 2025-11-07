@@ -1,0 +1,498 @@
+# ============================================================================
+# TEMPLATE: ML/AI Service Deployment
+# ============================================================================
+#
+# This template deploys a Python ML/AI service to Google Cloud Run.
+# Designed for model serving, prediction APIs, and AI-powered features.
+#
+# 📝 HOW TO USE:
+# 1. Copy this file to .github/workflows/deploy-{{SERVICE_NAME}}.yml
+# 2. Replace ALL {{PLACEHOLDERS}} with actual values:
+#    - {{SERVICE_NAME}}: e.g., matching-service, analytics-service, recommendation-service
+#    - {{SERVICE_PATH}}: e.g., apps/backend/matching-service
+#    - {{SERVICE_PORT}}: e.g., 8010, 8011
+#    - {{SERVICE_DESCRIPTION}}: e.g., "AI-powered learner-project matching"
+#    - {{ML_FRAMEWORK}}: e.g., scikit-learn, tensorflow, pytorch
+# 3. Adjust ML-specific configuration: GPU, memory, model storage
+# 4. Create service account in GCP (see templates/README.md)
+# 5. Set up model storage (GCS bucket or MLflow)
+# 6. Test and commit!
+#
+# ============================================================================
+
+name: Deploy - {{SERVICE_DESCRIPTION}}
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - '{{SERVICE_PATH}}/**'
+      - '.github/workflows/deploy-{{SERVICE_NAME}}.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '{{SERVICE_PATH}}/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      skip_tests:
+        description: 'Skip tests'
+        required: false
+        type: boolean
+        default: false
+      model_version:
+        description: 'Model version to deploy (optional)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
+
+env:
+  PROJECT_ID: skillforge-ai-mvp-25
+  REGION: europe-west1
+  SERVICE_NAME: '{{SERVICE_NAME}}'
+  SERVICE_PATH: '{{SERVICE_PATH}}'
+
+jobs:
+  # ============================================================================
+  # JOB 1: BUILD & TEST
+  # ============================================================================
+  build:
+    name: Build ML Service
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: '${{ env.SERVICE_PATH }}/requirements.txt'
+
+      # Install dependencies
+      - name: Install dependencies
+        run: |
+          cd ${{ env.SERVICE_PATH }}
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio
+
+      # Run tests (if not skipped)
+      - name: Run tests
+        if: ${{ !inputs.skip_tests }}
+        run: |
+          cd ${{ env.SERVICE_PATH }}
+          pytest -v --cov=app --cov-report=xml --cov-report=term
+
+      # Upload coverage report
+      - name: Upload coverage to Codecov
+        if: ${{ !inputs.skip_tests }}
+        uses: codecov/codecov-action@v4
+        with:
+          files: ${{ env.SERVICE_PATH }}/coverage.xml
+          flags: ml-service
+          name: ${{ env.SERVICE_NAME }}
+
+      # Validate model artifacts (if using local models)
+      - name: Validate model artifacts
+        run: |
+          cd ${{ env.SERVICE_PATH }}
+          if [ -d "models" ]; then
+            echo "Checking for model files..."
+            find models -type f -name "*.pkl" -o -name "*.joblib" -o -name "*.h5" -o -name "*.pt" -o -name "*.onnx"
+          else
+            echo "No local model directory found (will load from GCS or MLflow)"
+          fi
+
+  # ============================================================================
+  # JOB 2: SECURITY SCAN
+  # ============================================================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Build Docker image
+      - name: Build Docker image
+        run: |
+          cd ${{ env.SERVICE_PATH }}
+          docker build -t ${{ env.SERVICE_NAME }}:scan .
+
+      # Run Trivy security scan
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.SERVICE_NAME }}:scan'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      # Check for ML-specific vulnerabilities
+      - name: Check for unsafe ML dependencies
+        run: |
+          cd ${{ env.SERVICE_PATH }}
+          python -m pip install safety
+          safety check --json || true
+
+  # ============================================================================
+  # JOB 3: MODEL VALIDATION (Optional)
+  # ============================================================================
+  model-validation:
+    name: Model Validation
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Authenticate to Google Cloud
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Download model from GCS (if using cloud storage)
+      - name: Download model artifacts
+        run: |
+          cd ${{ env.SERVICE_PATH }}
+          if [ -n "${{ inputs.model_version }}" ]; then
+            MODEL_VERSION="${{ inputs.model_version }}"
+          else
+            MODEL_VERSION="latest"
+          fi
+
+          echo "Downloading model version: $MODEL_VERSION"
+          # Example: gsutil cp gs://skillforge-ml-models/${{ env.SERVICE_NAME }}/$MODEL_VERSION/* ./models/
+          echo "Model download skipped (configure GCS bucket path)"
+
+      # Run model validation tests
+      - name: Validate model performance
+        run: |
+          cd ${{ env.SERVICE_PATH }}
+          echo "Running model validation tests..."
+          # Add your model validation script here
+          # Example: python scripts/validate_model.py --model-path ./models
+
+  # ============================================================================
+  # JOB 4: DEPLOY TO CLOUD RUN
+  # ============================================================================
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    needs: [build, security, model-validation]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Authenticate to Google Cloud
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Configure Docker for Artifact Registry
+      - name: Configure Docker
+        run: |
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      # Determine environment
+      - name: Set environment variables
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENV="${{ inputs.environment }}"
+          else
+            ENV="staging"
+          fi
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          echo "cloud_run_service=$ENV-${{ env.SERVICE_NAME }}" >> $GITHUB_OUTPUT
+          echo "image_name=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/skillforge-services/$ENV-${{ env.SERVICE_NAME }}" >> $GITHUB_OUTPUT
+
+          # Set model version
+          if [ -n "${{ inputs.model_version }}" ]; then
+            echo "model_version=${{ inputs.model_version }}" >> $GITHUB_OUTPUT
+          else
+            echo "model_version=latest" >> $GITHUB_OUTPUT
+          fi
+
+      # Build and push Docker image
+      - name: Build and push Docker image
+        run: |
+          cd ${{ env.SERVICE_PATH }}
+          docker build \
+            --build-arg MODEL_VERSION=${{ steps.env.outputs.model_version }} \
+            --build-arg ENVIRONMENT=${{ steps.env.outputs.environment }} \
+            -t ${{ steps.env.outputs.image_name }}:${{ github.sha }} \
+            -t ${{ steps.env.outputs.image_name }}:latest \
+            .
+          docker push ${{ steps.env.outputs.image_name }}:${{ github.sha }}
+          docker push ${{ steps.env.outputs.image_name }}:latest
+
+      # Deploy to Cloud Run (ML-optimized configuration)
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ steps.env.outputs.cloud_run_service }} \
+            --image=${{ steps.env.outputs.image_name }}:${{ github.sha }} \
+            --platform=managed \
+            --region=${{ env.REGION }} \
+            --port={{SERVICE_PORT}} \
+            --memory=2Gi \
+            --cpu=2 \
+            --min-instances=0 \
+            --max-instances=20 \
+            --timeout=600 \
+            --cpu-boost \
+            --execution-environment=gen2 \
+            --service-account=sa-${{ env.SERVICE_NAME }}-${{ steps.env.outputs.environment }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:skillforge-pg-instance-${{ steps.env.outputs.environment }} \
+            --set-secrets="DATABASE_URL=DATABASE-URL:latest,SECRET_KEY=SECRET-KEY:latest" \
+            --set-env-vars="ENVIRONMENT=${{ steps.env.outputs.environment }},ML_FRAMEWORK={{ML_FRAMEWORK}},MODEL_VERSION=${{ steps.env.outputs.model_version }}" \
+            --labels="environment=${{ steps.env.outputs.environment }},service=${{ env.SERVICE_NAME }},type=ml-service,managed-by=github-actions"
+
+      # Get service URL
+      - name: Get service URL
+        id: service
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ steps.env.outputs.cloud_run_service }} \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+          echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
+          echo "### ML Service Deployment Successful! :robot:" >> $GITHUB_STEP_SUMMARY
+          echo "Service URL: $SERVICE_URL" >> $GITHUB_STEP_SUMMARY
+          echo "Model Version: ${{ steps.env.outputs.model_version }}" >> $GITHUB_STEP_SUMMARY
+
+      # Health check
+      - name: Health check
+        run: |
+          echo "Waiting for ML service to be ready..."
+          sleep 15
+
+          MAX_RETRIES=10
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.service.outputs.url }}/health || echo "000")
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Health check passed! ML service is healthy."
+              exit 0
+            fi
+
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "Health check failed (attempt $RETRY_COUNT/$MAX_RETRIES). Retrying..."
+            sleep 10
+          done
+
+          echo "Health check failed after $MAX_RETRIES attempts"
+          exit 1
+
+      # Run prediction test (smoke test)
+      - name: Run prediction smoke test
+        run: |
+          echo "Running prediction smoke test..."
+          # Example: Send test prediction request
+          # curl -X POST ${{ steps.service.outputs.url }}/predict \
+          #   -H "Content-Type: application/json" \
+          #   -d '{"data": [1, 2, 3, 4, 5]}'
+          echo "Smoke test skipped (configure prediction endpoint)"
+
+# ============================================================================
+# CONFIGURATION REFERENCE
+# ============================================================================
+#
+# This workflow deploys an ML/AI service with:
+# - Python ML frameworks (scikit-learn, TensorFlow, PyTorch, etc.)
+# - FastAPI for model serving
+# - Model versioning support
+# - Cloud Storage integration (GCS)
+# - MLflow tracking (optional)
+# - Higher memory/CPU allocation (2Gi, 2 CPU)
+# - Longer timeout (600s for slow models)
+# - CPU boost for faster cold starts
+# - Generation 2 execution environment
+#
+# ============================================================================
+# REQUIRED SETUP (Before first deployment)
+# ============================================================================
+#
+# 1. Service Account:
+#    gcloud iam service-accounts create sa-{{SERVICE_NAME}}-staging \
+#      --display-name="Service account for {{SERVICE_NAME}} ML service (staging)" \
+#      --project=skillforge-ai-mvp-25
+#
+# 2. IAM Permissions:
+#    for role in roles/cloudsql.client roles/logging.logWriter roles/monitoring.metricWriter roles/storage.objectViewer; do
+#      gcloud projects add-iam-policy-binding skillforge-ai-mvp-25 \
+#        --member="serviceAccount:sa-{{SERVICE_NAME}}-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com" \
+#        --role="$role"
+#    done
+#
+# 3. Secret Access:
+#    for secret in DATABASE_URL SECRET_KEY; do
+#      gcloud secrets add-iam-policy-binding $secret \
+#        --member="serviceAccount:sa-{{SERVICE_NAME}}-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com" \
+#        --role="roles/secretmanager.secretAccessor"
+#    done
+#
+# 4. Model Storage (GCS Bucket):
+#    gsutil mb -p skillforge-ai-mvp-25 -l europe-west1 gs://skillforge-ml-models
+#    gsutil iam ch serviceAccount:sa-{{SERVICE_NAME}}-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com:objectViewer \
+#      gs://skillforge-ml-models
+#
+# 5. MLflow (Optional):
+#    # Set up MLflow tracking server or use managed service
+#    # Add MLFLOW_TRACKING_URI to secrets
+#
+# ============================================================================
+# DEPLOYMENT CHECKLIST
+# ============================================================================
+#
+# Before merging this workflow:
+# [ ] All {{PLACEHOLDERS}} replaced
+# [ ] Service name matches directory: {{SERVICE_PATH}}
+# [ ] Service account created: sa-{{SERVICE_NAME}}-staging
+# [ ] IAM permissions granted (cloudsql, logging, monitoring, storage)
+# [ ] Secret access configured (DATABASE_URL, SECRET_KEY)
+# [ ] GCS bucket created for model storage
+# [ ] Dockerfile exists: {{SERVICE_PATH}}/Dockerfile
+# [ ] requirements.txt exists with ML dependencies
+# [ ] Health check endpoint implemented: /health
+# [ ] Prediction endpoint implemented: /predict
+# [ ] Model validation script: scripts/validate_model.py
+# [ ] Tests pass locally: cd {{SERVICE_PATH}} && pytest
+# [ ] Model can be loaded successfully
+# [ ] Memory allocation sufficient (2Gi default, adjust if needed)
+# [ ] CPU allocation sufficient (2 CPU default, adjust if needed)
+# [ ] Timeout appropriate for model inference (600s default)
+#
+# ============================================================================
+# TESTING LOCALLY
+# ============================================================================
+#
+# Test the ML service before deploying:
+#
+#   cd {{SERVICE_PATH}}
+#   python -m venv venv
+#   source venv/bin/activate  # or venv\Scripts\activate on Windows
+#   pip install -r requirements.txt
+#
+#   # Download model (if from GCS)
+#   gsutil cp gs://skillforge-ml-models/{{SERVICE_NAME}}/latest/* ./models/
+#
+#   # Run locally
+#   uvicorn app.main:app --host 0.0.0.0 --port {{SERVICE_PORT}} --reload
+#
+# Run tests:
+#   pytest -v --cov=app
+#
+# Test prediction endpoint:
+#   curl -X POST http://localhost:{{SERVICE_PORT}}/predict \
+#     -H "Content-Type: application/json" \
+#     -d '{"data": [1, 2, 3, 4, 5]}'
+#
+# ============================================================================
+# ML-SPECIFIC CONSIDERATIONS
+# ============================================================================
+#
+# 1. Model Size:
+#    - Small models (<100MB): Include in Docker image
+#    - Large models (>100MB): Load from GCS at startup
+#
+# 2. Memory Requirements:
+#    - scikit-learn: 512Mi - 1Gi
+#    - TensorFlow/PyTorch (CPU): 1Gi - 2Gi
+#    - TensorFlow/PyTorch (GPU): 4Gi - 8Gi (requires GPU instances)
+#    - LLMs: 8Gi+ (consider Vertex AI instead)
+#
+# 3. Cold Start Optimization:
+#    - Use --cpu-boost flag
+#    - Set min-instances=1 for production
+#    - Implement model caching
+#    - Use lighter models when possible
+#
+# 4. Model Versioning:
+#    - Store models in GCS: gs://bucket/service/version/
+#    - Track experiments with MLflow
+#    - Use semantic versioning: v1.0.0, v1.1.0
+#    - Test new versions in staging first
+#
+# 5. GPU Support (if needed):
+#    - Cloud Run does not support GPUs directly
+#    - Consider GKE with GPU nodes
+#    - Or use Vertex AI for GPU workloads
+#
+# ============================================================================
+# EXAMPLE DOCKERFILE FOR ML SERVICE
+# ============================================================================
+#
+# FROM python:3.11-slim
+#
+# WORKDIR /app
+#
+# # Install system dependencies
+# RUN apt-get update && apt-get install -y \
+#     gcc \
+#     g++ \
+#     && rm -rf /var/lib/apt/lists/*
+#
+# # Copy requirements and install
+# COPY requirements.txt .
+# RUN pip install --no-cache-dir -r requirements.txt
+#
+# # Copy application
+# COPY . .
+#
+# # Download model at build time (optional)
+# # ARG MODEL_VERSION=latest
+# # RUN python scripts/download_model.py --version ${MODEL_VERSION}
+#
+# # Expose port
+# EXPOSE {{SERVICE_PORT}}
+#
+# # Run application
+# CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "{{SERVICE_PORT}}"]
+#
+# ============================================================================
