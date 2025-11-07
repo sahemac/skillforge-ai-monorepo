@@ -68,6 +68,7 @@ on:
           - user-service
           - project-service
           - company-service
+          - auth-service
           - matching-service
           - analytics-service
           - shell
@@ -195,6 +196,22 @@ jobs:
               echo "service_path=apps/backend/company-service" >> $GITHUB_OUTPUT
               echo "dockerfile_path=apps/backend/company-service/Dockerfile" >> $GITHUB_OUTPUT
               echo "image_name=company-service" >> $GITHUB_OUTPUT
+              echo "needs_migration=true" >> $GITHUB_OUTPUT
+              echo "needs_tests=true" >> $GITHUB_OUTPUT
+              echo "build_command=" >> $GITHUB_OUTPUT
+              echo "test_command=pytest" >> $GITHUB_OUTPUT
+              echo "health_endpoint=/health" >> $GITHUB_OUTPUT
+              echo "port=8080" >> $GITHUB_OUTPUT
+              CLOUD_RUN_CONFIG='{"memory":"1Gi","cpu":"2","max_instances":"10","min_instances":"1","concurrency":"1000","timeout":"300"}'
+              echo "cloud_run_config=$CLOUD_RUN_CONFIG" >> $GITHUB_OUTPUT
+              ;;
+            "auth-service")
+              SERVICE_CONFIG='{"type":"backend","language":"python","framework":"fastapi","has_migration":true,"has_tests":true}'
+              echo "service_config=$SERVICE_CONFIG" >> $GITHUB_OUTPUT
+              echo "service_name=${{ inputs.environment }}-auth-service" >> $GITHUB_OUTPUT
+              echo "service_path=apps/backend/auth-service" >> $GITHUB_OUTPUT
+              echo "dockerfile_path=apps/backend/auth-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "image_name=auth-service" >> $GITHUB_OUTPUT
               echo "needs_migration=true" >> $GITHUB_OUTPUT
               echo "needs_tests=true" >> $GITHUB_OUTPUT
               echo "build_command=" >> $GITHUB_OUTPUT
@@ -553,6 +570,9 @@ jobs:
           # Create and run migration job
           JOB_NAME="migrate-${{ inputs.service }}-${{ github.run_number }}"
 
+          # Determine service account based on service name
+          SERVICE_ACCOUNT="sa-${{ inputs.service }}-${{ inputs.environment }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
+
           gcloud run jobs create $JOB_NAME \
             --image=${{ needs.build.outputs.image_uri }} \
             --region=${{ env.REGION }} \
@@ -564,7 +584,7 @@ jobs:
             --task-timeout=600 \
             --vpc-connector=skillforge-vpc-connector \
             --vpc-egress=private-ranges-only \
-            --service-account=sa-user-service-staging@${{ env.PROJECT_ID }}.iam.gserviceaccount.com || true
+            --service-account=$SERVICE_ACCOUNT || true
 
           # Execute migration
           gcloud run jobs execute $JOB_NAME \
@@ -605,6 +625,9 @@ jobs:
           CONCURRENCY=$(echo $CONFIG | jq -r .concurrency)
           TIMEOUT=$(echo $CONFIG | jq -r .timeout)
 
+          # Determine service account based on service name
+          SERVICE_ACCOUNT="sa-${{ inputs.service }}-${{ inputs.environment }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
+
           # Deploy to Cloud Run
           gcloud run deploy $SERVICE_NAME \
             --image=${{ needs.build.outputs.image_uri }} \
@@ -620,7 +643,7 @@ jobs:
             --set-env-vars="SERVICE_NAME=$SERVICE_NAME" \
             --set-env-vars="ENVIRONMENT=${{ inputs.environment }}" \
             --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }}" \
-            --service-account=sa-user-service-staging@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --service-account=$SERVICE_ACCOUNT \
             --labels="app=skillforge,service=${{ inputs.service }},environment=${{ inputs.environment }}" \
             --revision-suffix="${{ github.sha }}-${{ github.run_number }}" \
             --tag="${{ inputs.environment }}" \
