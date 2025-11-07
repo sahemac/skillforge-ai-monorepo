@@ -6,8 +6,7 @@
 import React from 'react';
 import { Button } from '../primitives/Button';
 import { Input, PasswordInput, EmailInput, NumberInput } from '../primitives/Input';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../primitives/Card';
-import { Badge } from '../primitives/Badge';
+import { Card, CardContent, CardHeader, CardTitle } from '../primitives/Card';
 import { cn } from '../../utils';
 import type { FormBuilderProps, FormField } from '../../types';
 
@@ -19,7 +18,7 @@ interface FormContextValue {
   isSubmitting: boolean;
   setValue: (name: string, value: any) => void;
   setError: (name: string, error: string) => void;
-  setTouched: (name: string, touched: boolean) => void;
+  setFieldTouched: (name: string, touched: boolean) => void;
   validateField: (name: string, value: any) => string | undefined;
 }
 
@@ -48,13 +47,12 @@ const FormFieldComponent: React.FC<FormFieldComponentProps> = ({ field, classNam
     touched,
     setValue,
     setError,
-    setTouched,
+    setFieldTouched,
     validateField,
   } = useFormContext();
 
   const value = values[field.name] || field.defaultValue || '';
   const error = touched[field.name] ? errors[field.name] : undefined;
-  const isTouched = touched[field.name];
 
   const handleChange = (newValue: any) => {
     setValue(field.name, newValue);
@@ -72,7 +70,7 @@ const FormFieldComponent: React.FC<FormFieldComponentProps> = ({ field, classNam
   };
 
   const handleBlur = () => {
-    setTouched(field.name, true);
+    setFieldTouched(field.name, true);
     
     // Validate on blur
     const validationError = validateField(field.name, value);
@@ -370,7 +368,7 @@ export const Form: React.FC<FormBuilderProps> = ({
     setErrors(prev => ({ ...prev, [name]: error }));
   }, []);
 
-  const setTouched = React.useCallback((name: string, touched: boolean) => {
+  const setFieldTouched = React.useCallback((name: string, touched: boolean) => {
     setTouched(prev => ({ ...prev, [name]: touched }));
   }, []);
 
@@ -478,7 +476,7 @@ export const Form: React.FC<FormBuilderProps> = ({
     isSubmitting: isSubmitting || loading,
     setValue,
     setError,
-    setTouched,
+    setFieldTouched,
     validateField,
   };
 
