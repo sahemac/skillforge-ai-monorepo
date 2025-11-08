@@ -226,7 +226,7 @@ jobs:
 
           (
             echo "🔍 Running Safety check..."
-            safety check --json --output safety-report.json || true
+            safety scan --json > safety-report.json 2>/dev/null || true
           ) &
 
           (

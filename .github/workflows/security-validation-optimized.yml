@@ -227,7 +227,7 @@ jobs:
 
             (
               echo "🔍 Running Safety check..."
-              safety check --json --output ../../security-reports/safety-${{ matrix.name }}.json 2>/dev/null || true
+              safety scan --json > ../../security-reports/safety-${{ matrix.name }}.json 2>/dev/null || true
             ) &
 
             (
