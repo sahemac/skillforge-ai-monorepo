@@ -24,6 +24,7 @@ def create_engine() -> AsyncEngine:
     """Create database engine."""
     # Use DATABASE_URL from settings (can be SQLite or PostgreSQL)
     database_url = settings.DATABASE_URL
+    logger.info(f"Creating engine with DATABASE_URL: {database_url}")
     
     # Check if using SQLite
     if "sqlite" in database_url:
@@ -41,9 +42,9 @@ def create_engine() -> AsyncEngine:
         connect_args = {}
         
         # Configuration spécifique pour Cloud SQL Proxy
-        if "localhost:5432" in database_url:
+        if "localhost:5432" in database_url or "127.0.0.1:5432" in database_url:
             connect_args = {
-                "ssl": False,  # Disable SSL for cloud_sql_proxy
+                "ssl": False,  # Disable SSL for local PostgreSQL (asyncpg requires bool, not string)
                 "server_settings": {
                     "application_name": "SkillForge_API"
                 },
@@ -70,19 +71,27 @@ def get_engine() -> AsyncEngine:
     return engine
 
 
-# Create session factory
-SessionLocal = async_sessionmaker(
-    bind=get_engine(),
-    class_=AsyncSession,
-    autoflush=False,
-    autocommit=False,
-    expire_on_commit=False,
-)
+# Create session factory (lazy binding to engine)
+SessionLocal = None
+
+def get_session_factory():
+    """Get or create session factory."""
+    global SessionLocal
+    if SessionLocal is None:
+        SessionLocal = async_sessionmaker(
+            bind=get_engine(),
+            class_=AsyncSession,
+            autoflush=False,
+            autocommit=False,
+            expire_on_commit=False,
+        )
+    return SessionLocal
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """Get database session."""
-    async with SessionLocal() as session:
+    factory = get_session_factory()
+    async with factory() as session:
         try:
             yield session
         except Exception as e:
