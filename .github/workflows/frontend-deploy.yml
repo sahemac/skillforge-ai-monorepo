@@ -529,6 +529,15 @@ jobs:
           SERVICE_NAME="skillforge-frontend-${{ matrix.app }}-${{ needs.detect-changes.outputs.environment }}"
           echo "🚀 Deploying ${{ matrix.app }} to Cloud Run..."
 
+          # Check if service exists
+          if gcloud run services describe $SERVICE_NAME --region=$REGION --platform=managed &>/dev/null; then
+            echo "Service exists, deploying with --no-traffic for blue-green deployment"
+            NO_TRAFFIC_FLAG="--no-traffic"
+          else
+            echo "New service, deploying with traffic"
+            NO_TRAFFIC_FLAG=""
+          fi
+
           # Deploy with app-specific resource configuration
           gcloud run deploy $SERVICE_NAME \
             --image=${{ env.IMAGE_TAG }} \
@@ -547,14 +556,22 @@ jobs:
             --labels="app=skillforge-frontend,component=${{ matrix.app }},environment=${{ needs.detect-changes.outputs.environment }},version=${{ github.sha }}" \
             --tag="${{ needs.detect-changes.outputs.environment }}" \
             --revision-suffix="${{ github.sha }}-${{ github.run_number }}" \
-            --no-traffic
+            $NO_TRAFFIC_FLAG
 
-          # Get new revision URL
-          NEW_REVISION_URL=$(gcloud run services describe $SERVICE_NAME \
-            --platform=managed \
-            --region=$REGION \
-            --format="value(status.traffic[0].url)" \
-            --filter="metadata.name:$SERVICE_NAME")
+          # Get service or revision URL
+          if [ -n "$NO_TRAFFIC_FLAG" ]; then
+            # For existing services with --no-traffic, get the tagged revision URL
+            NEW_REVISION_URL=$(gcloud run services describe $SERVICE_NAME \
+              --platform=managed \
+              --region=$REGION \
+              --format="value(status.traffic[?tag=='${{ needs.detect-changes.outputs.environment }}'].url)")
+          else
+            # For new services, get the main service URL
+            NEW_REVISION_URL=$(gcloud run services describe $SERVICE_NAME \
+              --platform=managed \
+              --region=$REGION \
+              --format="value(status.url)")
+          fi
 
           echo "NEW_REVISION_URL=$NEW_REVISION_URL" >> $GITHUB_ENV
           echo "SERVICE_NAME=$SERVICE_NAME" >> $GITHUB_ENV
