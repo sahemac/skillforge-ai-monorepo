@@ -117,37 +117,18 @@ jobs:
           # Force rebuild check
           FORCE_REBUILD="${{ github.event.inputs.force_rebuild }}"
           SHARED_CHANGED="${{ steps.changes.outputs.shared }}"
+          SHELL_CHANGED="${{ steps.changes.outputs.shell }}"
 
-          declare -A APP_CONFIGS
-          APP_CONFIGS["shell"]="shell,3000,1Gi,2,15"
-          APP_CONFIGS["auth"]="auth,8080,512Mi,1,10"
-          APP_CONFIGS["admin"]="admin,8080,512Mi,1,10"
-          APP_CONFIGS["company"]="company,8080,512Mi,1,10"
-          APP_CONFIGS["learner"]="learner,8080,512Mi,1,10"
+          # TEMPORARY: Only deploy shell app (micro-frontends don't have package.json yet)
+          # TODO: Re-enable other apps when they are implemented
+          echo "⚠️  NOTE: Currently only deploying shell app (micro-frontends not implemented yet)"
 
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.apps }}" != "all" ]]; then
-            IFS=',' read -ra APPS <<< "${{ github.event.inputs.apps }}"
-            matrix_apps="["
-            for app in "${APPS[@]}"; do
-              app=$(echo $app | xargs)
-              IFS=',' read -ra CONFIG <<< "${APP_CONFIGS[$app]}"
-              matrix_apps="$matrix_apps{\"app\":\"$app\",\"port\":\"${CONFIG[1]}\",\"memory\":\"${CONFIG[2]}\",\"cpu\":\"${CONFIG[3]}\",\"max_instances\":\"${CONFIG[4]}\"},"
-            done
-            matrix_apps="${matrix_apps%,}]"
-          else
-            matrix_apps="["
-            for app in shell auth admin company learner; do
-              CHANGED_VAR="${app^^}"  # Convert to uppercase
-              if [[ "${!CHANGED_VAR}" == "true" || "$SHARED_CHANGED" == "true" || "$FORCE_REBUILD" == "true" || "${{ github.event.inputs.apps }}" == "all" ]]; then
-                IFS=',' read -ra CONFIG <<< "${APP_CONFIGS[$app]}"
-                matrix_apps="$matrix_apps{\"app\":\"$app\",\"port\":\"${CONFIG[1]}\",\"memory\":\"${CONFIG[2]}\",\"cpu\":\"${CONFIG[3]}\",\"max_instances\":\"${CONFIG[4]}\"},"
-              fi
-            done
-            matrix_apps="${matrix_apps%,}]"
-          fi
-
-          if [[ "$matrix_apps" == "[]" ]]; then
+          # Only shell app is currently implemented with proper package.json
+          if [[ "$SHELL_CHANGED" == "true" || "$SHARED_CHANGED" == "true" || "$FORCE_REBUILD" == "true" || "${{ github.event.inputs.apps }}" == "all" || "${{ github.event.inputs.apps }}" == "shell" ]]; then
             matrix_apps='[{"app":"shell","port":"3000","memory":"1Gi","cpu":"2","max_instances":"15"}]'
+          else
+            # No changes to deploy
+            matrix_apps='[]'
           fi
 
           echo "matrix={\"include\":$matrix_apps}" >> $GITHUB_OUTPUT
