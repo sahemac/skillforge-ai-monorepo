@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   build: {
     target: 'esnext',
-    minify: 'terser',
+    minify: 'esbuild',
     cssCodeSplit: true,
     rollupOptions: {
       output: {
@@ -17,17 +17,13 @@ export default defineConfig({
         },
       },
     },
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-      },
-    },
   },
   server: {
     port: 3000,
+    strictPort: true, // CRITIQUE: Fail si port occupé au lieu de chercher un autre port
     cors: true,
     origin: 'http://localhost:3000',
+    host: '0.0.0.0', // Expose sur toutes les interfaces (nécessaire pour Docker/Cloud Run)
   },
   preview: {
     port: 3000,
@@ -47,5 +43,4 @@ export default defineConfig({
     __DEV__: JSON.stringify(process.env.NODE_ENV === 'development'),
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
   },
-  };
 });
