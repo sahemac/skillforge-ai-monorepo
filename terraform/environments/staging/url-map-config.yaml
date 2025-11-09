@@ -1,0 +1,117 @@
+# SkillForge AI - URL Map Configuration
+# Architecture: Modular Monolith → Micro-services ready
+#
+# Phase actuelle: Frontend Monolithique (shell)
+# Phase future: Micro-frontends dédiés
+#
+# Usage: gcloud compute url-maps import skillforge-urlmap-staging --source=url-map-config.yaml
+
+name: skillforge-urlmap-staging
+defaultService: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/skillforge-shell-backend-staging
+
+hostRules:
+  # ============================================
+  # Domaine Principal: skillforge-ai.emacsah.com
+  # ============================================
+  - hosts:
+      - skillforge-ai.emacsah.com
+    pathMatcher: main-paths
+
+  # ============================================
+  # Domaine API: api.emacsah.com
+  # Redirige vers skillforge-ai.emacsah.com/api/v1/
+  # ============================================
+  - hosts:
+      - api.emacsah.com
+    pathMatcher: api-redirect
+
+pathMatchers:
+  # ============================================
+  # MAIN PATHS (skillforge-ai.emacsah.com)
+  # ============================================
+  - name: main-paths
+    defaultService: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/skillforge-shell-backend-staging
+
+    pathRules:
+      # --------------------------------------------
+      # API BACKEND SERVICES (Active)
+      # --------------------------------------------
+
+      # User Service - Gestion des utilisateurs
+      - paths:
+          - /api/v1/users/*
+          - /api/v1/auth/*  # Auth intégré dans user-service pour l'instant
+        service: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/user-service-backend-staging
+
+      # Company Service - Gestion des entreprises
+      - paths:
+          - /api/v1/companies/*
+        service: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/skillforge-company-backend-staging
+
+      # Health & Metrics - Monitoring
+      - paths:
+          - /api/v1/health
+          - /api/v1/metrics
+        service: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/user-service-backend-staging
+
+      # --------------------------------------------
+      # FRONTEND ROUTES (Monolith Shell - Active)
+      # --------------------------------------------
+      # Toutes les routes suivantes sont gérées par le frontend monolithique :
+      # /, /mission, /contact, /login, /register, /dashboard, /profile, etc.
+      # Default service (skillforge-shell-backend-staging) s'en charge
+
+      # --------------------------------------------
+      # FUTURE: MICRO-FRONTENDS (Désactivé - Prêt pour activation)
+      # --------------------------------------------
+      # Décommenter quand les micro-frontends seront créés
+
+      # # Admin Frontend - Tableau de bord admin
+      # - paths:
+      #     - /admin
+      #     - /admin/*
+      #   service: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/skillforge-admin-backend-staging
+
+      # # Learner Frontend - Dashboard apprenant
+      # - paths:
+      #     - /learner
+      #     - /learner/*
+      #   service: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/skillforge-learner-backend-staging
+
+      # # Auth Frontend - Pages d'authentification dédiées
+      # - paths:
+      #     - /auth
+      #     - /auth/*
+      #   service: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/skillforge-auth-backend-staging
+
+      # --------------------------------------------
+      # FUTURE: ADDITIONAL API SERVICES
+      # --------------------------------------------
+      # À activer quand les services seront déployés
+
+      # # Project Service
+      # - paths:
+      #     - /api/v1/projects/*
+      #   service: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/skillforge-project-backend-staging
+
+      # # Matching Service (AI)
+      # - paths:
+      #     - /api/v1/matching/*
+      #   service: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/skillforge-matching-backend-staging
+
+  # ============================================
+  # API REDIRECT (api.emacsah.com)
+  # ============================================
+  - name: api-redirect
+    defaultService: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/user-service-backend-staging
+
+    pathRules:
+      # Toutes les requêtes vers api.emacsah.com/* sont traitées comme /api/v1/*
+      - paths:
+          - /users/*
+          - /auth/*
+        service: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/user-service-backend-staging
+
+      - paths:
+          - /companies/*
+        service: https://www.googleapis.com/compute/v1/projects/skillforge-ai-mvp-25/global/backendServices/skillforge-company-backend-staging
