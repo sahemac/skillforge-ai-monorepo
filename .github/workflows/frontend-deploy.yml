@@ -781,10 +781,13 @@ jobs:
     name: Smart Rollback (${{ matrix.app }})
     runs-on: ubuntu-latest
     needs: [detect-changes, build-and-deploy]
-    if: failure() && needs.detect-changes.outputs.environment == 'production'
-    environment: production
+    if: failure()
+    environment: ${{ needs.detect-changes.outputs.environment }}
     strategy:
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+    env:
+      REGION: europe-west1
+      PROJECT_ID: skillforge-ai-mvp-25
     steps:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -799,7 +802,8 @@ jobs:
       - name: Smart rollback to previous revision
         run: |
           echo "🔄 Smart rollback initiated for ${{ matrix.app }}..."
-          SERVICE_NAME="skillforge-frontend-${{ matrix.app }}-production"
+          ENV="${{ needs.detect-changes.outputs.environment }}"
+          SERVICE_NAME="skillforge-frontend-${{ matrix.app }}-${ENV}"
 
           # Get the last stable revision (2nd most recent)
           PREVIOUS_REVISION=$(gcloud run revisions list \
