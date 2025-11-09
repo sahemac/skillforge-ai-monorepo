@@ -464,6 +464,40 @@ jobs:
           CMD ["nginx", "-g", "daemon off;"]
           EOF
 
+      - name: Create CI/CD .dockerignore
+        working-directory: apps/frontend/${{ matrix.app }}
+        run: |
+          # Create a minimal .dockerignore for CI/CD that includes dist folder
+          cat > .dockerignore.cicd << 'EOF'
+          # CI/CD specific .dockerignore - allows dist folder
+          node_modules/
+          npm-debug.log*
+          .pnpm-debug.log*
+          .cache/
+          .vite/
+          .env.local
+          .env.*.local
+          .git/
+          __tests__/
+          test/
+          tests/
+          *.test.*
+          *.spec.*
+          coverage/
+          .eslintrc*
+          .eslintcache
+          .prettierrc*
+          *.tsbuildinfo
+          Dockerfile
+          Dockerfile.*
+          !Dockerfile
+          .github/
+          *.md
+          !nginx.conf.template
+          EOF
+
+          echo "✅ Created CI/CD .dockerignore (includes dist folder)"
+
       - name: Build and push Docker image (with cache)
         working-directory: apps/frontend/${{ matrix.app }}
         run: |
@@ -473,6 +507,9 @@ jobs:
           CACHE_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-frontend-${{ matrix.app }}:buildcache"
 
           echo "🐳 Building Docker image with layer caching..."
+
+          # Use the CI/CD .dockerignore
+          mv .dockerignore.cicd .dockerignore
 
           docker buildx build \
             --push \
@@ -728,7 +765,10 @@ jobs:
           echo "📊 Deployment Summary"
           echo "Environment: ${{ needs.detect-changes.outputs.environment }}"
           echo "Commit: ${{ github.sha }}"
-          echo "Apps processed: ${{ toJson(fromJson(needs.detect-changes.outputs.matrix).include[*].app) }}"
+
+          # Extract app names from matrix
+          APPS_JSON='${{ needs.detect-changes.outputs.matrix }}'
+          echo "APPS_JSON=$APPS_JSON" >> $GITHUB_ENV
 
           if [[ "${{ needs.build-and-deploy.result }}" == "success" ]]; then
             echo "STATUS=✅ SUCCESS" >> $GITHUB_ENV
@@ -761,7 +801,10 @@ jobs:
             const status = process.env.STATUS;
             const buildStatus = process.env.BUILD_STATUS;
             const environment = '${{ needs.detect-changes.outputs.environment }}';
-            const apps = JSON.parse('${{ toJson(fromJson(needs.detect-changes.outputs.matrix).include[*].app) }}');
+
+            // Parse matrix to extract app names
+            const matrix = JSON.parse(process.env.APPS_JSON);
+            const apps = matrix.include.map(item => item.app);
 
             const body = `
             ## 🚀 Frontend Deployment Summary
