@@ -12,8 +12,7 @@ import type {
 
 // Entity adapter for normalized user storage
 const usersAdapter = createEntityAdapter<User>({
-  selectId: (user) => user.id,
-  sortComparer: (a, b) => a.username.localeCompare(b.username),
+  sortComparer: (a: User, b: User) => a.username.localeCompare(b.username),
 });
 
 // Initial state
