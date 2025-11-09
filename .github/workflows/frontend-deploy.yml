@@ -371,6 +371,25 @@ jobs:
           driver-opts: |
             network=host
 
+      - name: Ensure Artifact Registry repository exists
+        run: |
+          echo "🔍 Checking if Artifact Registry repository exists..."
+
+          # Check if repository exists
+          if gcloud artifacts repositories describe $REPOSITORY \
+              --location=$REGION \
+              --project=$PROJECT_ID &>/dev/null; then
+            echo "✅ Repository '$REPOSITORY' exists"
+          else
+            echo "📦 Repository '$REPOSITORY' not found, creating it..."
+            gcloud artifacts repositories create $REPOSITORY \
+              --repository-format=docker \
+              --location=$REGION \
+              --project=$PROJECT_ID \
+              --description="Docker repository for SkillForge AI frontend applications"
+            echo "✅ Repository '$REPOSITORY' created successfully"
+          fi
+
       - name: Create optimized Dockerfile
         working-directory: apps/frontend/${{ matrix.app }}
         run: |
