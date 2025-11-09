@@ -130,7 +130,7 @@ export const hasErrorsSignal = computed(() => {
 
 export const errorMessagesSignal = computed(() => {
   const errors = errorsSignal.value;
-  return [errors.auth, errors.users, errors.projects, errors.global].filter(Boolean);
+  return [errors.auth, errors.users, errors.projects, errors.global].filter(Boolean) as string[];
 });
 
 // Signal mutation helpers
@@ -347,7 +347,7 @@ export const signalEffects = {
   // Watch errors
   watchErrors: (callback: (hasErrors: boolean, errors: string[]) => void) => {
     return effect(() => {
-      callback(hasErrorsSignal.value, errorMessagesSignal.value);
+      callback(hasErrorsSignal.value, errorMessagesSignal.value.filter((e): e is string => e !== null));
     });
   },
 

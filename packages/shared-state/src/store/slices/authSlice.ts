@@ -4,11 +4,11 @@
  */
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { 
-  AuthState, 
-  LoginCommandPayload, 
+import {
+  AuthState,
+  LoginCommandPayload,
   User,
-  AuthenticationError 
+  AuthenticationError
 } from '../../types';
 
 // Initial state
@@ -117,7 +117,7 @@ const authSlice = createSlice({
     setPermissions: (state, action: PayloadAction<string[]>) => {
       state.permissions = action.payload;
     },
-    clearAuth: (state) => {
+    clearAuth: () => {
       return initialState;
     }
   },
@@ -133,7 +133,7 @@ const authSlice = createSlice({
         // Extract permissions from user role
         state.permissions = extractPermissions(action.payload.user.role);
       })
-      .addCase(loginCommand.rejected, (state) => {
+      .addCase(loginCommand.rejected, () => {
         return initialState;
       });
 
