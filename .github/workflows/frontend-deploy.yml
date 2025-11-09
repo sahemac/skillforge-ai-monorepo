@@ -682,13 +682,21 @@ jobs:
         run: |
           echo "📈 Starting intelligent traffic rollout for ${{ matrix.app }}..."
 
+          # Get the latest revision name (Cloud Run generates the actual revision name)
+          LATEST_REVISION=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=$REGION \
+            --platform=managed \
+            --format="value(status.latestCreatedRevisionName)")
+
+          echo "Latest revision to route traffic to: $LATEST_REVISION"
+
           if [[ "${{ needs.detect-changes.outputs.environment }}" == "production" ]]; then
             echo "🚀 Production deployment - gradual rollout enabled"
 
             # Canary deployment (5%)
             gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
               --region=$REGION \
-              --to-revisions="${{ github.sha }}-${{ github.run_number }}=5"
+              --to-revisions="${LATEST_REVISION}=5"
             echo "✅ 5% canary traffic routed to new revision"
             sleep 60
 
@@ -702,7 +710,7 @@ jobs:
               echo "📈 Rolling out to ${PERCENTAGE}%..."
               gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
                 --region=$REGION \
-                --to-revisions="${{ github.sha }}-${{ github.run_number }}=${PERCENTAGE}"
+                --to-revisions="${LATEST_REVISION}=${PERCENTAGE}"
               echo "✅ ${PERCENTAGE}% traffic routed to new revision"
 
               if [ "$PERCENTAGE" != "100" ]; then
@@ -714,7 +722,7 @@ jobs:
             # Staging - immediate full rollout
             gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
               --region=$REGION \
-              --to-revisions="${{ github.sha }}-${{ github.run_number }}=100"
+              --to-revisions="${LATEST_REVISION}=100"
             echo "✅ All traffic routed to new revision in staging"
           fi
 
