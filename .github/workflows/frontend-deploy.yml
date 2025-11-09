@@ -592,35 +592,63 @@ jobs:
         run: |
           echo "🔍 Performing comprehensive health check on ${{ matrix.app }}..."
 
-          # Wait for service to be ready
-          echo "Waiting for service to initialize..."
-          sleep 20
+          # Check if we have a URL to test
+          if [ -z "${{ env.NEW_REVISION_URL }}" ]; then
+            echo "⚠️  No revision URL available (--no-traffic deployment)"
+            echo "Verifying deployment status via Cloud Run API instead..."
 
-          MAX_ATTEMPTS=15
-          ATTEMPT=1
-          HEALTH_URL="${{ env.NEW_REVISION_URL }}/health"
+            # Get the latest revision name
+            LATEST_REVISION=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+              --region=$REGION \
+              --platform=managed \
+              --format="value(status.latestCreatedRevisionName)")
 
-          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-            echo "Health check attempt $ATTEMPT/$MAX_ATTEMPTS for ${{ matrix.app }}..."
+            echo "Latest revision: $LATEST_REVISION"
 
-            # Multiple health check methods
-            if curl -f -s -m 10 "$HEALTH_URL" | jq -r '.status' 2>/dev/null | grep -q "healthy"; then
-              echo "✅ Advanced health check passed for ${{ matrix.app }}!"
+            # Check if the revision is ready
+            REVISION_STATUS=$(gcloud run revisions describe $LATEST_REVISION \
+              --region=$REGION \
+              --platform=managed \
+              --format="value(status.conditions[?type=='Ready'].status)")
 
-              # Additional performance check
-              RESPONSE_TIME=$(curl -o /dev/null -s -w '%{time_total}' "${{ env.NEW_REVISION_URL }}")
-              echo "📊 Initial response time: ${RESPONSE_TIME}s"
-              break
+            if [ "$REVISION_STATUS" = "True" ]; then
+              echo "✅ Revision is ready and healthy (verified via Cloud Run API)"
+              echo "ℹ️  Traffic routing can be managed manually or via next deployment"
             else
-              echo "❌ Health check failed, retrying in 20 seconds..."
-              sleep 20
-              ((ATTEMPT++))
+              echo "❌ Revision status: $REVISION_STATUS"
+              exit 1
             fi
-          done
+          else
+            # We have a URL, perform standard health check
+            echo "Waiting for service to initialize..."
+            sleep 20
 
-          if [ $ATTEMPT -gt $MAX_ATTEMPTS ]; then
-            echo "🚨 Health check failed after $MAX_ATTEMPTS attempts for ${{ matrix.app }}"
-            exit 1
+            MAX_ATTEMPTS=15
+            ATTEMPT=1
+            HEALTH_URL="${{ env.NEW_REVISION_URL }}/health"
+
+            while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+              echo "Health check attempt $ATTEMPT/$MAX_ATTEMPTS for ${{ matrix.app }}..."
+
+              # Multiple health check methods
+              if curl -f -s -m 10 "$HEALTH_URL" | jq -r '.status' 2>/dev/null | grep -q "healthy"; then
+                echo "✅ Advanced health check passed for ${{ matrix.app }}!"
+
+                # Additional performance check
+                RESPONSE_TIME=$(curl -o /dev/null -s -w '%{time_total}' "${{ env.NEW_REVISION_URL }}")
+                echo "📊 Initial response time: ${RESPONSE_TIME}s"
+                break
+              else
+                echo "❌ Health check failed, retrying in 20 seconds..."
+                sleep 20
+                ((ATTEMPT++))
+              fi
+            done
+
+            if [ $ATTEMPT -gt $MAX_ATTEMPTS ]; then
+              echo "🚨 Health check failed after $MAX_ATTEMPTS attempts for ${{ matrix.app }}"
+              exit 1
+            fi
           fi
 
       - name: Intelligent traffic rollout
