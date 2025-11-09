@@ -6,7 +6,8 @@
 import React from 'react';
 import { Provider as ReduxProvider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
-import { QueryClientProvider, ReactQueryDevtools } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { store, persistor } from '../store';
 import { queryClient } from '../queries';
 
@@ -19,7 +20,7 @@ interface StateProviderProps {
  * Main state provider that combines Redux and TanStack Query
  * Provides both command (write) and query (read) capabilities
  */
-export function StateProvider({ children, showDevtools = process.env.NODE_ENV === 'development' }: StateProviderProps) {
+export function StateProvider({ children, showDevtools = false }: StateProviderProps) {
   return (
     <ReduxProvider store={store}>
       <PersistGate 

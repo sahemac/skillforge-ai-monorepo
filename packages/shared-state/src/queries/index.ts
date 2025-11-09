@@ -3,7 +3,7 @@
  * Handles all query (read) operations with caching and synchronization
  */
 
-import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import type { 
   User, 
@@ -125,7 +125,7 @@ export function useUsers(params: GetUsersQueryParams = {}) {
   return useQuery({
     queryKey: queryKeys.users.list(params),
     queryFn: () => api.getUsers(params),
-    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
   });
 }
 
@@ -141,7 +141,7 @@ export function useProjects(params: GetProjectsQueryParams = {}) {
   return useQuery({
     queryKey: queryKeys.projects.list(params),
     queryFn: () => api.getProjects(params),
-    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
   });
 }
 
