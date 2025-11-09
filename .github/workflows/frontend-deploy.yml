@@ -553,7 +553,8 @@ jobs:
             --min-instances=0 \
             --max-instances=${{ matrix.max_instances }} \
             --concurrency=100 \
-            --timeout=300 \
+            --timeout=600 \
+            --startup-cpu-boost \
             --execution-environment=gen2 \
             --set-env-vars="ENVIRONMENT=${{ needs.detect-changes.outputs.environment }},APP_NAME=${{ matrix.app }}" \
             --labels="app=skillforge-frontend,component=${{ matrix.app }},environment=${{ needs.detect-changes.outputs.environment }},version=${{ github.sha }}" \
