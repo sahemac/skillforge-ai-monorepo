@@ -305,6 +305,13 @@ jobs:
           name: frontend-${{ matrix.app }}-coverage
           fail_ci_if_error: false
 
+      - name: Build workspace packages
+        run: |
+          echo "📦 Building workspace packages (core and shared-state)..."
+          pnpm --filter @skillforge-ai/core build
+          pnpm --filter @skillforge-ai/shared-state build
+          echo "✅ Workspace packages built successfully"
+
       - name: Build application (optimized)
         working-directory: apps/frontend/${{ matrix.app }}
         run: |
