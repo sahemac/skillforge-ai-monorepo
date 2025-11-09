@@ -95,9 +95,7 @@ jobs:
           echo "📦 Building dependent packages..."
           pnpm run --filter @skillforge-ai/core build
           pnpm run --filter @skillforge-ai/shared-state build
-          pnpm run --filter @skillforge-ai/ui-kit build
-          pnpm run --filter @skillforge-ai/testing build
-          echo "✅ All packages built successfully"
+          echo "✅ Packages built successfully"
 
       - name: Run tests
         working-directory: apps/frontend/shell
