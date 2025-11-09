@@ -624,17 +624,24 @@ jobs:
 
             echo "Latest revision: $LATEST_REVISION"
 
-            # Check if the revision is ready
-            REVISION_STATUS=$(gcloud run revisions describe $LATEST_REVISION \
+            # Check if the revision is ready using YAML format
+            REVISION_OUTPUT=$(gcloud run revisions describe $LATEST_REVISION \
               --region=$REGION \
               --platform=managed \
-              --format="value(status.conditions[?type=='Ready'].status)")
+              --format="yaml")
+
+            # Parse the Ready condition status from YAML output
+            REVISION_STATUS=$(echo "$REVISION_OUTPUT" | grep -A 2 "type: Ready" | grep "status:" | awk '{print $2}' | tr -d "'")
+
+            echo "Parsed revision status: '$REVISION_STATUS'"
 
             if [ "$REVISION_STATUS" = "True" ]; then
               echo "✅ Revision is ready and healthy (verified via Cloud Run API)"
               echo "ℹ️  Traffic routing can be managed manually or via next deployment"
             else
               echo "❌ Revision status: $REVISION_STATUS"
+              echo "Full revision output for debugging:"
+              echo "$REVISION_OUTPUT" | grep -A 10 "conditions:"
               exit 1
             fi
           else
