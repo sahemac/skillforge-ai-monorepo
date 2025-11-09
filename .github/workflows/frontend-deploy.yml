@@ -631,7 +631,8 @@ jobs:
               --format="yaml")
 
             # Parse the Ready condition status from YAML output
-            REVISION_STATUS=$(echo "$REVISION_OUTPUT" | grep -A 2 "type: Ready" | grep "status:" | awk '{print $2}' | tr -d "'")
+            # Note: in YAML structure, status comes BEFORE type in each condition block
+            REVISION_STATUS=$(echo "$REVISION_OUTPUT" | grep -B 2 "type: Ready" | grep "status:" | awk '{print $2}' | tr -d "'")
 
             echo "Parsed revision status: '$REVISION_STATUS'"
 
