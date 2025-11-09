@@ -539,6 +539,9 @@ jobs:
           fi
 
           # Deploy with app-specific resource configuration
+          # Use short SHA (7 chars) to keep revision name under 63 character limit
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+
           gcloud run deploy $SERVICE_NAME \
             --image=${{ env.IMAGE_TAG }} \
             --platform=managed \
@@ -555,7 +558,7 @@ jobs:
             --set-env-vars="ENVIRONMENT=${{ needs.detect-changes.outputs.environment }},APP_NAME=${{ matrix.app }}" \
             --labels="app=skillforge-frontend,component=${{ matrix.app }},environment=${{ needs.detect-changes.outputs.environment }},version=${{ github.sha }}" \
             --tag="${{ needs.detect-changes.outputs.environment }}" \
-            --revision-suffix="${{ github.sha }}-${{ github.run_number }}" \
+            --revision-suffix="${SHORT_SHA}-${{ github.run_number }}" \
             $NO_TRAFFIC_FLAG
 
           # Get service or revision URL
