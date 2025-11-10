@@ -848,11 +848,24 @@ jobs:
           echo "- Rollback Time: $(date -Iseconds)"
           echo "- Trigger: Deployment failure detected"
 
+  # Smoke tests after deployment (shell app)
+  smoke-tests-shell:
+    name: Post-Deployment Smoke Tests (shell)
+    needs: [detect-changes, build-and-deploy]
+    if: success() && contains(fromJson(needs.detect-changes.outputs.matrix).include[*].app, 'shell')
+    uses: ./.github/workflows/smoke-tests.yml
+    with:
+      environment: ${{ needs.detect-changes.outputs.environment }}
+      service_url: https://skillforge-ai.emacsah.com
+      app_name: shell
+    secrets:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
   # Deployment summary and notifications
   deployment-summary:
     name: Deployment Summary & Notifications
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-and-deploy]
+    needs: [detect-changes, build-and-deploy, smoke-tests-shell]
     if: always() && fromJson(needs.detect-changes.outputs.matrix).include[0] != null
     steps:
       - name: Calculate deployment metrics
