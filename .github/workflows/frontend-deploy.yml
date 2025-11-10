@@ -40,7 +40,7 @@ env:
   REGISTRY: europe-west1-docker.pkg.dev
   PROJECT_ID: skillforge-ai-mvp-25
   REGION: europe-west1
-  REPOSITORY: skillforge-docker-repo-staging
+  # Note: REPOSITORY will be set dynamically per environment in each job
   # Global cache settings
   PNPM_CACHE_FOLDER: ~/.pnpm-store
   NODE_OPTIONS: --max-old-space-size=4096
@@ -527,12 +527,16 @@ jobs:
       - name: Build and push Docker image (with cache)
         working-directory: apps/frontend/${{ matrix.app }}
         run: |
+          # Set repository dynamically based on environment
+          REPOSITORY="skillforge-docker-repo-${{ needs.detect-changes.outputs.environment }}"
+
           IMAGE_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-frontend-${{ matrix.app }}:${{ github.sha }}"
           LATEST_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-frontend-${{ matrix.app }}:latest"
           ENV_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-frontend-${{ matrix.app }}:${{ needs.detect-changes.outputs.environment }}"
           CACHE_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-frontend-${{ matrix.app }}:buildcache"
 
           echo "🐳 Building Docker image with layer caching..."
+          echo "📦 Repository: $REPOSITORY"
 
           # Use the CI/CD .dockerignore
           mv .dockerignore.cicd .dockerignore
@@ -553,7 +557,9 @@ jobs:
       - name: Deploy to Cloud Run (optimized)
         run: |
           SERVICE_NAME="skillforge-frontend-${{ matrix.app }}-${{ needs.detect-changes.outputs.environment }}"
+          SERVICE_ACCOUNT="sa-${{ matrix.app }}-frontend-${{ needs.detect-changes.outputs.environment }}@$PROJECT_ID.iam.gserviceaccount.com"
           echo "🚀 Deploying ${{ matrix.app }} to Cloud Run..."
+          echo "📋 Service Account: $SERVICE_ACCOUNT"
 
           # Check if service exists
           if gcloud run services describe $SERVICE_NAME --region=$REGION --platform=managed &>/dev/null; then
@@ -572,6 +578,7 @@ jobs:
             --image=${{ env.IMAGE_TAG }} \
             --platform=managed \
             --region=$REGION \
+            --service-account=$SERVICE_ACCOUNT \
             --allow-unauthenticated \
             --port=${{ matrix.port }} \
             --memory=${{ matrix.memory }} \

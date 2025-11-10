@@ -15,6 +15,10 @@ on:
         description: 'Application name'
         required: true
         type: string
+      slack_webhook_url:
+        description: 'Slack webhook URL for notifications'
+        required: false
+        type: string
     secrets:
       SLACK_WEBHOOK_URL:
         required: false
@@ -197,8 +201,8 @@ jobs:
           echo "| Navigation | ${{ steps.navigation_test.outcome == 'success' && '✅ Passed' || '⚠️ Warning' }} |" >> $GITHUB_STEP_SUMMARY
 
       - name: Notify Slack on Failure
-        if: failure() && secrets.SLACK_WEBHOOK_URL != ''
+        if: failure() && inputs.slack_webhook_url != ''
         run: |
-          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+          curl -X POST ${{ inputs.slack_webhook_url }} \
             -H 'Content-Type: application/json' \
             -d "{\"text\":\"❌ Smoke tests failed for ${{ inputs.app_name }} in ${{ inputs.environment }}\\nService URL: ${{ inputs.service_url }}\\nWorkflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"

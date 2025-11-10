@@ -119,7 +119,7 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: europe-west1
   REGISTRY: europe-west1-docker.pkg.dev
-  REPOSITORY: skillforge-docker-repo-staging
+  # Note: REPOSITORY will be set dynamically per environment in each job
 
   # Common Configuration
   NODE_VERSION: '20'
@@ -496,11 +496,15 @@ jobs:
       - name: Build and push Docker image
         id: build
         run: |
-          IMAGE_URI="${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ needs.config.outputs.image_name }}:${{ github.sha }}"
-          LATEST_URI="${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ needs.config.outputs.image_name }}:latest"
-          ENV_URI="${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ needs.config.outputs.image_name }}:${{ inputs.environment }}"
+          # Set repository dynamically based on environment
+          REPOSITORY="skillforge-docker-repo-${{ inputs.environment }}"
+
+          IMAGE_URI="${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/$REPOSITORY/${{ needs.config.outputs.image_name }}:${{ github.sha }}"
+          LATEST_URI="${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/$REPOSITORY/${{ needs.config.outputs.image_name }}:latest"
+          ENV_URI="${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/$REPOSITORY/${{ needs.config.outputs.image_name }}:${{ inputs.environment }}"
 
           echo "🐳 Building Docker image for ${{ inputs.service }}..."
+          echo "📦 Repository: $REPOSITORY"
           docker build \
             --no-cache \
             --pull \

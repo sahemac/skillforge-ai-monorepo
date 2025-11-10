@@ -38,7 +38,7 @@ env:
   REGISTRY: europe-west1-docker.pkg.dev
   PROJECT_ID: skillforge-ai-mvp-25
   REGION: europe-west1
-  REPOSITORY: skillforge-docker-repo-staging
+  # Note: REPOSITORY will be set dynamically per environment in each job
   PYTHON_VERSION: '3.11'
 
 permissions:
@@ -489,15 +489,24 @@ jobs:
 
       - name: Deploy to Cloud Run with intelligent rollout
         run: |
+          # Set repository dynamically based on environment
+          REPOSITORY="skillforge-docker-repo-${{ needs.setup.outputs.environment }}"
+
           SERVICE_NAME="skillforge-${{ matrix.service }}-${{ needs.setup.outputs.environment }}"
+          SERVICE_ACCOUNT="sa-${{ matrix.service }}-${{ needs.setup.outputs.environment }}@$PROJECT_ID.iam.gserviceaccount.com"
           IMAGE_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-${{ matrix.service }}:${{ github.sha }}"
           IS_PRODUCTION="${{ needs.setup.outputs.environment == 'production' }}"
+
+          echo "🚀 Deploying ${{ matrix.service }} to Cloud Run..."
+          echo "📦 Repository: $REPOSITORY"
+          echo "📋 Service Account: $SERVICE_ACCOUNT"
 
           # Deploy new revision without traffic
           gcloud run deploy $SERVICE_NAME \
             --image=$IMAGE_TAG \
             --platform=managed \
             --region=$REGION \
+            --service-account=$SERVICE_ACCOUNT \
             --allow-unauthenticated \
             --port=8000 \
             --memory=1Gi \

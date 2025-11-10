@@ -127,10 +127,21 @@ jobs:
           echo "🚀 Deploying new revision with 0% traffic..."
 
           SERVICE_NAME="${{ needs.prepare-canary.outputs.service_name }}"
+          SERVICE_TYPE="${{ needs.prepare-canary.outputs.service_type }}"
+
+          # Determine service account based on service type
+          if [[ "$SERVICE_TYPE" == "frontend" ]]; then
+            SERVICE_ACCOUNT="sa-${{ inputs.service }}-frontend-production@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
+          else
+            SERVICE_ACCOUNT="sa-${{ inputs.service }}-production@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
+          fi
+
+          echo "📋 Service Account: $SERVICE_ACCOUNT"
 
           # Deploy with no-traffic flag
           gcloud run deploy $SERVICE_NAME \
             --region=${{ env.GCP_REGION }} \
+            --service-account=$SERVICE_ACCOUNT \
             --no-traffic \
             --tag=canary
 
