@@ -29,7 +29,7 @@ export const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
             {/* Logo */}
             <Link to="/" className="flex items-center space-x-3">
               <img
-                src="/src/assets/logos/logo_skillforge_AI.png"
+                src="/logos/logo_skillforge_AI.png"
                 alt="SkillForge AI"
                 className="h-10 w-auto"
               />
@@ -138,7 +138,7 @@ export const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
             {/* Brand */}
             <div className="col-span-1 md:col-span-2">
               <img
-                src="/src/assets/logos/logo_skillforge_AI.png"
+                src="/logos/logo_skillforge_AI.png"
                 alt="SkillForge AI"
                 className="h-10 w-auto mb-4 brightness-0 invert"
               />

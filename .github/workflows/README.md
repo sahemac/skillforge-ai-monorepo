@@ -1,360 +1,132 @@
-# SkillForge AI - GitHub Actions Workflows
+# Documentation des Workflows CI/CD SkillForge AI
 
-Ce répertoire contient tous les workflows GitHub Actions pour automatiser le déploiement, la sécurité et la gestion de SkillForge AI.
+Ce document décrit l'ensemble des workflows GitHub Actions utilisés pour le CI/CD de SkillForge AI.
 
-## 📋 Vue d'ensemble des Workflows
+## Vue d'ensemble
 
-### 1. 🚀 Frontend Deployment (`frontend-deploy.yml`)
-**Déploie automatiquement les 5 applications frontend avec une stratégie matrix**
+Notre infrastructure CI/CD est organisée en workflows optimisés qui se déclenchent automatiquement sur les branches appropriées:
+- **develop**: Environnement de développement
+- **feature/monolith-migration**: Environnement de staging
+- **main**: Environnement de production
 
-**Déclencheurs :**
-- Push sur `main` ou `develop` avec modifications dans `apps/frontend/**`
-- Pull Request sur `main` ou `develop`
-- Déclenchement manuel avec options personnalisées
+## Index des Workflows
 
-**Fonctionnalités clés :**
-- ✅ Détection intelligente des changements
-- ✅ Matrix strategy pour 5 apps (shell, auth, admin, company, learner)
-- ✅ Build & test (lint, type-check, tests unitaires)
-- ✅ Docker build & push vers `gcr.io/skillforge-ai-mvp-25`
-- ✅ Déploiement Cloud Run avec health checks
-- ✅ Rollout graduel en production (10% → 50% → 100%)
-- ✅ Rollback automatique en cas d'échec
-- ✅ Notifications Slack
+### Workflows Principaux
 
-**Services déployés :**
-- `skillforge-frontend-shell-{environment}`
-- `skillforge-frontend-auth-{environment}`
-- `skillforge-frontend-admin-{environment}`
-- `skillforge-frontend-company-{environment}`
-- `skillforge-frontend-learner-{environment}`
+1. **Backend Services Deployment** (`backend-deploy-optimized.yml`)
+   - Déploiement automatisé des services backend
+   - Tests, build Docker, déploiement Cloud Run
+   - [Documentation détaillée](./docs/BACKEND_DEPLOYMENT.md)
 
-### 2. 🔧 Backend Deployment (`backend-deploy.yml`)
-**Déploie les services backend avec tests et migrations**
+2. **Frontend Applications Deployment** (`frontend-deploy.yml`)
+   - Déploiement des applications frontend
+   - Build Vite, création d'images Docker, déploiement Cloud Run
+   - [Documentation détaillée](./docs/FRONTEND_DEPLOYMENT.md)
 
-**Déclencheurs :**
-- Push sur `main` ou `develop` avec modifications dans `apps/backend/**`
-- Pull Request sur `main` ou `develop`
-- Déclenchement manuel avec options
+3. **Security Validation & Compliance** (`security-validation-optimized.yml`)
+   - Validation de sécurité OWASP
+   - Scan de vulnérabilités
+   - [Documentation détaillée](./docs/SECURITY_VALIDATION.md)
 
-**Fonctionnalités clés :**
-- ✅ Tests unitaires avec PostgreSQL et Redis
-- ✅ Migrations de base de données automatisées
-- ✅ Scans de sécurité (Bandit, Safety, Semgrep)
-- ✅ Docker build optimisé multi-stage
-- ✅ Déploiement Cloud Run sécurisé
-- ✅ Health checks et tests de connectivité
-- ✅ Rollout graduel en production
+### Workflows Spécialisés
 
-**Services déployés :**
-- `skillforge-user-service-{environment}`
-- `skillforge-company-service-{environment}`
-
-### 3. 🏗️ Infrastructure Deployment (`infrastructure-deploy.yml`)
-**Gère l'infrastructure avec Terraform**
-
-**Déclencheurs :**
-- Push sur `main` ou `develop` avec modifications dans `infrastructure/**`
-- Pull Request (plan seulement)
-- Déclenchement manuel avec actions personnalisées
-
-**Fonctionnalités clés :**
-- ✅ Validation Terraform (fmt, validate)
-- ✅ Scans de sécurité (tfsec, Checkov, Terrascan)
-- ✅ Plan automatique et apply conditionnel
-- ✅ Gestion des états Terraform sécurisée
-- ✅ Tests post-déploiement
-- ✅ Documentation automatique
-
-**Actions supportées :**
-- `plan` : Génère un plan Terraform
-- `apply` : Applique les changements
-- `destroy` : Détruit l'infrastructure (manuel uniquement)
-
-### 4. 🔐 Environment Setup (`environment-setup.yml`)
-**Gère les configurations et secrets d'environnement**
-
-**Déclencheurs :**
-- Déclenchement manuel
-- Validation quotidienne automatique (2h UTC)
-
-**Fonctionnalités clés :**
-- ✅ Validation des secrets requis
-- ✅ Test de connectivité (DB, Redis)
-- ✅ Rotation automatique des secrets
-- ✅ Audit de sécurité IAM
-- ✅ Mise à jour des variables d'environnement
-- ✅ Nettoyage des anciennes versions
-
-**Actions supportées :**
-- `validate` : Vérifie la configuration
-- `update` : Met à jour les variables
-- `rotate-secrets` : Fait tourner les secrets
-
-### 5. 🛡️ Security Validation (`security-validation.yml`)
-**Effectue des scans de sécurité complets**
-
-**Déclencheurs :**
-- Push sur toutes les branches
-- Pull Request
-- Scan quotidien automatique (3h UTC)
-- Déclenchement manuel avec options
-
-**Scans inclus :**
-- ✅ **Dépendances** : npm audit, Safety, Bandit
-- ✅ **Code** : CodeQL, Trivy, ESLint Security
-- ✅ **Conteneurs** : Trivy, Docker Scout
-- ✅ **Infrastructure** : tfsec, Checkov, Terrascan
-- ✅ **Secrets** : TruffleHog, GitLeaks, detect-secrets
-- ✅ **Conformité** : GDPR, headers de sécurité
-
-## 🔧 Configuration Requise
-
-### Secrets GitHub (Repository/Environment)
-
-#### Authentification Google Cloud
-```
-WIF_PROVIDER=projects/123456789/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-WIF_SERVICE_ACCOUNT=github-actions@skillforge-ai-mvp-25.iam.gserviceaccount.com
-```
-
-#### Base de données et Cache
-```
-DATABASE_URL=postgresql://user:password@host:port/dbname
-REDIS_URL=redis://host:port
-```
-
-#### Application
-```
-SECRET_KEY=your-secret-key-here
-JWT_SECRET_KEY=your-jwt-secret-here
-```
-
-#### Infrastructure
-```
-TF_STATE_BUCKET=skillforge-terraform-state
-```
-
-#### Notifications
-```
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
-```
-
-### Variables d'Environnement GitHub
-
-#### Staging
-```
-VITE_API_URL=https://api-staging.skillforge-ai.com
-VITE_AUTH_DOMAIN=auth-staging.skillforge-ai.com
-VITE_ENVIRONMENT=staging
-```
-
-#### Production
-```
-VITE_API_URL=https://api.skillforge-ai.com
-VITE_AUTH_DOMAIN=auth.skillforge-ai.com
-VITE_ENVIRONMENT=production
-```
-
-## 🚀 Utilisation
-
-### Déploiement Frontend
-```bash
-# Déployer automatiquement lors d'un push
-git push origin develop  # → déploie en staging
-git push origin main     # → déploie en production
-
-# Déploiement manuel
-# Aller dans Actions → Frontend Applications Deployment → Run workflow
-# Choisir l'environnement et les apps à déployer
-```
-
-### Déploiement Backend
-```bash
-# Déploiement automatique avec migrations
-git push origin develop  # → staging avec migrations
-git push origin main     # → production avec rollout graduel
-
-# Déploiement manuel sans migrations
-# Actions → Backend Services Deployment → Run workflow
-# Cocher "run_migrations: false"
-```
-
-### Gestion Infrastructure
-```bash
-# Plan automatique sur PR
-git checkout -b feature/new-infrastructure
-# Modifier infrastructure/
-git push origin feature/new-infrastructure
-# → Crée une PR avec plan Terraform
-
-# Apply manuel
-# Actions → Infrastructure Deployment → Run workflow
-# Action: "apply", Auto approve: true
-```
-
-### Rotation des Secrets
-```bash
-# Actions → Environment Configuration → Run workflow
-# Environment: production
-# Action: rotate-secrets
-```
-
-### Scans de Sécurité
-```bash
-# Scan complet manuel
-# Actions → Security Validation → Run workflow
-# Scan type: "full"
-
-# Scan ciblé
-# Actions → Security Validation → Run workflow
-# Scan type: "dependencies-only"
-```
-
-## 📊 Monitoring et Alertes
-
-### Notifications Slack
-Toutes les workflows envoient des notifications Slack avec :
-- ✅ Statut du déploiement
-- 🔗 Liens vers les services déployés
-- 📊 Métriques de performance
-- 🚨 Alertes en cas d'échec
-
-### Artifacts et Rapports
-Chaque workflow génère des artifacts :
-- **Rapports de sécurité** (JSON, SARIF)
-- **Plans Terraform**
-- **Logs de déploiement**
-- **Rapports de conformité**
-
-### Health Checks
-Les déploiements incluent des health checks automatiques :
-- ✅ Endpoints `/health`
-- ✅ Connectivité base de données
-- ✅ Performance response time
-- ✅ Tests d'intégration API
-
-## 🔐 Sécurité et Bonnes Pratiques
-
-### Workload Identity Federation
-- ❌ **Pas de clés JSON** stockées comme secrets
-- ✅ **WIF** pour l'authentification Google Cloud
-- ✅ **Permissions minimales** pour chaque service account
-
-### Secrets Management
-- ✅ **Google Secret Manager** pour les secrets sensibles
-- ✅ **Rotation automatique** des secrets
-- ✅ **Audit trail** complet
-- ✅ **Versions multiples** avec cleanup
-
-### Container Security
-- ✅ **Images multi-stage** optimisées
-- ✅ **Utilisateurs non-root**
-- ✅ **Scans de vulnérabilités** automatiques
-- ✅ **Signatures d'images** (production)
-
-### Network Security
-- ✅ **Private Google Access**
-- ✅ **IAP** pour les services internes
-- ✅ **Headers de sécurité** configurés
-- ✅ **HTTPS** obligatoire
-
-## 🐛 Troubleshooting
-
-### Échecs de Déploiement
-
-1. **Health Check Failed**
-   ```bash
-   # Vérifier les logs Cloud Run
-   gcloud run services logs read SERVICE_NAME --region=europe-west1
+4. **Deploy Auth Service** (`deploy-auth-service.yml`)
+   - Déploiement spécifique du service d'authentification
    
-   # Vérifier la configuration
-   gcloud run services describe SERVICE_NAME --region=europe-west1
-   ```
+5. **Deploy Project Service** (`deploy-project-service.yml`)
+   - Déploiement spécifique du service de projets
 
-2. **Database Connection Issues**
-   ```bash
-   # Vérifier Cloud SQL Proxy
-   gcloud sql instances describe skillforge-pg-instance-staging
-   
-   # Tester la connectivité
-   gcloud sql connect skillforge-pg-instance-staging --user=postgres
-   ```
+6. **Infrastructure Deployment** (`infrastructure-deploy.yml`)
+   - Déploiement de l'infrastructure Terraform
 
-3. **Secrets Access Issues**
-   ```bash
-   # Vérifier les permissions Secret Manager
-   gcloud secrets get-iam-policy SECRET_NAME
-   
-   # Lister les versions de secrets
-   gcloud secrets versions list SECRET_NAME
-   ```
+7. **Alembic Migration** (`run-alembic-migration.yml`)
+   - Exécution des migrations de base de données
 
-### Échecs de Sécurité
+8. **Python Tests** (`run-python-tests.yml`)
+   - Tests unitaires et d'intégration Python
 
-1. **Vulnérabilités Détectées**
-   - Consulter les rapports dans les artifacts
-   - Mettre à jour les dépendances
-   - Appliquer les patches de sécurité
+## Workflows Disponibles
 
-2. **Secrets Détectés**
-   - Révoquer immédiatement les secrets exposés
-   - Nettoyer l'historique Git si nécessaire
-   - Mettre à jour `.secrets.baseline`
+| Workflow | Fichier | Déclenchement | Environnement |
+|----------|---------|---------------|---------------|
+| Backend Deployment | `backend-deploy-optimized.yml` | Push sur feature/monolith-migration | Staging |
+| Frontend Deployment | `frontend-deploy.yml` | Push sur feature/monolith-migration | Staging |
+| Security Validation | `security-validation-optimized.yml` | Push sur feature/monolith-migration | Tous |
+| Auth Service | `deploy-auth-service.yml` | Manuel ou push sur apps/backend/auth-service/** | Staging |
+| Project Service | `deploy-project-service.yml` | Manuel ou push sur apps/backend/project-service/** | Staging |
+| Infrastructure | `infrastructure-deploy.yml` | Manuel | Staging/Production |
+| Alembic Migration | `run-alembic-migration.yml` | Manuel | Staging/Production |
+| Python Tests | `run-python-tests.yml` | Pull Request | Tous |
 
-3. **Policy Violations**
-   - Réviser les configurations Terraform
-   - Appliquer les recommandations tfsec/Checkov
-   - Mettre à jour les policies d'entreprise
+## Conventions
 
-## 📈 Performance et Optimisation
+### Secrets GitHub
+Tous les workflows utilisent les secrets suivants:
+- `GCP_PROJECT_ID`: ID du projet GCP
+- `GCP_WORKLOAD_IDENTITY_PROVIDER`: Provider d'identité Workload Identity
+- `GCP_SERVICE_ACCOUNT_EMAIL`: Email du service account
+- `SLACK_WEBHOOK_URL` (optionnel): Webhook pour notifications Slack
 
-### Cache Strategy
-- ✅ **npm cache** pour les dépendances Node.js
-- ✅ **pip cache** pour les dépendances Python
-- ✅ **Docker layer cache** pour les builds
-- ✅ **Terraform cache** pour les plans
+### Labels et Environnements
+Tous les services déployés utilisent les labels suivants:
+- `app`: Nom de l'application
+- `component`: Nom du composant  
+- `environment`: staging/production
+- `version`: Hash du commit Git
 
-### Parallel Execution
-- ✅ **Matrix strategy** pour les déploiements multiples
-- ✅ **Jobs parallèles** pour les scans de sécurité
-- ✅ **Artifact sharing** optimisé
+### Stratégie de déploiement
+- **Feature branches**: Déploiement en staging uniquement
+- **Develop branch**: Déploiement en développement
+- **Main branch**: Déploiement en production (nécessite validation manuelle)
 
-### Resource Optimization
-- ✅ **Auto-scaling** Cloud Run (0 → max instances)
-- ✅ **Resource limits** appropriés par environnement
-- ✅ **Cleanup** automatique des anciennes versions
+## Monitoring et Logs
 
-## 🔄 Maintenance
+Tous les workflows envoient des logs structurés vers:
+- Google Cloud Logging
+- GitHub Actions logs
+- Slack (notifications d'erreur)
 
-### Tâches Quotidiennes Automatisées
-- 🔐 Validation des secrets (2h UTC)
-- 🛡️ Scans de sécurité (3h UTC)
-- 🧹 Cleanup des artifacts anciens
+## Structure des Fichiers
 
-### Tâches Mensuelles Recommandées
-- 🔄 Rotation des secrets de production
-- 📊 Révision des rapports de sécurité
-- 🗂️ Cleanup des anciennes révisions Cloud Run
-- 📖 Mise à jour de la documentation
+```
+.github/workflows/
+├── README.md                           # Ce fichier
+├── docs/                              # Documentation détaillée
+│   ├── BACKEND_DEPLOYMENT.md          # Guide backend
+│   ├── FRONTEND_DEPLOYMENT.md         # Guide frontend
+│   ├── SECURITY_VALIDATION.md         # Guide sécurité
+│   └── TROUBLESHOOTING.md             # Dépannage
+├── backend-deploy-optimized.yml        # Workflow backend principal
+├── frontend-deploy.yml                 # Workflow frontend principal
+├── security-validation-optimized.yml   # Workflow sécurité
+├── deploy-auth-service.yml            # Service auth
+├── deploy-project-service.yml         # Service projets
+├── infrastructure-deploy.yml          # Infrastructure Terraform
+├── run-alembic-migration.yml          # Migrations DB
+└── run-python-tests.yml               # Tests Python
+```
 
-### Tâches Trimestrielles
-- 🔍 Audit complet de sécurité
-- 📋 Révision des permissions IAM
-- 🏗️ Optimisation des coûts infrastructure
-- 🚀 Mise à jour des versions des outils
+## Documentation Détaillée
 
-## 🆘 Support et Contact
+Consultez les guides détaillés dans le dossier [docs/](./docs/):
 
-Pour toute question ou problème :
+- **[Backend Deployment](./docs/BACKEND_DEPLOYMENT.md)**: Configuration et déploiement des services backend
+- **[Frontend Deployment](./docs/FRONTEND_DEPLOYMENT.md)**: Configuration et déploiement des applications frontend
+- **[Security Validation](./docs/SECURITY_VALIDATION.md)**: Tests de sécurité et compliance
+- **[Troubleshooting](./docs/TROUBLESHOOTING.md)**: Résolution des problèmes courants
 
-1. **Vérifier les logs** dans GitHub Actions
-2. **Consulter les artifacts** générés
-3. **Checker les notifications** Slack
-4. **Créer une issue** avec les détails du problème
+## Contribution
 
----
+Pour ajouter ou modifier un workflow:
+1. Créer le fichier YAML dans `.github/workflows/`
+2. Documenter dans le dossier `docs/`
+3. Mettre à jour ce README
+4. Tester sur une feature branch
+5. Créer une Pull Request
 
-**Créé par :** SkillForge AI DevOps Team  
-**Dernière mise à jour :** $(date)  
-**Version :** 1.0.0
+## Support
+
+Pour toute question sur les workflows:
+- Consultez la documentation détaillée dans `docs/`
+- Vérifiez les logs GitHub Actions
+- Consultez les logs Google Cloud Logging
