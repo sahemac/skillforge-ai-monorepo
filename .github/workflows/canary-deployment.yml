@@ -384,17 +384,18 @@ jobs:
           fi
 
       - name: Notify Slack
-        if: always() && secrets.SLACK_WEBHOOK_URL != ''
+        if: always()
         run: |
-          if [[ "${{ needs.canary-100-percent.result }}" == "success" ]]; then
-            STATUS_EMOJI="✅"
-            STATUS_TEXT="Canary deployment successful"
-          else
-            STATUS_EMOJI="❌"
-            STATUS_TEXT="Canary deployment failed"
-          fi
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            if [[ "${{ needs.canary-100-percent.result }}" == "success" ]]; then
+              STATUS_EMOJI="✅"
+              STATUS_TEXT="Canary deployment successful"
+            else
+              STATUS_EMOJI="❌"
+              STATUS_TEXT="Canary deployment failed"
+            fi
 
-          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+            curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
             -H 'Content-Type: application/json' \
             -d "{
               \"text\": \"${STATUS_EMOJI} ${STATUS_TEXT}\",
@@ -427,3 +428,4 @@ jobs:
                 }
               ]
             }"
+          fi

@@ -326,9 +326,10 @@ jobs:
           fi
 
       - name: Notify Slack on Failure
-        if: failure() && secrets.SLACK_WEBHOOK_URL != ''
+        if: failure()
         run: |
-          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
             -H 'Content-Type: application/json' \
             -d "{
               \"text\": \"❌ E2E tests failed in staging\",
@@ -359,11 +360,13 @@ jobs:
                 }
               ]
             }"
+          fi
 
       - name: Notify Slack on Success
-        if: success() && secrets.SLACK_WEBHOOK_URL != ''
+        if: success()
         run: |
-          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
             -H 'Content-Type: application/json' \
             -d "{
               \"text\": \"✅ E2E tests passed in staging\",
@@ -391,3 +394,4 @@ jobs:
                 }
               ]
             }"
+          fi

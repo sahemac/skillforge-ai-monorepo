@@ -233,9 +233,10 @@ jobs:
           fi
 
       - name: Notify on Slack (Failure)
-        if: failure() && secrets.SLACK_WEBHOOK_URL != ''
+        if: failure()
         run: |
-          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
             -H 'Content-Type: application/json' \
             -d "{
               \"text\": \"❌ Staging deployment failed\",
@@ -275,11 +276,13 @@ jobs:
                 }
               ]
             }"
+          fi
 
       - name: Notify on Slack (Success)
-        if: success() && secrets.SLACK_WEBHOOK_URL != ''
+        if: success()
         run: |
-          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
             -H 'Content-Type: application/json' \
             -d "{
               \"text\": \"✅ Staging deployment successful\",
@@ -319,3 +322,4 @@ jobs:
                 }
               ]
             }"
+          fi
