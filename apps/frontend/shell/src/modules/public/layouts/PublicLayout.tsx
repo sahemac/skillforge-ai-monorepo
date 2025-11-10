@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Button } from '../../../packages/ui-kit/src/components/primitives/Button';
+import { Button } from '@skillforge-ai/ui-kit';
 
 interface PublicLayoutProps {
   children: React.ReactNode;

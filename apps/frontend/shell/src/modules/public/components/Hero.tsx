@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '../../../packages/ui-kit/src/components/primitives/Button';
+import { Button } from '@skillforge-ai/ui-kit';
 
 export const Hero: React.FC = () => {
   return (

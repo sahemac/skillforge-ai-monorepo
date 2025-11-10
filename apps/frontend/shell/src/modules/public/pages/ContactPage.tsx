@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PublicLayout } from '../layouts/PublicLayout';
-import { Button } from '../../../packages/ui-kit/src/components/primitives/Button';
+import { Button } from '@skillforge-ai/ui-kit';
 
 export const ContactPage: React.FC = () => {
   const [formData, setFormData] = useState({
