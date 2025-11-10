@@ -225,6 +225,12 @@ jobs:
       max-parallel: 3  # Limit parallel jobs to avoid resource constraints
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
 
+    env:
+      REGION: europe-west1
+      PROJECT_ID: skillforge-ai-mvp-25
+      REPOSITORY: skillforge-docker-repo-${{ needs.detect-changes.outputs.environment }}
+      REGISTRY: europe-west1-docker.pkg.dev
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
