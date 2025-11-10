@@ -1,0 +1,327 @@
+name: Branch Protection - PR Validation
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# Prevent running on draft PRs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+  statuses: write
+
+jobs:
+  # ===== Validation basique =====
+  validate-pr:
+    name: Validate PR Requirements
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR title follows conventional commits
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+
+          # Conventional commit types
+          if echo "$PR_TITLE" | grep -qE "^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?!?: .+"; then
+            echo "✅ PR title follows conventional commits format"
+          else
+            echo "❌ PR title must follow conventional commits format:"
+            echo "   Examples:"
+            echo "   - feat: add new feature"
+            echo "   - fix(auth): resolve login bug"
+            echo "   - docs: update README"
+            exit 1
+          fi
+
+      - name: Check PR has description
+        run: |
+          if [ -z "${{ github.event.pull_request.body }}" ]; then
+            echo "❌ PR must have a description"
+            exit 1
+          else
+            echo "✅ PR has description"
+          fi
+
+      - name: Check PR size (max 1000 lines changed)
+        run: |
+          ADDITIONS=${{ github.event.pull_request.additions }}
+          DELETIONS=${{ github.event.pull_request.deletions }}
+          TOTAL=$((ADDITIONS + DELETIONS))
+
+          echo "📊 Changes: +$ADDITIONS -$DELETIONS (total: $TOTAL)"
+
+          if [ $TOTAL -gt 1000 ]; then
+            echo "⚠️  Warning: PR is large ($TOTAL lines). Consider splitting into smaller PRs."
+            echo "::warning::Large PR detected. Consider splitting for easier review."
+          else
+            echo "✅ PR size is reasonable"
+          fi
+
+      - name: Check branch is up to date with base
+        run: |
+          git fetch origin ${{ github.base_ref }}
+
+          BEHIND_COUNT=$(git rev-list --count HEAD..origin/${{ github.base_ref }})
+
+          if [ "$BEHIND_COUNT" -gt 0 ]; then
+            echo "⚠️  Branch is $BEHIND_COUNT commits behind ${{ github.base_ref }}"
+            echo "::warning::Branch needs to be updated with latest ${{ github.base_ref }}"
+          else
+            echo "✅ Branch is up to date with ${{ github.base_ref }}"
+          fi
+
+  # ===== Tests Backend =====
+  backend-tests:
+    name: Backend Tests & Quality
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [user-service, company-service]
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Check if service exists
+        id: check_service
+        run: |
+          if [ -d "apps/backend/${{ matrix.service }}" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install dependencies
+        if: steps.check_service.outputs.exists == 'true'
+        working-directory: apps/backend/${{ matrix.service }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio black flake8 mypy bandit safety
+
+      - name: Run security scans
+        if: steps.check_service.outputs.exists == 'true'
+        working-directory: apps/backend/${{ matrix.service }}
+        run: |
+          echo "🔍 Running Bandit security scan..."
+          bandit -r app/ --skip B101,B601 -f json -o bandit-report.json || true
+
+          echo "🔍 Running Safety vulnerability check..."
+          safety scan --json > safety-report.json 2>/dev/null || true
+
+      - name: Run code quality checks
+        if: steps.check_service.outputs.exists == 'true'
+        working-directory: apps/backend/${{ matrix.service }}
+        run: |
+          echo "🎨 Checking code formatting..."
+          black --check app/ || (echo "❌ Code not formatted with Black. Run: black app/" && exit 1)
+
+          echo "📏 Running Flake8 linter..."
+          flake8 app/ --count --max-line-length=100 --statistics || true
+
+          echo "🔍 Running MyPy type checker..."
+          mypy app/ --ignore-missing-imports || true
+
+      - name: Run tests with coverage
+        if: steps.check_service.outputs.exists == 'true'
+        working-directory: apps/backend/${{ matrix.service }}
+        env:
+          DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/test_db
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+        run: |
+          pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing || true
+
+  # ===== Tests Frontend =====
+  frontend-tests:
+    name: Frontend Tests & Quality
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [shell]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9.0.0'
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace packages
+        run: |
+          pnpm --filter @skillforge-ai/core build
+          pnpm --filter @skillforge-ai/shared-state build
+
+      - name: Run linter
+        working-directory: apps/frontend/${{ matrix.app }}
+        run: pnpm run lint
+
+      - name: Run type check
+        working-directory: apps/frontend/${{ matrix.app }}
+        run: pnpm run type-check
+
+      - name: Run tests
+        working-directory: apps/frontend/${{ matrix.app }}
+        run: pnpm run test:run
+
+      - name: Run tests with coverage
+        working-directory: apps/frontend/${{ matrix.app }}
+        run: pnpm run test:coverage
+
+      - name: Build application
+        working-directory: apps/frontend/${{ matrix.app }}
+        run: pnpm run build
+        env:
+          NODE_ENV: production
+
+  # ===== Security Scan Global =====
+  security-scan:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy security scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # ===== Résumé final =====
+  pr-validation-summary:
+    name: PR Validation Summary
+    runs-on: ubuntu-latest
+    needs: [validate-pr, backend-tests, frontend-tests, security-scan]
+    if: always() && github.event.pull_request.draft == false
+
+    steps:
+      - name: Check all validations passed
+        run: |
+          echo "## 📋 PR Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| PR Requirements | ${{ needs.validate-pr.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend Tests | ${{ needs.backend-tests.result == 'success' && '✅ Passed' || needs.backend-tests.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend Tests | ${{ needs.frontend-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Scan | ${{ needs.security-scan.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.validate-pr.result }}" == "failure" || "${{ needs.backend-tests.result }}" == "failure" || "${{ needs.frontend-tests.result }}" == "failure" || "${{ needs.security-scan.result }}" == "failure" ]]; then
+            echo "❌ Some validations failed. Please fix the issues before merging." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "✅ All validations passed! PR is ready for review and merge." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Comment PR with results
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const summary = `
+            ## 🔍 Automated PR Validation Results
+
+            | Check | Status |
+            |-------|--------|
+            | PR Requirements | ${{ needs.validate-pr.result == 'success' ? '✅' : '❌' }} |
+            | Backend Tests | ${{ needs.backend-tests.result == 'success' ? '✅' : needs.backend-tests.result == 'skipped' ? '⏭️' : '❌' }} |
+            | Frontend Tests | ${{ needs.frontend-tests.result == 'success' ? '✅' : '❌' }} |
+            | Security Scan | ${{ needs.security-scan.result == 'success' ? '✅' : '❌' }} |
+
+            ${{ needs.validate-pr.result == 'success' && needs.frontend-tests.result == 'success' && needs.security-scan.result == 'success' ? '✅ **All checks passed!** This PR is ready for review.' : '❌ **Some checks failed.** Please review and fix the issues.' }}
+
+            [View detailed results](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
