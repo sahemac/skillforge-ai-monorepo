@@ -462,7 +462,7 @@ jobs:
 
           # Wait for proxy and run migration
           sleep 10
-          export DATABASE_URL="${{ secrets.DATABASE_URL }}"
+          export DATABASE_URL="${{ needs.setup.outputs.environment == 'production' && secrets.DATABASE_URL_PRODUCTION || secrets.DATABASE_URL_STAGING }}"
           alembic upgrade head
           echo "✅ Migration completed for ${{ matrix.service }}"
 
@@ -498,6 +498,8 @@ jobs:
             --image=$IMAGE_TAG \
             --platform=managed \
             --region=$REGION \
+            --service-account=sa-${{ matrix.service }}-${{ needs.setup.outputs.environment }}@skillforge-ai-mvp-25.iam.gserviceaccount.com \
+            --add-cloudsql-instances=$PROJECT_ID:$REGION:skillforge-pg-instance-${{ needs.setup.outputs.environment }} \
             --allow-unauthenticated \
             --port=8000 \
             --memory=1Gi \
@@ -505,9 +507,11 @@ jobs:
             --min-instances=0 \
             --max-instances=100 \
             --concurrency=80 \
-            --timeout=300 \
-            --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }},REDIS_URL=${{ secrets.REDIS_URL }},SECRET_KEY=${{ secrets.SECRET_KEY }},ENVIRONMENT=${{ needs.setup.outputs.environment }}" \
-            --set-secrets="JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}:latest" \
+            --timeout=600 \
+            --cpu-boost \
+            --startup-cpu-boost \
+            --set-env-vars="DATABASE_URL=${{ needs.setup.outputs.environment == 'production' && secrets.DATABASE_URL_PRODUCTION || secrets.DATABASE_URL_STAGING }},REDIS_URL=${{ secrets.REDIS_URL }},SECRET_KEY=${{ secrets.SECRET_KEY }},ENVIRONMENT=${{ needs.setup.outputs.environment }}" \
+            --set-secrets="POSTGRES_PASSWORD=${{ needs.setup.outputs.environment == 'production' && 'POSTGRES_PASSWORD_PRODUCTION' || 'POSTGRES_PASSWORD_STAGING' }}:latest,SMTP_PASSWORD=SMTP_PASSWORD:latest" \
             --labels="app=skillforge-backend,service=${{ matrix.service }},environment=${{ needs.setup.outputs.environment }}" \
             --tag="${{ needs.setup.outputs.environment }}" \
             --revision-suffix="${{ github.sha }}-${{ github.run_number }}" \
