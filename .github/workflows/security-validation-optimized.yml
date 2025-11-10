@@ -54,6 +54,12 @@ env:
   NODE_VERSION: '20'
   PNPM_VERSION: '9.0.0'
 
+permissions:
+  contents: read
+  security-events: write  # Required for uploading Trivy SARIF results and CodeQL
+  actions: read
+  id-token: write
+
 jobs:
   # ============================================================================
   # SETUP & CONFIGURATION JOB - Centralized setup to reduce duplication

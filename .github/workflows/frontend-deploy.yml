@@ -53,6 +53,7 @@ permissions:
   contents: read
   id-token: write
   pull-requests: write
+  security-events: write  # Required for uploading Trivy SARIF results
 
 jobs:
   detect-changes:

@@ -17,6 +17,7 @@ permissions:
   pull-requests: write
   checks: write
   statuses: write
+  security-events: write  # Required for uploading Trivy SARIF results
 
 jobs:
   # ===== Validation basique =====
