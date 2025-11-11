@@ -497,6 +497,109 @@ jobs:
           CMD ["/start.sh"]
           EOF
 
+      - name: Create CI/CD-specific .dockerignore
+        working-directory: apps/frontend/${{ matrix.app }}
+        run: |
+          echo "📝 Creating .dockerignore for CI/CD (keeping dist folder)..."
+          cat > .dockerignore.cicd << 'DOCKERIGNORE_EOF'
+          # Node.js
+          node_modules/
+          npm-debug.log*
+          yarn-debug.log*
+          yarn-error.log*
+          pnpm-debug.log*
+          lerna-debug.log*
+
+          # Note: dist/ is NOT excluded for CI/CD builds
+          # We need dist/ in the Docker context
+
+          # Cache directories
+          .cache/
+          .vite/
+          .turbo/
+          .parcel-cache/
+
+          # Development files
+          .env.local
+          .env.development.local
+          .env.test.local
+          .env.production.local
+
+          # IDE files
+          .vscode/
+          .idea/
+          *.swp
+          *.swo
+          *~
+
+          # OS files
+          .DS_Store
+          .DS_Store?
+          ._*
+          .Spotlight-V100
+          .Trashes
+          ehthumbs.db
+          Thumbs.db
+
+          # Git
+          .git/
+          .gitignore
+
+          # Testing
+          coverage/
+          .nyc_output/
+          junit.xml
+          test-results/
+          playwright-report/
+
+          # Temporary files
+          *.tmp
+          *.temp
+          .tmp/
+          .temp/
+
+          # Logs
+          logs/
+          *.log
+
+          # Documentation
+          README.md
+          CHANGELOG.md
+          docs/
+
+          # CI/CD
+          .github/
+          .gitlab-ci.yml
+          .travis.yml
+          .circleci/
+
+          # Package manager files
+          package-lock.json
+          yarn.lock
+          .yarnrc
+
+          # TypeScript
+          *.tsbuildinfo
+
+          # ESLint
+          .eslintcache
+
+          # Prettier
+          .prettierignore
+
+          # Storybook
+          .storybook/
+          storybook-static/
+
+          # Local development
+          .env
+          .env.example
+          DOCKERIGNORE_EOF
+
+          # Replace the default .dockerignore with CI/CD version
+          mv .dockerignore.cicd .dockerignore
+          echo "✅ CI/CD .dockerignore created (dist folder will be included)"
+
       - name: Build and push Docker image (with cache)
         working-directory: apps/frontend/${{ matrix.app }}
         run: |
