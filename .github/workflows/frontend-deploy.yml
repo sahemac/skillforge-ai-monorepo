@@ -498,6 +498,7 @@ jobs:
           EOF
 
       - name: Build and push Docker image (with cache)
+        working-directory: apps/frontend/${{ matrix.app }}
         run: |
           # Set repository dynamically based on environment
           REPOSITORY="skillforge-docker-repo-${{ needs.detect-changes.outputs.environment }}"
@@ -509,16 +510,14 @@ jobs:
 
           echo "🐳 Building Docker image with layer caching..."
           echo "📦 Repository: $REPOSITORY"
-          echo "📁 Using Dockerfile.production from apps/frontend/${{ matrix.app }}"
+          echo "📁 Using inline Dockerfile with pre-built dist folder"
 
-          # Build from monorepo root to have access to workspace structure
+          # Build using the inline Dockerfile created in previous step
           docker buildx build \
             --push \
             --platform linux/amd64 \
-            --file apps/frontend/${{ matrix.app }}/Dockerfile.production \
             --cache-from type=registry,ref=$CACHE_TAG \
             --cache-to type=registry,ref=$CACHE_TAG,mode=max \
-            --build-arg NODE_ENV=production \
             -t $IMAGE_TAG \
             -t $LATEST_TAG \
             -t $ENV_TAG \
