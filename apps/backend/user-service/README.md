@@ -306,3 +306,7 @@ Part of the SkillForge AI platform - All rights reserved.
 ## Support
 
 For support and questions, please contact the development team or create an issue in the project repository.
+
+---
+
+**Last Updated:** 2025-11-10 - Updated workflow configuration for production infrastructure
