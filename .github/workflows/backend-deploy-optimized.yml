@@ -38,7 +38,7 @@ env:
   REGISTRY: europe-west1-docker.pkg.dev
   PROJECT_ID: skillforge-ai-mvp-25
   REGION: europe-west1
-  REPOSITORY: skillforge-docker-repo-staging
+  # Note: REPOSITORY will be set dynamically per environment in each job
   PYTHON_VERSION: '3.11'
 
 permissions:
@@ -115,8 +115,8 @@ jobs:
           # Default to user-service if no services detected
           [[ ${#services[@]} -eq 0 ]] && services=("user-service")
 
-          # Build JSON matrix
-          matrix_json=$(printf '%s\n' "${services[@]}" | jq -R . | jq -s '{service: .}')
+          # Build JSON matrix - properly formatted for GitHub Actions
+          matrix_json=$(printf '%s\n' "${services[@]}" | jq -R . | jq -sc '{"service": .}')
           echo "matrix=$matrix_json" >> $GITHUB_OUTPUT
           echo "Services to process: ${services[*]}"
 
@@ -226,7 +226,7 @@ jobs:
 
           (
             echo "🔍 Running Safety check..."
-            safety check --json --output safety-report.json || true
+            safety scan --json > safety-report.json 2>/dev/null || true
           ) &
 
           (
@@ -489,9 +489,17 @@ jobs:
 
       - name: Deploy to Cloud Run with intelligent rollout
         run: |
+          # Set repository dynamically based on environment
+          REPOSITORY="skillforge-docker-repo-${{ needs.setup.outputs.environment }}"
+
           SERVICE_NAME="skillforge-${{ matrix.service }}-${{ needs.setup.outputs.environment }}"
+          SERVICE_ACCOUNT="sa-${{ matrix.service }}-${{ needs.setup.outputs.environment }}@$PROJECT_ID.iam.gserviceaccount.com"
           IMAGE_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-${{ matrix.service }}:${{ github.sha }}"
           IS_PRODUCTION="${{ needs.setup.outputs.environment == 'production' }}"
+
+          echo "🚀 Deploying ${{ matrix.service }} to Cloud Run..."
+          echo "📦 Repository: $REPOSITORY"
+          echo "📋 Service Account: $SERVICE_ACCOUNT"
 
           # Deploy new revision without traffic
           gcloud run deploy $SERVICE_NAME \

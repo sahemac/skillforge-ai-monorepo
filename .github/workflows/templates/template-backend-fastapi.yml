@@ -1,0 +1,163 @@
+# ============================================================================
+# TEMPLATE: Backend FastAPI Service Deployment
+# ============================================================================
+#
+# This template deploys a Python FastAPI backend service to Google Cloud Run.
+#
+# 📝 HOW TO USE:
+# 1. Copy this file to .github/workflows/deploy-{{SERVICE_NAME}}.yml
+# 2. Replace ALL {{PLACEHOLDERS}} with actual values:
+#    - {{SERVICE_NAME}}: e.g., notification-service, analytics-service
+#    - {{SERVICE_PATH}}: e.g., apps/backend/notification-service
+#    - {{SERVICE_PORT}}: e.g., 8003, 8004
+#    - {{SERVICE_DESCRIPTION}}: e.g., "Send email and push notifications"
+# 3. Adjust configuration flags: has_migration, has_tests, etc.
+# 4. Create service account in GCP (see templates/README.md)
+# 5. Test and commit!
+#
+# ============================================================================
+
+name: Deploy - {{SERVICE_DESCRIPTION}}
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - '{{SERVICE_PATH}}/**'
+      - '.github/workflows/deploy-{{SERVICE_NAME}}.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '{{SERVICE_PATH}}/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      skip_tests:
+        description: 'Skip tests'
+        required: false
+        type: boolean
+        default: false
+      skip_migration:
+        description: 'Skip database migration'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
+
+jobs:
+  deploy:
+    name: Deploy {{SERVICE_NAME}}
+    uses: ./.github/workflows/deploy-service.yml
+    with:
+      service: '{{SERVICE_NAME}}'
+      environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
+      skip_tests: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_tests || false }}
+      skip_migration: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_migration || false }}
+    secrets: inherit
+
+# ============================================================================
+# CONFIGURATION REFERENCE
+# ============================================================================
+#
+# The reusable workflow (deploy-service.yml) will automatically detect:
+# - Service type: backend (Python FastAPI)
+# - Service path: {{SERVICE_PATH}}
+# - Language: Python
+# - Framework: FastAPI
+# - Database: PostgreSQL (if has_migration=true)
+# - Testing: pytest (if has_tests=true)
+#
+# Service Configuration in deploy-service.yml (lines 158-259):
+# Add a new case block if this is a NEW service:
+#
+#   "{{SERVICE_NAME}}")
+#     SERVICE_CONFIG='{
+#       "type":"backend",
+#       "language":"python",
+#       "framework":"fastapi",
+#       "has_migration":true,     # Set to false if no database
+#       "has_tests":true          # Set to false if no tests yet
+#     }'
+#     echo "service_name=${{ inputs.environment }}-{{SERVICE_NAME}}" >> $GITHUB_OUTPUT
+#     echo "service_path={{SERVICE_PATH}}" >> $GITHUB_OUTPUT
+#     echo "cloud_run_service=${{ inputs.environment }}-{{SERVICE_NAME}}" >> $GITHUB_OUTPUT
+#     echo "dockerfile=Dockerfile" >> $GITHUB_OUTPUT
+#     echo "port={{SERVICE_PORT}}" >> $GITHUB_OUTPUT
+#     echo "health_check_path=/health" >> $GITHUB_OUTPUT
+#     ;;
+#
+# ============================================================================
+# REQUIRED SETUP (Before first deployment)
+# ============================================================================
+#
+# 1. Service Account:
+#    gcloud iam service-accounts create sa-{{SERVICE_NAME}}-staging \
+#      --project=skillforge-ai-mvp-25
+#
+# 2. IAM Permissions:
+#    for role in roles/cloudsql.client roles/logging.logWriter roles/monitoring.metricWriter; do
+#      gcloud projects add-iam-policy-binding skillforge-ai-mvp-25 \
+#        --member="serviceAccount:sa-{{SERVICE_NAME}}-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com" \
+#        --role="$role"
+#    done
+#
+# 3. Secret Access:
+#    for secret in DATABASE_URL SECRET_KEY SMTP_PASSWORD; do
+#      gcloud secrets add-iam-policy-binding $secret \
+#        --member="serviceAccount:sa-{{SERVICE_NAME}}-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com" \
+#        --role="roles/secretmanager.secretAccessor"
+#    done
+#
+# 4. Service-Specific Secrets (if needed):
+#    # Example: SENDGRID_API_KEY, STRIPE_SECRET_KEY, etc.
+#    gcloud secrets create {{SERVICE_NAME}}_API_KEY --data-file=key.txt
+#
+# ============================================================================
+# DEPLOYMENT CHECKLIST
+# ============================================================================
+#
+# Before merging this workflow:
+# [ ] All {{PLACEHOLDERS}} replaced
+# [ ] Service name matches directory: {{SERVICE_PATH}}
+# [ ] Service account created: sa-{{SERVICE_NAME}}-staging
+# [ ] IAM permissions granted (cloudsql, logging, monitoring)
+# [ ] Secret access configured (DATABASE_URL, SECRET_KEY, etc.)
+# [ ] Dockerfile exists: {{SERVICE_PATH}}/Dockerfile
+# [ ] requirements.txt exists: {{SERVICE_PATH}}/requirements.txt
+# [ ] Configuration added to deploy-service.yml (if new service)
+# [ ] Health check endpoint implemented: /health
+# [ ] Tests pass locally: cd {{SERVICE_PATH}} && pytest
+# [ ] Migration files created (if has_migration=true): alembic/versions/
+# [ ] Environment variables documented in .env.example
+#
+# ============================================================================
+# TESTING LOCALLY
+# ============================================================================
+#
+# Test the service before deploying:
+#
+#   cd {{SERVICE_PATH}}
+#   python -m venv venv
+#   source venv/bin/activate  # or venv\Scripts\activate on Windows
+#   pip install -r requirements.txt
+#   uvicorn app.main:app --host 0.0.0.0 --port {{SERVICE_PORT}} --reload
+#
+# Run tests:
+#   pytest -v
+#
+# Check database migrations:
+#   alembic current
+#   alembic upgrade head
+#
+# ============================================================================

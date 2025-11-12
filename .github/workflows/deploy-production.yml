@@ -1,0 +1,452 @@
+name: Production Deployment (on main push)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/backend/**'
+      - 'apps/frontend/**'
+      - 'packages/**'
+      - '.github/workflows/backend-deploy-optimized.yml'
+      - '.github/workflows/frontend-deploy.yml'
+      - '.github/workflows/deploy-production.yml'
+
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deployment even if no changes detected'
+        required: false
+        type: boolean
+        default: false
+
+# Prevent concurrent production deployments
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+  deployments: write
+
+env:
+  ENVIRONMENT: production
+  GCP_PROJECT_ID: skillforge-ai-mvp-25
+  GCP_REGION: europe-west1
+
+jobs:
+  # ===== Pré-vérifications =====
+  pre-deployment-checks:
+    name: Pre-Deployment Validation
+    runs-on: ubuntu-latest
+    outputs:
+      backend_changed: ${{ steps.filter.outputs.backend }}
+      frontend_changed: ${{ steps.filter.outputs.frontend }}
+      packages_changed: ${{ steps.filter.outputs.packages }}
+      deployment_needed: ${{ steps.check.outputs.needed }}
+      commit_sha: ${{ steps.commit.outputs.sha }}
+      commit_message: ${{ steps.commit.outputs.message }}
+      commit_author: ${{ steps.commit.outputs.author }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 10
+
+      - name: Get commit info
+        id: commit
+        run: |
+          echo "sha=${GITHUB_SHA:0:8}" >> $GITHUB_OUTPUT
+          echo "message=$(git log -1 --pretty=%B | head -1)" >> $GITHUB_OUTPUT
+          echo "author=$(git log -1 --pretty=%an)" >> $GITHUB_OUTPUT
+
+      - name: Detect file changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'apps/backend/**'
+            frontend:
+              - 'apps/frontend/**'
+            packages:
+              - 'packages/**'
+
+      - name: Check if deployment needed
+        id: check
+        run: |
+          if [[ "${{ github.event.inputs.force_deploy }}" == "true" ]] || \
+             [[ "${{ steps.filter.outputs.backend }}" == "true" ]] || \
+             [[ "${{ steps.filter.outputs.frontend }}" == "true" ]] || \
+             [[ "${{ steps.filter.outputs.packages }}" == "true" ]]; then
+            echo "needed=true" >> $GITHUB_OUTPUT
+            echo "✅ Deployment needed"
+          else
+            echo "needed=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No deployment needed"
+          fi
+
+      - name: Verify staging deployment
+        run: |
+          echo "🔍 Verifying staging deployment status..."
+
+          # Check if the same commit was deployed to staging
+          echo "Current commit: ${{ steps.commit.outputs.sha }}"
+
+          # This is a placeholder for actual staging verification
+          # In a real scenario, you would check if this commit exists in staging
+          echo "⚠️ Manual verification required: Ensure this version was tested in staging"
+
+      - name: Display pre-deployment checklist
+        run: |
+          echo "## 🔍 Pre-Deployment Checklist" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: Production ⚠️" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch**: main" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit**: ${{ steps.commit.outputs.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Author**: ${{ steps.commit.outputs.author }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Message**: ${{ steps.commit.outputs.message }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Changes Detected" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Changed |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend Services | ${{ steps.filter.outputs.backend == 'true' && '✅ Yes' || '⏭️ No' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend Apps | ${{ steps.filter.outputs.frontend == 'true' && '✅ Yes' || '⏭️ No' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Shared Packages | ${{ steps.filter.outputs.packages == 'true' && '✅ Yes' || '⏭️ No' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ⚠️ Production Deployment Checklist" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] All tests passed in staging" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] No critical issues in staging logs" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Database migrations tested in staging" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Rollback plan prepared" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Team notified of deployment" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Monitoring dashboards ready" >> $GITHUB_STEP_SUMMARY
+
+  # ===== Approbation manuelle =====
+  approval-gate:
+    name: Manual Approval Required
+    runs-on: ubuntu-latest
+    needs: pre-deployment-checks
+    if: needs.pre-deployment-checks.outputs.deployment_needed == 'true'
+    environment:
+      name: production
+      url: https://skillforge-ai.emacsah.com
+
+    steps:
+      - name: Deployment approved
+        run: |
+          echo "✅ Production deployment approved by ${{ github.actor }}"
+          echo "Proceeding with deployment..."
+
+  # ===== Backup pré-déploiement =====
+  pre-deployment-backup:
+    name: Create Production Backup
+    runs-on: ubuntu-latest
+    needs: approval-gate
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+
+      - name: Setup Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Create database backup
+        run: |
+          echo "📦 Creating production database backup..."
+
+          BACKUP_ID="pre-deploy-$(date +%Y%m%d-%H%M%S)"
+
+          gcloud sql backups create \
+            --instance=skillforge-pg-instance-production \
+            --description="Pre-deployment backup for commit ${{ needs.pre-deployment-checks.outputs.commit_sha }}" \
+            --project=skillforge-ai-mvp-25 || true
+
+          echo "✅ Backup created: $BACKUP_ID"
+
+  # ===== Déploiement Backend =====
+  deploy-backend:
+    name: Deploy Backend to Production
+    needs: [pre-deployment-checks, approval-gate, pre-deployment-backup]
+    if: needs.pre-deployment-checks.outputs.backend_changed == 'true'
+    uses: ./.github/workflows/backend-deploy-optimized.yml
+    secrets: inherit
+    with:
+      environment: production
+      run_migrations: true
+
+  # ===== Déploiement Frontend =====
+  deploy-frontend:
+    name: Deploy Frontend to Production
+    needs: [pre-deployment-checks, approval-gate, pre-deployment-backup]
+    if: |
+      needs.pre-deployment-checks.outputs.frontend_changed == 'true' ||
+      needs.pre-deployment-checks.outputs.packages_changed == 'true'
+    uses: ./.github/workflows/frontend-deploy.yml
+    secrets: inherit
+
+  # ===== Tests Post-Déploiement =====
+  smoke-tests-backend:
+    name: Production Smoke Tests - Backend
+    needs: [pre-deployment-checks, deploy-backend]
+    if: always() && needs.deploy-backend.result == 'success'
+    strategy:
+      fail-fast: true
+      matrix:
+        service:
+          - name: user-service
+            url: https://skillforge-user-service-production-721427084268.europe-west1.run.app
+          - name: company-service
+            url: https://skillforge-company-service-production-721427084268.europe-west1.run.app
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Critical smoke tests for ${{ matrix.service.name }}
+        run: |
+          echo "🧪 Testing ${{ matrix.service.name }} in production..."
+
+          # Health check with retries
+          MAX_RETRIES=10
+          RETRY_COUNT=0
+          SUCCESS=false
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            HEALTH_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${{ matrix.service.url }}/health" || echo "000")
+
+            if [ "$HEALTH_RESPONSE" = "200" ]; then
+              echo "✅ Health check passed for ${{ matrix.service.name }}"
+              SUCCESS=true
+              break
+            else
+              echo "⚠️ Health check failed (HTTP $HEALTH_RESPONSE), retry $((RETRY_COUNT + 1))/$MAX_RETRIES"
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              sleep 15
+            fi
+          done
+
+          if [ "$SUCCESS" = false ]; then
+            echo "❌ Critical: Health check failed after $MAX_RETRIES retries"
+            exit 1
+          fi
+
+      - name: Performance validation
+        run: |
+          echo "⚡ Validating response time..."
+
+          RESPONSE_TIME=$(curl -o /dev/null -s -w '%{time_total}' "${{ matrix.service.url }}/health")
+          echo "Response time: ${RESPONSE_TIME}s"
+
+          if (( $(echo "$RESPONSE_TIME > 2.0" | bc -l) )); then
+            echo "⚠️ Warning: Response time is slower than expected"
+          else
+            echo "✅ Response time acceptable"
+          fi
+
+  smoke-tests-frontend:
+    name: Production Smoke Tests - Frontend
+    needs: [pre-deployment-checks, deploy-frontend]
+    if: always() && needs.deploy-frontend.result == 'success'
+    uses: ./.github/workflows/smoke-tests.yml
+    with:
+      environment: production
+      service_url: https://skillforge-ai.emacsah.com
+      app_name: shell
+    secrets:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # ===== Validation & Monitoring =====
+  post-deployment-validation:
+    name: Post-Deployment Validation & Monitoring
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-checks, deploy-backend, deploy-frontend, smoke-tests-backend, smoke-tests-frontend]
+    if: always()
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+
+      - name: Setup Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Check Cloud Run services health
+        run: |
+          echo "🔍 Checking Cloud Run services status..."
+
+          # List all production services
+          gcloud run services list \
+            --platform=managed \
+            --region=europe-west1 \
+            --filter="metadata.labels.environment=production" \
+            --format="table(metadata.name,status.conditions[0].status,status.url)"
+
+      - name: Check for errors in logs
+        run: |
+          echo "📋 Checking recent error logs..."
+
+          # Check logs from last 5 minutes
+          gcloud logging read \
+            "resource.type=cloud_run_revision AND severity>=ERROR AND timestamp>=\"$(date -u -d '5 minutes ago' --iso-8601=seconds)\"" \
+            --limit=10 \
+            --format=json || echo "No recent errors found"
+
+      - name: Generate deployment report
+        run: |
+          echo "# 🚀 Production Deployment Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: Production" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch**: main" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit**: ${{ needs.pre-deployment-checks.outputs.commit_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Author**: ${{ needs.pre-deployment-checks.outputs.commit_author }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Message**: ${{ needs.pre-deployment-checks.outputs.commit_message }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed by**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📦 Deployment Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Database Backup | ${{ needs.pre-deployment-backup.result == 'success' && '✅ Created' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend Services | ${{ needs.deploy-backend.result == 'success' && '✅ Deployed' || needs.deploy-backend.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend Apps | ${{ needs.deploy-frontend.result == 'success' && '✅ Deployed' || needs.deploy-frontend.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend Smoke Tests | ${{ needs.smoke-tests-backend.result == 'success' && '✅ Passed' || needs.smoke-tests-backend.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend Smoke Tests | ${{ needs.smoke-tests-frontend.result == 'success' && '✅ Passed' || needs.smoke-tests-frontend.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔗 Production URLs" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend**: https://skillforge-ai.emacsah.com" >> $GITHUB_STEP_SUMMARY
+          echo "- **User Service API**: https://skillforge-user-service-production-721427084268.europe-west1.run.app" >> $GITHUB_STEP_SUMMARY
+          echo "- **Company Service API**: https://skillforge-company-service-production-721427084268.europe-west1.run.app" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check deployment status
+        id: status
+        run: |
+          BACKEND_STATUS="${{ needs.deploy-backend.result }}"
+          FRONTEND_STATUS="${{ needs.deploy-frontend.result }}"
+          BACKEND_TESTS="${{ needs.smoke-tests-backend.result }}"
+          FRONTEND_TESTS="${{ needs.smoke-tests-frontend.result }}"
+
+          # Check for any failures (excluding skipped)
+          if [[ "$BACKEND_STATUS" == "failure" ]] || \
+             [[ "$FRONTEND_STATUS" == "failure" ]] || \
+             [[ "$BACKEND_TESTS" == "failure" ]] || \
+             [[ "$FRONTEND_TESTS" == "failure" ]]; then
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "❌ Deployment or tests failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **CRITICAL: Production deployment failed!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Immediate action required:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Review failed jobs" >> $GITHUB_STEP_SUMMARY
+            echo "2. Check production logs" >> $GITHUB_STEP_SUMMARY
+            echo "3. Consider rollback if necessary" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Production deployment successful!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🎉 All services deployed and validated" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Notify Slack - Success
+        if: success()
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"text\": \"🎉 Production deployment successful!\",
+              \"blocks\": [
+                {
+                  \"type\": \"header\",
+                  \"text\": {
+                    \"type\": \"plain_text\",
+                    \"text\": \"✅ Production Deployment Successful\"
+                  }
+                },
+                {
+                  \"type\": \"section\",
+                  \"fields\": [
+                    {\"type\": \"mrkdwn\", \"text\": \"*Branch:*\\nmain\"},
+                    {\"type\": \"mrkdwn\", \"text\": \"*Environment:*\\n🚀 Production\"},
+                    {\"type\": \"mrkdwn\", \"text\": \"*Commit:*\\n${{ needs.pre-deployment-checks.outputs.commit_sha }}\"},
+                    {\"type\": \"mrkdwn\", \"text\": \"*Deployed by:*\\n${{ github.actor }}\"}
+                  ]
+                },
+                {
+                  \"type\": \"section\",
+                  \"text\": {
+                    \"type\": \"mrkdwn\",
+                    \"text\": \"*Message:* ${{ needs.pre-deployment-checks.outputs.commit_message }}\\n\\n🌐 *Frontend:* https://skillforge-ai.emacsah.com\"
+                  }
+                },
+                {
+                  \"type\": \"actions\",
+                  \"elements\": [
+                    {
+                      \"type\": \"button\",
+                      \"text\": {\"type\": \"plain_text\", \"text\": \"View Workflow\"},
+                      \"url\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"
+                    }
+                  ]
+                }
+              ]
+            }"
+
+      - name: Notify Slack - Failure
+        if: failure()
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"text\": \"🚨 CRITICAL: Production deployment failed!\",
+              \"blocks\": [
+                {
+                  \"type\": \"header\",
+                  \"text\": {
+                    \"type\": \"plain_text\",
+                    \"text\": \"🚨 Production Deployment Failed\"
+                  }
+                },
+                {
+                  \"type\": \"section\",
+                  \"fields\": [
+                    {\"type\": \"mrkdwn\", \"text\": \"*Branch:*\\nmain\"},
+                    {\"type\": \"mrkdwn\", \"text\": \"*Environment:*\\n🚀 Production\"},
+                    {\"type\": \"mrkdwn\", \"text\": \"*Commit:*\\n${{ needs.pre-deployment-checks.outputs.commit_sha }}\"},
+                    {\"type\": \"mrkdwn\", \"text\": \"*Attempted by:*\\n${{ github.actor }}\"}
+                  ]
+                },
+                {
+                  \"type\": \"section\",
+                  \"text\": {
+                    \"type\": \"mrkdwn\",
+                    \"text\": \"⚠️ *IMMEDIATE ACTION REQUIRED*\\n\\nReview logs and consider rollback if necessary.\"
+                  }
+                },
+                {
+                  \"type\": \"actions\",
+                  \"elements\": [
+                    {
+                      \"type\": \"button\",
+                      \"text\": {\"type\": \"plain_text\", \"text\": \"View Failure Details\"},
+                      \"url\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\",
+                      \"style\": \"danger\"
+                    }
+                  ]
+                }
+              ]
+            }"

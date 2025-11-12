@@ -2,18 +2,26 @@ import React, { Suspense, lazy } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@skillforge-ai/shared-state';
-import { authSignal } from '@skillforge-ai/shared-state';
 import { AppLayout } from '@/presentation/layouts/app-layout';
-import { AuthLayout } from '@/presentation/layouts/auth-layout';
 import { ErrorBoundary } from '@/presentation/components/error-boundary/error-boundary';
 import { LoadingSpinner } from '@/presentation/components/loading/loading-spinner';
 import { Dashboard } from '@/presentation/pages/dashboard';
+import { LandingPage } from '@/presentation/pages/landing-page';
 
-// Lazy load micro-frontends
-const AuthApp = lazy(() => import('auth/App'));
-const LearnerApp = lazy(() => import('learner/App'));
-const CompanyApp = lazy(() => import('company/App'));
-const AdminApp = lazy(() => import('admin/App'));
+// Lazy load auth module pages
+const LoginPage = lazy(() => import('@/modules/auth/pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const RegisterPage = lazy(() => import('@/modules/auth/pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const ForgotPasswordPage = lazy(() => import('@/modules/auth/pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
+
+// Lazy load learner module pages
+const LearnerDashboard = lazy(() => import('@/modules/learner/pages/LearnerDashboard').then(m => ({ default: m.LearnerDashboard })));
+
+// Lazy load company module pages
+const CompanyDashboard = lazy(() => import('@/modules/company/pages/CompanyDashboard').then(m => ({ default: m.CompanyDashboard })));
+const ProjectsList = lazy(() => import('@/modules/company/pages/ProjectsList').then(m => ({ default: m.ProjectsList })));
+
+// Lazy load admin module pages
+const AdminDashboard = lazy(() => import('@/modules/admin/pages/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 
 // Route Guard Component
 const ProtectedRoute: React.FC<{ 
@@ -47,21 +55,24 @@ const ProtectedRoute: React.FC<{
 };
 
 // Public Route Component (redirect if authenticated)
-const PublicRoute: React.FC<{ 
+const PublicRoute: React.FC<{
   children: React.ReactNode;
   redirectPath?: string;
-}> = ({ children, redirectPath = '/' }) => {
+  allowAuthenticated?: boolean;
+}> = ({ children, redirectPath = '/dashboard', allowAuthenticated = false }) => {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
-  
-  if (isAuthenticated) {
+
+  if (isAuthenticated && !allowAuthenticated) {
     return <Navigate to={redirectPath} replace />;
   }
-  
+
   return <>{children}</>;
 };
 
-// Wrapper components for micro-frontends
-const MicroFrontendWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+// Wrapper component with error boundary and suspense
+const PageWrapper: React.FC<{
+  children: React.ReactNode;
+}> = ({ children }) => (
   <ErrorBoundary>
     <Suspense fallback={<LoadingSpinner />}>
       {children}
@@ -88,19 +99,47 @@ const Unauthorized: React.FC = () => (
 
 const router = createBrowserRouter([
   {
-    path: '/auth/*',
-    element: (
-      <PublicRoute>
-        <AuthLayout>
-          <MicroFrontendWrapper>
-            <AuthApp />
-          </MicroFrontendWrapper>
-        </AuthLayout>
-      </PublicRoute>
-    ),
+    path: '/',
+    element: <LandingPage />,
   },
   {
-    path: '/',
+    path: '/auth',
+    element: (
+      <PublicRoute>
+        <PageWrapper>
+          <div />
+        </PageWrapper>
+      </PublicRoute>
+    ),
+    children: [
+      {
+        path: 'login',
+        element: (
+          <PageWrapper>
+            <LoginPage />
+          </PageWrapper>
+        ),
+      },
+      {
+        path: 'register',
+        element: (
+          <PageWrapper>
+            <RegisterPage />
+          </PageWrapper>
+        ),
+      },
+      {
+        path: 'forgot-password',
+        element: (
+          <PageWrapper>
+            <ForgotPasswordPage />
+          </PageWrapper>
+        ),
+      },
+    ],
+  },
+  {
+    path: '/dashboard',
     element: (
       <ProtectedRoute>
         <AppLayout />
@@ -111,34 +150,66 @@ const router = createBrowserRouter([
         index: true,
         element: <Dashboard />,
       },
+    ],
+  },
+  {
+    path: '/learner',
+    element: (
+      <ProtectedRoute requiredPermissions={['read:content']}>
+        <AppLayout />
+      </ProtectedRoute>
+    ),
+    children: [
       {
-        path: 'learning/*',
+        path: 'dashboard',
         element: (
-          <ProtectedRoute requiredPermissions={['read:content']}>
-            <MicroFrontendWrapper>
-              <LearnerApp />
-            </MicroFrontendWrapper>
-          </ProtectedRoute>
+          <PageWrapper>
+            <LearnerDashboard />
+          </PageWrapper>
+        ),
+      },
+    ],
+  },
+  {
+    path: '/company',
+    element: (
+      <ProtectedRoute requiredPermissions={['read:company']}>
+        <AppLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        path: 'dashboard',
+        element: (
+          <PageWrapper>
+            <CompanyDashboard />
+          </PageWrapper>
         ),
       },
       {
-        path: 'company/*',
+        path: 'projects',
         element: (
-          <ProtectedRoute requiredPermissions={['read:company']}>
-            <MicroFrontendWrapper>
-              <CompanyApp />
-            </MicroFrontendWrapper>
-          </ProtectedRoute>
+          <PageWrapper>
+            <ProjectsList />
+          </PageWrapper>
         ),
       },
+    ],
+  },
+  {
+    path: '/admin',
+    element: (
+      <ProtectedRoute requiredPermissions={['read:admin', 'write:admin']}>
+        <AppLayout />
+      </ProtectedRoute>
+    ),
+    children: [
       {
-        path: 'admin/*',
+        path: 'users',
         element: (
-          <ProtectedRoute requiredPermissions={['read:admin', 'write:admin']}>
-            <MicroFrontendWrapper>
-              <AdminApp />
-            </MicroFrontendWrapper>
-          </ProtectedRoute>
+          <PageWrapper>
+            <AdminDashboard />
+          </PageWrapper>
         ),
       },
     ],

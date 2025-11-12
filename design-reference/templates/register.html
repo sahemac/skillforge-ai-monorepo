@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inscription - SkillForge AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen flex flex-col lg:flex-row">
+        <!-- Left side - Branding -->
+        <div class="gradient-bg text-white lg:w-1/2 p-12 flex flex-col justify-center items-center text-center">
+            <div class="max-w-md">
+                <div class="h-12 w-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center mx-auto mb-6">
+                    <i data-feather="cpu" class="text-white"></i>
+                </div>
+                <h1 class="text-3xl font-bold mb-4">Rejoignez SkillForge AI</h1>
+                <p class="text-indigo-100 mb-8">Créez votre compte pour commencer à valider vos compétences avec notre intelligence artificielle.</p>
+                <div class="bg-white bg-opacity-10 p-6 rounded-xl">
+                    <div class="flex items-center mb-4">
+                        <div class="bg-white bg-opacity-20 p-2 rounded-full mr-3">
+                            <i data-feather="zap" class="w-4 h-4"></i>
+                        </div>
+                        <span>1 évaluation gratuite</span>
+                    </div>
+                    <div class="flex items-center mb-4">
+                        <div class="bg-white bg-opacity-20 p-2 rounded-full mr-3">
+                            <i data-feather="award" class="w-4 h-4"></i>
+                        </div>
+                        <span>Badges de compétences</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="bg-white bg-opacity-20 p-2 rounded-full mr-3">
+                            <i data-feather="briefcase" class="w-4 h-4"></i>
+                        </div>
+                        <span>Portfolio professionnel</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right side - Registration Form -->
+        <div class="lg:w-1/2 p-8 lg:p-16 flex flex-col justify-center">
+            <div class="max-w-md mx-auto w-full">
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">Créez votre compte</h2>
+                <p class="text-gray-600 mb-8">Déjà un compte ? <a href="login.html" class="text-indigo-600 hover:text-indigo-500">Connectez-vous</a></p>
+                
+                <form class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="first-name" class="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
+                            <input type="text" id="first-name" name="first-name" required 
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label for="last-name" class="block text-sm font-medium text-gray-700 mb-1">Nom</label>
+                            <input type="text" id="last-name" name="last-name" required 
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Adresse email</label>
+                        <input type="email" id="email" name="email" required 
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+                        <input type="password" id="password" name="password" required 
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        <p class="mt-2 text-xs text-gray-500">8 caractères minimum avec au moins 1 chiffre et 1 caractère spécial</p>
+                    </div>
+                    
+                    <div>
+                        <label for="confirm-password" class="block text-sm font-medium text-gray-700 mb-1">Confirmez le mot de passe</label>
+                        <input type="password" id="confirm-password" name="confirm-password" required 
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    
+                    <div class="flex items-start">
+                        <div class="flex items-center h-5">
+                            <input id="terms" name="terms" type="checkbox" required 
+                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                        </div>
+                        <div class="ml-3 text-sm">
+                            <label for="terms" class="text-gray-700">J'accepte les <a href="#" class="text-indigo-600 hover:text-indigo-500">conditions d'utilisation</a> et la <a href="#" class="text-indigo-600 hover:text-indigo-500">politique de confidentialité</a></label>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" 
+                        class="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        S'inscrire
+                    </button>
+                </form>
+                
+                <div class="mt-6">
+                    <div class="relative">
+                        <div class="absolute inset-0 flex items-center">
+                            <div class="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div class="relative flex justify-center text-sm">
+                            <span class="px-2 bg-gray-50 text-gray-500">ou inscrivez-vous avec</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 grid grid-cols-2 gap-3">
+                        <a href="#" class="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            <i data-feather="github" class="h-5 w-5"></i>
+                            <span class="ml-2">GitHub</span>
+                        </a>
+                        <a href="#" class="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            <i data-feather="google" class="h-5 w-5"></i>
+                            <span class="ml-2">Google</span>
+</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        feather.replace();
+    </script>
+</body>
+</html>

@@ -4,7 +4,7 @@
  */
 
 import { setupServer } from 'msw/node';
-import { apiHandlers } from '@skillforge-ai/testing';
+import { handlers } from '@skillforge-ai/testing';
 
-// Create MSW server with shared API handlers
-export const server = setupServer(...apiHandlers);
+// Setup MSW server with API handlers
+export const server = setupServer(...handlers);

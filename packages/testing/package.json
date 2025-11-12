@@ -11,7 +11,7 @@
       "import": "./dist/index.js"
     },
     "./utils": {
-      "types": "./dist/utils/index.d.ts", 
+      "types": "./dist/utils/index.d.ts",
       "import": "./dist/utils/index.js"
     },
     "./mocks": {
@@ -21,6 +21,10 @@
     "./fixtures": {
       "types": "./dist/fixtures/index.d.ts",
       "import": "./dist/fixtures/index.js"
+    },
+    "./minimal-utils": {
+      "types": "./dist/minimal-utils.d.ts",
+      "import": "./dist/minimal-utils.js"
     }
   },
   "scripts": {

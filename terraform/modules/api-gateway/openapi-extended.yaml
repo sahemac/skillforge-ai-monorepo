@@ -1,0 +1,1152 @@
+swagger: "2.0"
+info:
+  title: "SkillForge AI API Gateway - Extended"
+  description: "API Gateway pour SkillForge AI avec support matching-service et analytics-service"
+  version: "2.0.0"
+host: "skillforge-api-${environment}-${project_id}.ew.gateway.dev"
+schemes:
+  - "https"
+produces:
+  - "application/json"
+
+# Security definitions for authentication
+securityDefinitions:
+  BearerAuth:
+    type: "apiKey"
+    name: "Authorization"
+    in: "header"
+    description: "JWT Bearer token"
+  ApiKeyAuth:
+    type: "apiKey"
+    name: "X-API-Key"
+    in: "header"
+    description: "API Key for service authentication"
+
+paths:
+  # Root endpoint
+  "/":
+    get:
+      summary: "Root endpoint"
+      operationId: "root"
+      tags:
+        - "General"
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Service info"
+
+  # Health check endpoints (no auth required)
+  "/health":
+    get:
+      summary: "Service health check"
+      operationId: "healthCheck"
+      tags:
+        - "Health"
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Service is healthy"
+
+  # Metrics endpoint
+  "/metrics":
+    get:
+      summary: "Prometheus metrics"
+      operationId: "metrics"
+      tags:
+        - "Monitoring"
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Prometheus metrics"
+
+  # User Service Routes
+  "/api/v1/users":
+    get:
+      summary: "List users"
+      operationId: "listUsers"
+      tags:
+        - "Users"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: "page"
+          in: "query"
+          type: "integer"
+          default: 1
+        - name: "limit"
+          in: "query"
+          type: "integer"
+          default: 10
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "List of users"
+        401:
+          description: "Unauthorized"
+        429:
+          description: "Rate limit exceeded"
+
+  "/api/v1/users/{user_id}":
+    get:
+      summary: "Get user by ID"
+      operationId: "getUserById"
+      tags:
+        - "Users"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: "user_id"
+          in: "path"
+          required: true
+          type: "string"
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "User details"
+        404:
+          description: "User not found"
+        401:
+          description: "Unauthorized"
+    put:
+      summary: "Update user"
+      operationId: "updateUser"
+      tags:
+        - "Users"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: "user_id"
+          in: "path"
+          required: true
+          type: "string"
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+      x-google-backend:
+        address: "${user_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "User updated successfully"
+        400:
+          description: "Invalid input"
+        401:
+          description: "Unauthorized"
+        404:
+          description: "User not found"
+
+  # Authentication Routes
+  "/api/v1/auth/register":
+    post:
+      summary: "User registration"
+      operationId: "register"
+      tags:
+        - "Authentication"
+      parameters:
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+            required:
+              - email
+              - password
+              - username
+              - first_name
+              - last_name
+            properties:
+              email:
+                type: string
+                format: email
+              password:
+                type: string
+              username:
+                type: string
+              first_name:
+                type: string
+              last_name:
+                type: string
+      x-google-backend:
+        address: "${auth_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        201:
+          description: "User created"
+        400:
+          description: "Invalid input"
+
+  "/api/v1/auth/login":
+    post:
+      summary: "User login"
+      operationId: "login"
+      tags:
+        - "Authentication"
+      parameters:
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+            required:
+              - email
+              - password
+            properties:
+              email:
+                type: string
+                format: email
+              password:
+                type: string
+              remember_me:
+                type: boolean
+                default: false
+      x-google-backend:
+        address: "${auth_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Login successful"
+        401:
+          description: "Invalid credentials"
+
+  "/api/v1/auth/refresh":
+    post:
+      summary: "Refresh access token"
+      operationId: "refreshToken"
+      tags:
+        - "Authentication"
+      parameters:
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+            required:
+              - refresh_token
+            properties:
+              refresh_token:
+                type: string
+      x-google-backend:
+        address: "${auth_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Token refreshed"
+        401:
+          description: "Invalid token"
+
+  "/api/v1/auth/logout":
+    post:
+      summary: "User logout"
+      operationId: "logout"
+      tags:
+        - "Authentication"
+      security:
+        - BearerAuth: []
+      x-google-backend:
+        address: "${auth_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Logged out successfully"
+
+  # Company Service Routes
+  "/api/v1/companies":
+    get:
+      summary: "List companies"
+      operationId: "listCompanies"
+      tags:
+        - "Companies"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: "page"
+          in: "query"
+          type: "integer"
+          default: 1
+        - name: "size"
+          in: "query"
+          type: "integer"
+          default: 10
+        - name: "industry"
+          in: "query"
+          type: "string"
+        - name: "company_size"
+          in: "query"
+          type: "string"
+        - name: "country"
+          in: "query"
+          type: "string"
+        - name: "verified_only"
+          in: "query"
+          type: "boolean"
+          default: false
+      x-google-backend:
+        address: "${company_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "List of companies"
+        401:
+          description: "Unauthorized"
+        429:
+          description: "Rate limit exceeded"
+    post:
+      summary: "Create company profile"
+      operationId: "createCompany"
+      tags:
+        - "Companies"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+            required:
+              - name
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+              industry:
+                type: string
+              company_size:
+                type: string
+              website:
+                type: string
+      x-google-backend:
+        address: "${company_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        201:
+          description: "Company created successfully"
+        400:
+          description: "Invalid input"
+        401:
+          description: "Unauthorized"
+
+  "/api/v1/companies/{company_id}":
+    get:
+      summary: "Get company by ID"
+      operationId: "getCompanyById"
+      tags:
+        - "Companies"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: "company_id"
+          in: "path"
+          required: true
+          type: "string"
+      x-google-backend:
+        address: "${company_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Company details"
+        404:
+          description: "Company not found"
+        401:
+          description: "Unauthorized"
+    put:
+      summary: "Update company profile"
+      operationId: "updateCompany"
+      tags:
+        - "Companies"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: "company_id"
+          in: "path"
+          required: true
+          type: "string"
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+      x-google-backend:
+        address: "${company_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Company updated successfully"
+        400:
+          description: "Invalid input"
+        401:
+          description: "Unauthorized"
+        404:
+          description: "Company not found"
+    delete:
+      summary: "Delete company"
+      operationId: "deleteCompany"
+      tags:
+        - "Companies"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: "company_id"
+          in: "path"
+          required: true
+          type: "string"
+      x-google-backend:
+        address: "${company_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        204:
+          description: "Company deleted successfully"
+        401:
+          description: "Unauthorized"
+        404:
+          description: "Company not found"
+
+  "/api/v1/companies/{company_id}/members":
+    get:
+      summary: "List company team members"
+      operationId: "listCompanyMembers"
+      tags:
+        - "Companies"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: "company_id"
+          in: "path"
+          required: true
+          type: "string"
+        - name: "role"
+          in: "query"
+          type: "string"
+      x-google-backend:
+        address: "${company_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "List of team members"
+        401:
+          description: "Unauthorized"
+        404:
+          description: "Company not found"
+    post:
+      summary: "Add team member"
+      operationId: "addTeamMember"
+      tags:
+        - "Companies"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: "company_id"
+          in: "path"
+          required: true
+          type: "string"
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+            required:
+              - user_id
+              - role
+            properties:
+              user_id:
+                type: string
+              role:
+                type: string
+              title:
+                type: string
+              department:
+                type: string
+      x-google-backend:
+        address: "${company_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        201:
+          description: "Team member added successfully"
+        400:
+          description: "Invalid input"
+        401:
+          description: "Unauthorized"
+        404:
+          description: "Company not found"
+
+  "/api/v1/companies/public/search":
+    get:
+      summary: "Search public company profiles"
+      operationId: "searchPublicCompanies"
+      tags:
+        - "Companies"
+      parameters:
+        - name: "q"
+          in: "query"
+          type: "string"
+          description: "Search query"
+        - name: "industry"
+          in: "query"
+          type: "string"
+        - name: "company_size"
+          in: "query"
+          type: "string"
+        - name: "country"
+          in: "query"
+          type: "string"
+        - name: "verified_only"
+          in: "query"
+          type: "boolean"
+          default: true
+      x-google-backend:
+        address: "${company_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "List of public company profiles"
+        429:
+          description: "Rate limit exceeded"
+
+  "/api/v1/companies/slug/{slug}":
+    get:
+      summary: "Get company by slug"
+      operationId: "getCompanyBySlug"
+      tags:
+        - "Companies"
+      parameters:
+        - name: "slug"
+          in: "path"
+          required: true
+          type: "string"
+      x-google-backend:
+        address: "${company_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Company profile"
+        404:
+          description: "Company not found"
+
+  "/api/v1/companies/health":
+    get:
+      summary: "Company service health check"
+      operationId: "companyHealthCheck"
+      tags:
+        - "Health"
+      x-google-backend:
+        address: "${company_service_url}"
+        path_translation: "CONSTANT_ADDRESS"
+        path: "/health"
+      responses:
+        200:
+          description: "Company service is healthy"
+
+  # Project Service Routes
+  "/api/v1/projects":
+    get:
+      summary: "List projects"
+      operationId: "listProjects"
+      tags:
+        - "Projects"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: "status"
+          in: "query"
+          type: "string"
+          enum: ["planning", "active", "completed", "archived"]
+        - name: "category"
+          in: "query"
+          type: "string"
+      x-google-backend:
+        address: "${project_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "List of projects"
+        401:
+          description: "Unauthorized"
+    post:
+      summary: "Create project"
+      operationId: "createProject"
+      tags:
+        - "Projects"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+      x-google-backend:
+        address: "${project_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        201:
+          description: "Project created successfully"
+        400:
+          description: "Invalid input"
+        401:
+          description: "Unauthorized"
+
+  "/api/v1/projects/{project_id}":
+    get:
+      summary: "Get project by ID"
+      operationId: "getProjectById"
+      tags:
+        - "Projects"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: "project_id"
+          in: "path"
+          required: true
+          type: "string"
+      x-google-backend:
+        address: "${project_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Project details"
+        404:
+          description: "Project not found"
+        401:
+          description: "Unauthorized"
+    put:
+      summary: "Update project"
+      operationId: "updateProject"
+      tags:
+        - "Projects"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: "project_id"
+          in: "path"
+          required: true
+          type: "string"
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+      x-google-backend:
+        address: "${project_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Project updated successfully"
+        400:
+          description: "Invalid input"
+        401:
+          description: "Unauthorized"
+        404:
+          description: "Project not found"
+    delete:
+      summary: "Delete project"
+      operationId: "deleteProject"
+      tags:
+        - "Projects"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: "project_id"
+          in: "path"
+          required: true
+          type: "string"
+      x-google-backend:
+        address: "${project_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        204:
+          description: "Project deleted successfully"
+        401:
+          description: "Unauthorized"
+        404:
+          description: "Project not found"
+
+  "/api/v1/projects/{project_id}/tasks":
+    get:
+      summary: "List project tasks"
+      operationId: "listProjectTasks"
+      tags:
+        - "Projects"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: "project_id"
+          in: "path"
+          required: true
+          type: "string"
+      x-google-backend:
+        address: "${project_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "List of project tasks"
+        401:
+          description: "Unauthorized"
+        404:
+          description: "Project not found"
+    post:
+      summary: "Create project task"
+      operationId: "createProjectTask"
+      tags:
+        - "Projects"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: "project_id"
+          in: "path"
+          required: true
+          type: "string"
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+      x-google-backend:
+        address: "${project_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        201:
+          description: "Task created successfully"
+        400:
+          description: "Invalid input"
+        401:
+          description: "Unauthorized"
+        404:
+          description: "Project not found"
+
+  "/api/v1/projects/health":
+    get:
+      summary: "Project service health check"
+      operationId: "projectHealthCheck"
+      tags:
+        - "Health"
+      x-google-backend:
+        address: "${project_service_url}"
+        path_translation: "CONSTANT_ADDRESS"
+        path: "/health"
+      responses:
+        200:
+          description: "Project service is healthy"
+
+  # Matching Service Routes
+  "/api/v1/matching/mentors":
+    get:
+      summary: "Find matching mentors"
+      operationId: "findMentors"
+      tags:
+        - "Matching"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: "skills"
+          in: "query"
+          type: "string"
+          description: "Comma-separated list of skills"
+        - name: "experience_level"
+          in: "query"
+          type: "string"
+          enum: ["beginner", "intermediate", "advanced"]
+        - name: "location"
+          in: "query"
+          type: "string"
+        - name: "limit"
+          in: "query"
+          type: "integer"
+          default: 10
+      x-google-backend:
+        address: "${matching_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "List of matching mentors"
+        401:
+          description: "Unauthorized"
+        429:
+          description: "Rate limit exceeded"
+
+  "/api/v1/matching/mentees":
+    get:
+      summary: "Find matching mentees"
+      operationId: "findMentees"
+      tags:
+        - "Matching"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: "skills"
+          in: "query"
+          type: "string"
+          description: "Comma-separated list of skills"
+        - name: "experience_level"
+          in: "query"
+          type: "string"
+          enum: ["beginner", "intermediate", "advanced"]
+        - name: "limit"
+          in: "query"
+          type: "integer"
+          default: 10
+      x-google-backend:
+        address: "${matching_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "List of matching mentees"
+        401:
+          description: "Unauthorized"
+        429:
+          description: "Rate limit exceeded"
+
+  "/api/v1/matching/collaborators":
+    get:
+      summary: "Find project collaborators"
+      operationId: "findCollaborators"
+      tags:
+        - "Matching"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: "project_type"
+          in: "query"
+          type: "string"
+        - name: "skills_needed"
+          in: "query"
+          type: "string"
+          description: "Comma-separated list of required skills"
+        - name: "limit"
+          in: "query"
+          type: "integer"
+          default: 10
+      x-google-backend:
+        address: "${matching_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "List of potential collaborators"
+        401:
+          description: "Unauthorized"
+        429:
+          description: "Rate limit exceeded"
+
+  "/api/v1/matching/skills":
+    get:
+      summary: "Get skill recommendations"
+      operationId: "getSkillRecommendations"
+      tags:
+        - "Matching"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: "current_skills"
+          in: "query"
+          type: "string"
+          description: "Comma-separated list of current skills"
+        - name: "career_path"
+          in: "query"
+          type: "string"
+        - name: "limit"
+          in: "query"
+          type: "integer"
+          default: 10
+      x-google-backend:
+        address: "${matching_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "List of recommended skills"
+        401:
+          description: "Unauthorized"
+        429:
+          description: "Rate limit exceeded"
+
+  "/api/v1/matching/health":
+    get:
+      summary: "Matching service health check"
+      operationId: "matchingHealthCheck"
+      tags:
+        - "Health"
+      x-google-backend:
+        address: "${matching_service_url}"
+        path_translation: "CONSTANT_ADDRESS"
+        path: "/health"
+      responses:
+        200:
+          description: "Matching service is healthy"
+
+  # Analytics Service Routes
+  "/api/v1/analytics/events":
+    post:
+      summary: "Track analytics event"
+      operationId: "trackEvent"
+      tags:
+        - "Analytics"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+            required:
+              - event_type
+              - user_id
+            properties:
+              event_type:
+                type: string
+              user_id:
+                type: string
+              properties:
+                type: object
+              timestamp:
+                type: string
+                format: date-time
+      x-google-backend:
+        address: "${analytics_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        201:
+          description: "Event tracked successfully"
+        400:
+          description: "Invalid event data"
+        401:
+          description: "Unauthorized"
+
+  "/api/v1/analytics/dashboards":
+    get:
+      summary: "Get user dashboards"
+      operationId: "getUserDashboards"
+      tags:
+        - "Analytics"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: "dashboard_type"
+          in: "query"
+          type: "string"
+          enum: ["overview", "skills", "projects", "learning"]
+        - name: "time_range"
+          in: "query"
+          type: "string"
+          enum: ["7d", "30d", "90d", "1y"]
+          default: "30d"
+      x-google-backend:
+        address: "${analytics_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Dashboard data"
+        401:
+          description: "Unauthorized"
+        429:
+          description: "Rate limit exceeded"
+
+  "/api/v1/analytics/reports":
+    get:
+      summary: "Get analytics reports"
+      operationId: "getAnalyticsReports"
+      tags:
+        - "Analytics"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: "report_type"
+          in: "query"
+          type: "string"
+          enum: ["user_engagement", "skill_progress", "project_completion", "learning_paths"]
+        - name: "time_range"
+          in: "query"
+          type: "string"
+          enum: ["7d", "30d", "90d", "1y"]
+          default: "30d"
+        - name: "format"
+          in: "query"
+          type: "string"
+          enum: ["json", "csv", "pdf"]
+          default: "json"
+      x-google-backend:
+        address: "${analytics_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Analytics reports"
+        401:
+          description: "Unauthorized"
+        429:
+          description: "Rate limit exceeded"
+
+  "/api/v1/analytics/insights":
+    get:
+      summary: "Get personalized insights"
+      operationId: "getPersonalizedInsights"
+      tags:
+        - "Analytics"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: "insight_type"
+          in: "query"
+          type: "string"
+          enum: ["performance", "recommendations", "trends", "benchmarks"]
+        - name: "limit"
+          in: "query"
+          type: "integer"
+          default: 5
+      x-google-backend:
+        address: "${analytics_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Personalized insights"
+        401:
+          description: "Unauthorized"
+        429:
+          description: "Rate limit exceeded"
+
+  "/api/v1/analytics/metrics":
+    get:
+      summary: "Get key metrics"
+      operationId: "getKeyMetrics"
+      tags:
+        - "Analytics"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: "metric_type"
+          in: "query"
+          type: "string"
+          enum: ["engagement", "progress", "completion", "usage"]
+        - name: "time_range"
+          in: "query"
+          type: "string"
+          enum: ["7d", "30d", "90d", "1y"]
+          default: "30d"
+      x-google-backend:
+        address: "${analytics_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "Key metrics data"
+        401:
+          description: "Unauthorized"
+        429:
+          description: "Rate limit exceeded"
+
+  "/api/v1/analytics/health":
+    get:
+      summary: "Analytics service health check"
+      operationId: "analyticsHealthCheck"
+      tags:
+        - "Health"
+      x-google-backend:
+        address: "${analytics_service_url}"
+        path_translation: "CONSTANT_ADDRESS"
+        path: "/health"
+      responses:
+        200:
+          description: "Analytics service is healthy"
+
+  # Payment Service Routes (Future - Placeholder)
+  "/api/v1/payments":
+    get:
+      summary: "List payments"
+      operationId: "listPayments"
+      tags:
+        - "Payments"
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      x-google-backend:
+        address: "${payment_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        200:
+          description: "List of payments"
+        401:
+          description: "Unauthorized"
+        503:
+          description: "Service not implemented"
+    post:
+      summary: "Process payment"
+      operationId: "processPayment"
+      tags:
+        - "Payments"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: object
+      x-google-backend:
+        address: "${payment_service_url}"
+        path_translation: "APPEND_PATH_TO_ADDRESS"
+      responses:
+        201:
+          description: "Payment processed successfully"
+        400:
+          description: "Invalid payment data"
+        401:
+          description: "Unauthorized"
+        503:
+          description: "Service not implemented"
+
+  "/api/v1/payments/health":
+    get:
+      summary: "Payment service health check"
+      operationId: "paymentHealthCheck"
+      tags:
+        - "Health"
+      x-google-backend:
+        address: "${payment_service_url}"
+        path_translation: "CONSTANT_ADDRESS"
+        path: "/health"
+      responses:
+        200:
+          description: "Payment service is healthy"
+        503:
+          description: "Service not implemented"
+
+# Global parameters
+parameters:
+  user_id:
+    name: "user_id"
+    in: "path"
+    description: "User ID"
+    required: true
+    type: "string"
+  project_id:
+    name: "project_id"
+    in: "path"
+    description: "Project ID"
+    required: true
+    type: "string"

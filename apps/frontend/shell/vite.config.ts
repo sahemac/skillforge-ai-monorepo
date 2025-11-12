@@ -1,83 +1,32 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import federation from '@originjs/vite-plugin-federation';
 
-export default defineConfig(({ mode }) => {
-  const isProduction = mode === 'production';
-  const remoteBaseUrl = isProduction 
-    ? 'https://skillforge-frontend-{app}-production-koi53iwqbq-ew.a.run.app'
-    : 'http://localhost:{port}';
-
-  return {
-  plugins: [
-    react(),
-    federation({
-      name: 'shell',
-      remotes: {
-        auth: isProduction 
-          ? 'https://skillforge-frontend-auth-production-koi53iwqbq-ew.a.run.app/assets/remoteEntry.js'
-          : 'http://localhost:3001/assets/remoteEntry.js',
-        learner: isProduction
-          ? 'https://skillforge-frontend-learner-production-koi53iwqbq-ew.a.run.app/assets/remoteEntry.js'
-          : 'http://localhost:3002/assets/remoteEntry.js',
-        company: isProduction
-          ? 'https://skillforge-frontend-company-production-koi53iwqbq-ew.a.run.app/assets/remoteEntry.js'
-          : 'http://localhost:3003/assets/remoteEntry.js',
-        admin: isProduction
-          ? 'https://skillforge-frontend-admin-production-koi53iwqbq-ew.a.run.app/assets/remoteEntry.js'
-          : 'http://localhost:3004/assets/remoteEntry.js',
-      },
-      shared: {
-        react: {
-          singleton: true,
-          requiredVersion: '^19.1.1',
-        },
-        'react-dom': {
-          singleton: true,
-          requiredVersion: '^19.1.1',
-        },
-        'react-router-dom': {
-          singleton: true,
-          requiredVersion: '^6.20.1',
-        },
-        '@skillforge-ai/core': {
-          singleton: true,
-        },
-        '@skillforge-ai/ui-kit': {
-          singleton: true,
-        },
-        '@skillforge-ai/api-client': {
-          singleton: true,
-        },
-        '@skillforge-ai/shared': {
-          singleton: true,
-        },
-      },
-    }),
-  ],
+export default defineConfig({
+  plugins: [react()],
+  css: {
+    postcss: './postcss.config.js',
+  },
   build: {
     target: 'esnext',
-    minify: 'terser',
-    cssCodeSplit: false,
+    minify: 'esbuild',
+    cssCodeSplit: true,
     rollupOptions: {
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
           router: ['react-router-dom'],
+          // Automatic code splitting by module
+          // Vite will create chunks for each lazy-loaded module automatically
         },
-      },
-    },
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
       },
     },
   },
   server: {
     port: 3000,
+    strictPort: true, // CRITIQUE: Fail si port occupé au lieu de chercher un autre port
     cors: true,
     origin: 'http://localhost:3000',
+    host: '0.0.0.0', // Expose sur toutes les interfaces (nécessaire pour Docker/Cloud Run)
   },
   preview: {
     port: 3000,
@@ -86,6 +35,7 @@ export default defineConfig(({ mode }) => {
   resolve: {
     alias: {
       '@': '/src',
+      '@/modules': '/src/modules',
       '@/domain': '/src/domain',
       '@/application': '/src/application',
       '@/infrastructure': '/src/infrastructure',
@@ -96,5 +46,4 @@ export default defineConfig(({ mode }) => {
     __DEV__: JSON.stringify(process.env.NODE_ENV === 'development'),
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
   },
-  };
 });

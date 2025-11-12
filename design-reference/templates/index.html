@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkillForge AI - Plateforme d'Apprentissage et Validation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.globe.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .hero-pattern {
+            background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+        
+        .floating {
+            animation: floating 3s ease-in-out infinite;
+        }
+        
+        @keyframes floating {
+            0% { transform: translate(0, 0px); }
+            50% { transform: translate(0, -15px); }
+            100% { transform: translate(0, -0px); }
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <div class="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+                            <i data-feather="cpu" class="text-white"></i>
+                        </div>
+                        <span class="ml-2 text-xl font-bold text-gray-900">SkillForge AI</span>
+                    </div>
+                    <div class="hidden md:ml-10 md:flex md:space-x-8">
+                        <a href="index.html" class="text-gray-900 font-medium hover:text-indigo-600 transition-colors">Accueil</a>
+                        <a href="#" class="text-gray-500 font-medium hover:text-indigo-600 transition-colors">Fonctionnalités</a>
+                        <a href="#" class="text-gray-500 font-medium hover:text-indigo-600 transition-colors">Tarification</a>
+                        <a href="#" class="text-gray-500 font-medium hover:text-indigo-600 transition-colors">À propos</a>
+                    </div>
+</div>
+                <div class="flex items-center space-x-4">
+                    <a href="login.html" class="text-gray-700 hover:text-indigo-600 font-medium transition-colors">Connexion</a>
+                    <a href="register.html" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors">Commencer</a>
+                </div>
+</div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="gradient-bg text-white relative overflow-hidden">
+        <div class="hero-pattern absolute inset-0"></div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 relative z-10">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                <div>
+                    <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
+                        Validez vos compétences avec l'IA
+                    </h1>
+                    <p class="mt-6 text-xl text-indigo-100 max-w-2xl">
+                        SkillForge AI révolutionne l'apprentissage grâce à une plateforme intelligente qui évalue automatiquement vos projets et génère votre portfolio professionnel.
+                    </p>
+                    <div class="mt-10 flex flex-col sm:flex-row gap-4">
+                        <a href="#" class="bg-white text-indigo-600 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition-colors text-center">
+                            Essayer gratuitement
+                        </a>
+                        <a href="#" class="border-2 border-white text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-white hover:text-indigo-600 transition-colors text-center">
+                            Voir la démo
+                        </a>
+                    </div>
+                    <div class="mt-12 flex items-center space-x-8">
+                        <div class="flex items-center">
+                            <div class="bg-green-100 text-green-800 p-2 rounded-lg">
+                                <i data-feather="check-circle" class="w-5 h-5"></i>
+                            </div>
+                            <span class="ml-2 text-indigo-100">Évaluation IA gratuite</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="bg-green-100 text-green-800 p-2 rounded-lg">
+                                <i data-feather="zap" class="w-5 h-5"></i>
+                            </div>
+                            <span class="ml-2 text-indigo-100">Temps réel</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="relative">
+                    <div class="floating">
+                        <div class="bg-white rounded-2xl p-8 shadow-2xl">
+                            <div class="flex items-center space-x-4 mb-6">
+                                <div class="bg-indigo-100 p-3 rounded-full">
+                                    <i data-feather="code" class="text-indigo-600 w-6 h-6"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-gray-900">Projet API E-commerce</h3>
+                                    <p class="text-gray-500 text-sm">Évaluation en cours...</p>
+                                </div>
+                            </div>
+                            <div class="space-y-4">
+                                <div>
+                                    <div class="flex justify-between text-sm text-gray-600 mb-1">
+                                        <span>Qualité du code</span>
+                                        <span>85%</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2">
+                                        <div class="bg-green-500 h-2 rounded-full" style="width: 85%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-sm text-gray-600 mb-1">
+                                        <span>Fonctionnalités</span>
+                                        <span>92%</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2">
+                                        <div class="bg-blue-500 h-2 rounded-full" style="width: 92%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-sm text-gray-600 mb-1">
+                                        <span>Documentation</span>
+                                        <span>78%</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2">
+                                        <div class="bg-purple-500 h-2 rounded-full" style="width: 78%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-6 pt-6 border-t border-gray-200">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Nouveaux badges</span>
+                                    <div class="flex space-x-2">
+                                        <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">Python</span>
+                                        <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">FastAPI</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                    Fonctionnalités principales
+                </h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                    Découvrez comment SkillForge AI transforme votre parcours d'apprentissage avec des technologies de pointe
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Feature 1 -->
+                <div class="bg-gray-50 rounded-2xl p-8 card-hover">
+                    <div class="bg-indigo-100 w-14 h-14 rounded-xl flex items-center justify-center mb-6">
+                        <i data-feather="cpu" class="text-indigo-600 w-7 h-7"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">Évaluation IA Automatisée</h3>
+                    <p class="text-gray-600 mb-4">
+                        Nos agents IA analysent automatiquement vos projets et fournissent des retours détaillés en moins de 20 minutes.
+                    </p>
+                    <ul class="space-y-2 text-gray-600">
+                        <li class="flex items-center">
+                            <i data-feather="check" class="w-4 h-4 text-green-500 mr-2"></i>
+                            Analyse multi-critères
+                        </li>
+                        <li class="flex items-center">
+                            <i data-feather="check" class="w-4 h-4 text-green-500 mr-2"></i>
+                            Feedback personnalisé
+                        </li>
+                        <li class="flex items-center">
+                            <i data-feather="check" class="w-4 h-4 text-green-500 mr-2"></i>
+                            Progression des compétences
+                        </li>
+                    </ul>
+                </div>
+                
+                <!-- Feature 2 -->
+                <div class="bg-gray-50 rounded-2xl p-8 card-hover">
+                    <div class="bg-indigo-100 w-14 h-14 rounded-xl flex items-center justify-center mb-6">
+                        <i data-feather="briefcase" class="text-indigo-600 w-7 h-7"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">Portfolio Intelligent</h3>
+                    <p class="text-gray-600 mb-4">
+                        Générez automatiquement un portfolio professionnel mettant en valeur vos réalisations et compétences.
+                    </p>
+                    <ul class="space-y-2 text-gray-600">
+                        <li class="flex items-center">
+                            <i data-feather="check" class="w-4 h-4 text-green-500 mr-2"></i>
+                            Génération automatique
+                        </li>
+                        <li class="flex items-center">
+                            <i data-feather="check" class="w-4 h-4 text-green-500 mr-2"></i>
+                            Badges de compétences
+                        </li>
+                        <li class="flex items-center">
+                            <i data-feather="check" class="w-4 h-4 text-green-500 mr-2"></i>
+                            Partage facile
+                        </li>
+                    </ul>
+                </div>
+                
+                <!-- Feature 3 -->
+                <div class="bg-gray-50 rounded-2xl p-8 card-hover">
+                    <div class="bg-indigo-100 w-14 h-14 rounded-xl flex items-center justify-center mb-6">
+                        <i data-feather="users" class="text-indigo-600 w-7 h-7"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">Collaboration en Équipe</h3>
+                    <p class="text-gray-600 mb-4">
+                        Travaillez en équipe avec des outils de collaboration temps réel et des workflows structurés.
+                    </p>
+                    <ul class="space-y-2 text-gray-600">
+                        <li class="flex items-center">
+                            <i data-feather="check" class="w-4 h-4 text-green-500 mr-2"></i>
+                            Communication temps réel
+                        </li>
+                        <li class="flex items-center">
+                            <i data-feather="check" class="w-4 h-4 text-green-500 mr-2"></i>
+                            Gestion des tâches
+                        </li>
+                        <li class="flex items-center">
+                            <i data-feather="check" class="w-4 h-4 text-green-500 mr-2"></i>
+                            Validation par les pairs
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="py-20 bg-gray-900 text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+                <div>
+                    <div class="text-4xl font-bold text-indigo-400 mb-2">25K+</div>
+                    <div class="text-gray-400">Apprenants actifs</div>
+                </div>
+                <div>
+                    <div class="text-4xl font-bold text-indigo-400 mb-2">15K+</div>
+                    <div class="text-gray-400">Projets évalués</div>
+                </div>
+                <div>
+                    <div class="text-4xl font-bold text-indigo-400 mb-2">9</div>
+                    <div class="text-gray-400">Services cloud</div>
+                </div>
+                <div>
+                    <div class="text-4xl font-bold text-indigo-400 mb-2">99.9%</div>
+                    <div class="text-gray-400">Disponibilité</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                    Comment ça marche
+                </h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                    Un processus simple et efficace pour valider vos compétences
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="text-center">
+                    <div class="bg-indigo-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <div class="bg-indigo-600 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold">1</div>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">Soumettez votre projet</h3>
+                    <p class="text-gray-600">
+                        Téléchargez votre code, documentation ou tout autre livrable de projet pour évaluation.
+                    </p>
+                </div>
+                
+                <div class="text-center">
+                    <div class="bg-indigo-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <div class="bg-indigo-600 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold">2</div>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">Évaluation IA Automatique</h3>
+                    <p class="text-gray-600">
+                        Nos agents IA analysent votre travail et fournissent un feedback détaillé en quelques minutes.
+                    </p>
+                </div>
+                
+                <div class="text-center">
+                    <div class="bg-indigo-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <div class="bg-indigo-600 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold">3</div>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">Portfolio et Progression</h3>
+                    <p class="text-gray-600">
+                        Votre portfolio est automatiquement mis à jour et vos compétences sont suivies.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="py-20 gradient-bg text-white">
+        <div class="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+            <h2 class="text-3xl md:text-4xl font-bold mb-6">
+                Prêt à révolutionner votre apprentissage ?
+            </h2>
+            <p class="text-xl text-indigo-100 mb-10 max-w-2xl mx-auto">
+                Rejoignez des milliers d'apprenants qui utilisent déjà SkillForge AI pour valider leurs compétences et booster leur carrière.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="#" class="bg-white text-indigo-600 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition-colors">
+                    Commencer gratuitement
+                </a>
+                <a href="#" class="border-2 border-white text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-white hover:text-indigo-600 transition-colors">
+                    Voir les tarifs
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center mb-6">
+                        <div class="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+                            <i data-feather="cpu" class="text-white"></i>
+                        </div>
+                        <span class="ml-2 text-xl font-bold">SkillForge AI</span>
+                    </div>
+                    <p class="text-gray-400">
+                        Plateforme d'apprentissage et de validation de compétences alimentée par l'IA.
+                    </p>
+                </div>
+                
+                <div>
+                    <h3 class="font-semibold mb-4">Produit</h3>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="#" class="hover:text-white transition-colors">Fonctionnalités</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Tarification</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Cas d'usage</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Documentation</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="font-semibold mb-4">Entreprise</h3>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="#" class="hover:text-white transition-colors">À propos</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Carrières</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Blog</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Contact</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="font-semibold mb-4">Légal</h3>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="#" class="hover:text-white transition-colors">Conditions d'utilisation</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Politique de confidentialité</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Cookies</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Mentions légales</a></li>
+                        <li><a href="verify-email.html" class="hover:text-white transition-colors">Vérification Email</a></li>
+                    </ul>
+</div>
+            </div>
+            
+            <div class="border-t border-gray-800 mt-12 pt-8 text-center text-gray-400">
+                <p>&copy; 2025 SkillForge AI. Tous droits réservés.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        feather.replace();
+        
+        // Initialize Vanta.js globe
+        VANTA.GLOBE({
+            el: "#vanta-bg",
+            mouseControls: true,
+            touchControls: true,
+            gyroControls: false,
+            minHeight: 200.00,
+            minWidth: 200.00,
+            scale: 1.00,
+            scaleMobile: 1.00,
+            color: 0x3b82f6,
+            backgroundColor: 0x0
+        });
+    </script>
+</body>
+</html>

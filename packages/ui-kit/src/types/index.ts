@@ -256,8 +256,8 @@ export interface ThemeConfig {
   colors: Record<string, Record<string, string>>;
   spacing: Record<string, string>;
   typography: {
-    fontFamily: Record<string, string[]>;
-    fontSize: Record<string, [string, { lineHeight: string }]>;
+    fontFamily: Record<string, readonly string[]>;
+    fontSize: Record<string, readonly [string, { lineHeight: string }]>;
     fontWeight: Record<string, string>;
   };
   borderRadius: Record<string, string>;
@@ -269,7 +269,7 @@ export interface ThemeConfig {
 }
 
 // Component variant types using class-variance-authority
-export type ComponentVariants<T> = VariantProps<T>;
+export type ComponentVariants<T extends (...args: any) => any> = VariantProps<T>;
 
 // Event handler types
 export type EventHandler<T = any> = (event: T) => void;
@@ -279,7 +279,7 @@ export type FocusHandler = () => void;
 export type BlurHandler = () => void;
 
 // Ref types
-export type ComponentRef<T extends keyof JSX.IntrinsicElements> = React.ComponentRef<T>;
+export type ComponentRef<T extends keyof React.JSX.IntrinsicElements> = React.ComponentRef<T>;
 
 // Responsive types
 export type ResponsiveValue<T> = T | {

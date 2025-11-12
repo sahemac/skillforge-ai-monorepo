@@ -14,42 +14,40 @@ class Settings(BaseSettings):
     # Basic App Configuration
     PROJECT_NAME: str = "SkillForge AI Company Service"
     API_V1_STR: str = "/api/v1"
-    ENVIRONMENT: str = Field(default="development", env="ENVIRONMENT")
-    DEBUG: bool = Field(default=True, env="DEBUG")
+    ENVIRONMENT: str = Field(default="development")
+    DEBUG: bool = Field(default=True)
     
     # API Gateway Integration
-    API_GATEWAY_URL: Optional[str] = Field(default=None, env="API_GATEWAY_URL")
-    
+    API_GATEWAY_URL: Optional[str] = Field(default=None)
+
     # Security
-    SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32), env="SECRET_KEY")
+    SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     
     # CORS
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = Field(
-        default=["http://localhost:3000", "http://localhost:8080"],
-        env="BACKEND_CORS_ORIGINS"
+        default=["http://localhost:3000", "http://localhost:8080"]
     )
     ALLOWED_HOSTS: List[str] = Field(
-        default=["localhost", "127.0.0.1"], 
-        env="ALLOWED_HOSTS"
+        default=["localhost", "127.0.0.1"]
     )
     
     # Database - Use same DB as user-service
-    DATABASE_URL: Optional[str] = Field(default=None, env="DATABASE_URL")
-    POSTGRES_USER: str = Field(default="skillforge_user", env="POSTGRES_USER")
-    POSTGRES_PASSWORD: Optional[str] = Field(default=None, env="POSTGRES_PASSWORD")
-    POSTGRES_DB: str = Field(default="skillforge_db", env="POSTGRES_DB")
-    POSTGRES_HOST: str = Field(default="localhost", env="POSTGRES_HOST")
-    POSTGRES_PORT: int = Field(default=5432, env="POSTGRES_PORT")
+    DATABASE_URL: Optional[str] = Field(default=None)
+    POSTGRES_USER: str = Field(default="skillforge_user")
+    POSTGRES_PASSWORD: Optional[str] = Field(default=None)
+    POSTGRES_DB: str = Field(default="skillforge_db")
+    POSTGRES_HOST: str = Field(default="localhost")
+    POSTGRES_PORT: int = Field(default=5432)
     
     # Redis Configuration
-    REDIS_URL: str = Field(default="redis://localhost:6379/2", env="REDIS_URL")
-    CACHE_TTL: int = Field(default=300, env="CACHE_TTL")
-    
+    REDIS_URL: str = Field(default="redis://localhost:6379/2")
+    CACHE_TTL: int = Field(default=300)
+
     # External Services
-    USER_SERVICE_URL: Optional[str] = Field(default="http://user-service:8000", env="USER_SERVICE_URL")
-    
+    USER_SERVICE_URL: Optional[str] = Field(default="http://user-service:8000")
+
     # Monitoring
-    ENABLE_METRICS: bool = Field(default=True, env="ENABLE_METRICS")
+    ENABLE_METRICS: bool = Field(default=True)
     
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:

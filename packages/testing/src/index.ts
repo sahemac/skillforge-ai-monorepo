@@ -13,7 +13,8 @@ export * from './fixtures';
 export * from './mocks/api';
 
 // Test setup utilities
-export { setupServer } from 'msw/node';
+// Note: setupServer is for Node.js tests, setupWorker is for browser tests
+// export { setupServer } from 'msw/node'; // Only for Node.js environment
 export { setupWorker } from 'msw/browser';
 
 // Re-export testing library essentials

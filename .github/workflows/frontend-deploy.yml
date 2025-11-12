@@ -40,13 +40,20 @@ env:
   REGISTRY: europe-west1-docker.pkg.dev
   PROJECT_ID: skillforge-ai-mvp-25
   REGION: europe-west1
-  REPOSITORY: skillforge-docker-repo-staging
+  # Note: REPOSITORY will be set dynamically per environment in each job
   # Global cache settings
   PNPM_CACHE_FOLDER: ~/.pnpm-store
   NODE_OPTIONS: --max-old-space-size=4096
   # Build optimization flags
   VITE_BUILD_CHUNK_SIZE_LIMIT: 2000
   VITE_BUILD_ROLLUP_OPTIONS_EXTERNAL: true
+
+# Required permissions for OIDC authentication with Google Cloud
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+  security-events: write  # Required for uploading Trivy SARIF results
 
 jobs:
   detect-changes:
@@ -117,37 +124,18 @@ jobs:
           # Force rebuild check
           FORCE_REBUILD="${{ github.event.inputs.force_rebuild }}"
           SHARED_CHANGED="${{ steps.changes.outputs.shared }}"
+          SHELL_CHANGED="${{ steps.changes.outputs.shell }}"
 
-          declare -A APP_CONFIGS
-          APP_CONFIGS["shell"]="shell,3000,1Gi,2,15"
-          APP_CONFIGS["auth"]="auth,8080,512Mi,1,10"
-          APP_CONFIGS["admin"]="admin,8080,512Mi,1,10"
-          APP_CONFIGS["company"]="company,8080,512Mi,1,10"
-          APP_CONFIGS["learner"]="learner,8080,512Mi,1,10"
+          # TEMPORARY: Only deploy shell app (micro-frontends don't have package.json yet)
+          # TODO: Re-enable other apps when they are implemented
+          echo "⚠️  NOTE: Currently only deploying shell app (micro-frontends not implemented yet)"
 
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.apps }}" != "all" ]]; then
-            IFS=',' read -ra APPS <<< "${{ github.event.inputs.apps }}"
-            matrix_apps="["
-            for app in "${APPS[@]}"; do
-              app=$(echo $app | xargs)
-              IFS=',' read -ra CONFIG <<< "${APP_CONFIGS[$app]}"
-              matrix_apps="$matrix_apps{\"app\":\"$app\",\"port\":\"${CONFIG[1]}\",\"memory\":\"${CONFIG[2]}\",\"cpu\":\"${CONFIG[3]}\",\"max_instances\":\"${CONFIG[4]}\"},"
-            done
-            matrix_apps="${matrix_apps%,}]"
-          else
-            matrix_apps="["
-            for app in shell auth admin company learner; do
-              CHANGED_VAR="${app^^}"  # Convert to uppercase
-              if [[ "${!CHANGED_VAR}" == "true" || "$SHARED_CHANGED" == "true" || "$FORCE_REBUILD" == "true" || "${{ github.event.inputs.apps }}" == "all" ]]; then
-                IFS=',' read -ra CONFIG <<< "${APP_CONFIGS[$app]}"
-                matrix_apps="$matrix_apps{\"app\":\"$app\",\"port\":\"${CONFIG[1]}\",\"memory\":\"${CONFIG[2]}\",\"cpu\":\"${CONFIG[3]}\",\"max_instances\":\"${CONFIG[4]}\"},"
-              fi
-            done
-            matrix_apps="${matrix_apps%,}]"
-          fi
-
-          if [[ "$matrix_apps" == "[]" ]]; then
+          # Only shell app is currently implemented with proper package.json
+          if [[ "$SHELL_CHANGED" == "true" || "$SHARED_CHANGED" == "true" || "$FORCE_REBUILD" == "true" || "${{ github.event.inputs.apps }}" == "all" || "${{ github.event.inputs.apps }}" == "shell" ]]; then
             matrix_apps='[{"app":"shell","port":"3000","memory":"1Gi","cpu":"2","max_instances":"15"}]'
+          else
+            # No changes to deploy
+            matrix_apps='[]'
           fi
 
           echo "matrix={\"include\":$matrix_apps}" >> $GITHUB_OUTPUT
@@ -237,6 +225,12 @@ jobs:
       max-parallel: 3  # Limit parallel jobs to avoid resource constraints
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
 
+    env:
+      REGION: europe-west1
+      PROJECT_ID: skillforge-ai-mvp-25
+      REPOSITORY: skillforge-docker-repo-${{ needs.detect-changes.outputs.environment }}
+      REGISTRY: europe-west1-docker.pkg.dev
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -324,6 +318,13 @@ jobs:
           name: frontend-${{ matrix.app }}-coverage
           fail_ci_if_error: false
 
+      - name: Build workspace packages
+        run: |
+          echo "📦 Building workspace packages (core and shared-state)..."
+          pnpm --filter @skillforge-ai/core build
+          pnpm --filter @skillforge-ai/shared-state build
+          echo "✅ Workspace packages built successfully"
+
       - name: Build application (optimized)
         working-directory: apps/frontend/${{ matrix.app }}
         run: |
@@ -377,6 +378,25 @@ jobs:
           driver-opts: |
             network=host
 
+      - name: Ensure Artifact Registry repository exists
+        run: |
+          echo "🔍 Checking if Artifact Registry repository exists..."
+
+          # Check if repository exists
+          if gcloud artifacts repositories describe $REPOSITORY \
+              --location=$REGION \
+              --project=$PROJECT_ID &>/dev/null; then
+            echo "✅ Repository '$REPOSITORY' exists"
+          else
+            echo "📦 Repository '$REPOSITORY' not found, creating it..."
+            gcloud artifacts repositories create $REPOSITORY \
+              --repository-format=docker \
+              --location=$REGION \
+              --project=$PROJECT_ID \
+              --description="Docker repository for SkillForge AI frontend applications"
+            echo "✅ Repository '$REPOSITORY' created successfully"
+          fi
+
       - name: Create optimized Dockerfile
         working-directory: apps/frontend/${{ matrix.app }}
         run: |
@@ -384,20 +404,16 @@ jobs:
           # Multi-stage optimized build
           FROM nginx:alpine AS production
 
-          # Install curl for health checks
-          RUN apk add --no-cache curl
-
-          # Security: Run as non-root user
-          RUN addgroup -g 1001 -S appuser && \
-              adduser -S appuser -u 1001 -G appuser
+          # Install gettext for envsubst and curl for health checks
+          RUN apk add --no-cache gettext curl
 
           # Copy built application
-          COPY --chown=appuser:appuser dist /usr/share/nginx/html
+          COPY dist /usr/share/nginx/html
 
-          # Create optimized nginx config for SPA
-          RUN cat > /etc/nginx/conf.d/default.conf << 'NGINX_EOF'
+          # Create nginx config TEMPLATE with runtime PORT variable
+          RUN cat > /etc/nginx/conf.d/default.conf.template << 'NGINX_EOF'
           server {
-              listen ${{ matrix.port }};
+              listen ${PORT};
               server_name localhost;
               root /usr/share/nginx/html;
               index index.html;
@@ -447,39 +463,159 @@ jobs:
               # Health check endpoint
               location /health {
                   access_log off;
-                  return 200 '{"status":"healthy","app":"${{ matrix.app }}","timestamp":"'$(date -Iseconds)'"}';
+                  return 200 '{"status":"healthy","app":"${{ matrix.app }}"}';
                   add_header Content-Type application/json;
               }
           }
           NGINX_EOF
 
-          # Set proper ownership and permissions
-          RUN chown -R appuser:appuser /usr/share/nginx/html && \
-              chown -R appuser:appuser /var/cache/nginx && \
-              chown -R appuser:appuser /var/log/nginx && \
-              chown -R appuser:appuser /etc/nginx/conf.d && \
-              chmod -R 755 /usr/share/nginx/html
+          # Create startup script that substitutes PORT at runtime
+          RUN echo '#!/bin/sh' > /start.sh && \
+              echo 'set -e' >> /start.sh && \
+              echo 'echo "Starting container with PORT=${PORT:-8080}"' >> /start.sh && \
+              echo 'envsubst '"'"'$PORT'"'"' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf' >> /start.sh && \
+              echo 'echo "Nginx configuration:"' >> /start.sh && \
+              echo 'cat /etc/nginx/conf.d/default.conf' >> /start.sh && \
+              echo 'exec nginx -g "daemon off;"' >> /start.sh && \
+              chmod +x /start.sh
 
-          USER appuser
+          # Set proper ownership and permissions (nginx runs as root, drops privileges for workers)
+          RUN chown -R nginx:nginx /usr/share/nginx/html && \
+              chown -R nginx:nginx /var/cache/nginx && \
+              chown -R nginx:nginx /var/log/nginx && \
+              touch /var/run/nginx.pid && \
+              chown -R nginx:nginx /var/run/nginx.pid
 
-          EXPOSE ${{ matrix.port }}
+          # Remove default nginx config
+          RUN rm -f /etc/nginx/conf.d/default.conf
 
-          HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-              CMD curl -f http://localhost:${{ matrix.port }}/health || exit 1
+          EXPOSE 8080
 
-          CMD ["nginx", "-g", "daemon off;"]
+          HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+              CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
+
+          CMD ["/start.sh"]
           EOF
+
+      - name: Create CI/CD-specific .dockerignore
+        working-directory: apps/frontend/${{ matrix.app }}
+        run: |
+          echo "📝 Creating .dockerignore for CI/CD (keeping dist folder)..."
+          cat > .dockerignore.cicd << 'DOCKERIGNORE_EOF'
+          # Node.js
+          node_modules/
+          npm-debug.log*
+          yarn-debug.log*
+          yarn-error.log*
+          pnpm-debug.log*
+          lerna-debug.log*
+
+          # Note: dist/ is NOT excluded for CI/CD builds
+          # We need dist/ in the Docker context
+
+          # Cache directories
+          .cache/
+          .vite/
+          .turbo/
+          .parcel-cache/
+
+          # Development files
+          .env.local
+          .env.development.local
+          .env.test.local
+          .env.production.local
+
+          # IDE files
+          .vscode/
+          .idea/
+          *.swp
+          *.swo
+          *~
+
+          # OS files
+          .DS_Store
+          .DS_Store?
+          ._*
+          .Spotlight-V100
+          .Trashes
+          ehthumbs.db
+          Thumbs.db
+
+          # Git
+          .git/
+          .gitignore
+
+          # Testing
+          coverage/
+          .nyc_output/
+          junit.xml
+          test-results/
+          playwright-report/
+
+          # Temporary files
+          *.tmp
+          *.temp
+          .tmp/
+          .temp/
+
+          # Logs
+          logs/
+          *.log
+
+          # Documentation
+          README.md
+          CHANGELOG.md
+          docs/
+
+          # CI/CD
+          .github/
+          .gitlab-ci.yml
+          .travis.yml
+          .circleci/
+
+          # Package manager files
+          package-lock.json
+          yarn.lock
+          .yarnrc
+
+          # TypeScript
+          *.tsbuildinfo
+
+          # ESLint
+          .eslintcache
+
+          # Prettier
+          .prettierignore
+
+          # Storybook
+          .storybook/
+          storybook-static/
+
+          # Local development
+          .env
+          .env.example
+          DOCKERIGNORE_EOF
+
+          # Replace the default .dockerignore with CI/CD version
+          mv .dockerignore.cicd .dockerignore
+          echo "✅ CI/CD .dockerignore created (dist folder will be included)"
 
       - name: Build and push Docker image (with cache)
         working-directory: apps/frontend/${{ matrix.app }}
         run: |
+          # Set repository dynamically based on environment
+          REPOSITORY="skillforge-docker-repo-${{ needs.detect-changes.outputs.environment }}"
+
           IMAGE_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-frontend-${{ matrix.app }}:${{ github.sha }}"
           LATEST_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-frontend-${{ matrix.app }}:latest"
           ENV_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-frontend-${{ matrix.app }}:${{ needs.detect-changes.outputs.environment }}"
           CACHE_TAG="$REGISTRY/$PROJECT_ID/$REPOSITORY/skillforge-frontend-${{ matrix.app }}:buildcache"
 
           echo "🐳 Building Docker image with layer caching..."
+          echo "📦 Repository: $REPOSITORY"
+          echo "📁 Using inline Dockerfile with pre-built dist folder"
 
+          # Build using the inline Dockerfile created in previous step
           docker buildx build \
             --push \
             --platform linux/amd64 \
@@ -496,13 +632,28 @@ jobs:
       - name: Deploy to Cloud Run (optimized)
         run: |
           SERVICE_NAME="skillforge-frontend-${{ matrix.app }}-${{ needs.detect-changes.outputs.environment }}"
+          SERVICE_ACCOUNT="sa-${{ matrix.app }}-frontend-${{ needs.detect-changes.outputs.environment }}@$PROJECT_ID.iam.gserviceaccount.com"
           echo "🚀 Deploying ${{ matrix.app }} to Cloud Run..."
+          echo "📋 Service Account: $SERVICE_ACCOUNT"
+
+          # Check if service exists
+          if gcloud run services describe $SERVICE_NAME --region=$REGION --platform=managed &>/dev/null; then
+            echo "Service exists, deploying with --no-traffic for blue-green deployment"
+            NO_TRAFFIC_FLAG="--no-traffic"
+          else
+            echo "New service, deploying with traffic"
+            NO_TRAFFIC_FLAG=""
+          fi
 
           # Deploy with app-specific resource configuration
+          # Use short SHA (7 chars) to keep revision name under 63 character limit
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+
           gcloud run deploy $SERVICE_NAME \
             --image=${{ env.IMAGE_TAG }} \
             --platform=managed \
             --region=$REGION \
+            --service-account=$SERVICE_ACCOUNT \
             --allow-unauthenticated \
             --port=${{ matrix.port }} \
             --memory=${{ matrix.memory }} \
@@ -510,20 +661,29 @@ jobs:
             --min-instances=0 \
             --max-instances=${{ matrix.max_instances }} \
             --concurrency=100 \
-            --timeout=300 \
+            --timeout=600 \
+            --cpu-boost \
             --execution-environment=gen2 \
             --set-env-vars="ENVIRONMENT=${{ needs.detect-changes.outputs.environment }},APP_NAME=${{ matrix.app }}" \
             --labels="app=skillforge-frontend,component=${{ matrix.app }},environment=${{ needs.detect-changes.outputs.environment }},version=${{ github.sha }}" \
             --tag="${{ needs.detect-changes.outputs.environment }}" \
-            --revision-suffix="${{ github.sha }}-${{ github.run_number }}" \
-            --no-traffic
+            --revision-suffix="${SHORT_SHA}-${{ github.run_number }}" \
+            $NO_TRAFFIC_FLAG
 
-          # Get new revision URL
-          NEW_REVISION_URL=$(gcloud run services describe $SERVICE_NAME \
-            --platform=managed \
-            --region=$REGION \
-            --format="value(status.traffic[0].url)" \
-            --filter="metadata.name:$SERVICE_NAME")
+          # Get service or revision URL
+          if [ -n "$NO_TRAFFIC_FLAG" ]; then
+            # For existing services with --no-traffic, get the tagged revision URL
+            NEW_REVISION_URL=$(gcloud run services describe $SERVICE_NAME \
+              --platform=managed \
+              --region=$REGION \
+              --format="value(status.traffic[?tag=='${{ needs.detect-changes.outputs.environment }}'].url)")
+          else
+            # For new services, get the main service URL
+            NEW_REVISION_URL=$(gcloud run services describe $SERVICE_NAME \
+              --platform=managed \
+              --region=$REGION \
+              --format="value(status.url)")
+          fi
 
           echo "NEW_REVISION_URL=$NEW_REVISION_URL" >> $GITHUB_ENV
           echo "SERVICE_NAME=$SERVICE_NAME" >> $GITHUB_ENV
@@ -533,40 +693,84 @@ jobs:
         run: |
           echo "🔍 Performing comprehensive health check on ${{ matrix.app }}..."
 
-          # Wait for service to be ready
-          echo "Waiting for service to initialize..."
-          sleep 20
+          # Check if we have a URL to test
+          if [ -z "${{ env.NEW_REVISION_URL }}" ]; then
+            echo "⚠️  No revision URL available (--no-traffic deployment)"
+            echo "Verifying deployment status via Cloud Run API instead..."
 
-          MAX_ATTEMPTS=15
-          ATTEMPT=1
-          HEALTH_URL="${{ env.NEW_REVISION_URL }}/health"
+            # Get the latest revision name
+            LATEST_REVISION=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+              --region=$REGION \
+              --platform=managed \
+              --format="value(status.latestCreatedRevisionName)")
 
-          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-            echo "Health check attempt $ATTEMPT/$MAX_ATTEMPTS for ${{ matrix.app }}..."
+            echo "Latest revision: $LATEST_REVISION"
 
-            # Multiple health check methods
-            if curl -f -s -m 10 "$HEALTH_URL" | jq -r '.status' 2>/dev/null | grep -q "healthy"; then
-              echo "✅ Advanced health check passed for ${{ matrix.app }}!"
+            # Check if the revision is ready using YAML format
+            REVISION_OUTPUT=$(gcloud run revisions describe $LATEST_REVISION \
+              --region=$REGION \
+              --platform=managed \
+              --format="yaml")
 
-              # Additional performance check
-              RESPONSE_TIME=$(curl -o /dev/null -s -w '%{time_total}' "${{ env.NEW_REVISION_URL }}")
-              echo "📊 Initial response time: ${RESPONSE_TIME}s"
-              break
+            # Parse the Ready condition status from YAML output
+            # Note: in YAML structure, status comes BEFORE type in each condition block
+            REVISION_STATUS=$(echo "$REVISION_OUTPUT" | grep -B 2 "type: Ready" | grep "status:" | awk '{print $2}' | tr -d "'")
+
+            echo "Parsed revision status: '$REVISION_STATUS'"
+
+            if [ "$REVISION_STATUS" = "True" ]; then
+              echo "✅ Revision is ready and healthy (verified via Cloud Run API)"
+              echo "ℹ️  Traffic routing can be managed manually or via next deployment"
             else
-              echo "❌ Health check failed, retrying in 20 seconds..."
-              sleep 20
-              ((ATTEMPT++))
+              echo "❌ Revision status: $REVISION_STATUS"
+              echo "Full revision output for debugging:"
+              echo "$REVISION_OUTPUT" | grep -A 10 "conditions:"
+              exit 1
             fi
-          done
+          else
+            # We have a URL, perform standard health check
+            echo "Waiting for service to initialize..."
+            sleep 20
 
-          if [ $ATTEMPT -gt $MAX_ATTEMPTS ]; then
-            echo "🚨 Health check failed after $MAX_ATTEMPTS attempts for ${{ matrix.app }}"
-            exit 1
+            MAX_ATTEMPTS=15
+            ATTEMPT=1
+            HEALTH_URL="${{ env.NEW_REVISION_URL }}/health"
+
+            while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+              echo "Health check attempt $ATTEMPT/$MAX_ATTEMPTS for ${{ matrix.app }}..."
+
+              # Multiple health check methods
+              if curl -f -s -m 10 "$HEALTH_URL" | jq -r '.status' 2>/dev/null | grep -q "healthy"; then
+                echo "✅ Advanced health check passed for ${{ matrix.app }}!"
+
+                # Additional performance check
+                RESPONSE_TIME=$(curl -o /dev/null -s -w '%{time_total}' "${{ env.NEW_REVISION_URL }}")
+                echo "📊 Initial response time: ${RESPONSE_TIME}s"
+                break
+              else
+                echo "❌ Health check failed, retrying in 20 seconds..."
+                sleep 20
+                ((ATTEMPT++))
+              fi
+            done
+
+            if [ $ATTEMPT -gt $MAX_ATTEMPTS ]; then
+              echo "🚨 Health check failed after $MAX_ATTEMPTS attempts for ${{ matrix.app }}"
+              exit 1
+            fi
           fi
 
       - name: Intelligent traffic rollout
         run: |
           echo "📈 Starting intelligent traffic rollout for ${{ matrix.app }}..."
+
+          # Get the latest revision name (Cloud Run generates the actual revision name)
+          LATEST_REVISION=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=$REGION \
+            --platform=managed \
+            --format="value(status.latestCreatedRevisionName)")
+
+          echo "Latest revision to route traffic to: $LATEST_REVISION"
 
           if [[ "${{ needs.detect-changes.outputs.environment }}" == "production" ]]; then
             echo "🚀 Production deployment - gradual rollout enabled"
@@ -574,7 +778,7 @@ jobs:
             # Canary deployment (5%)
             gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
               --region=$REGION \
-              --to-revisions="${{ github.sha }}-${{ github.run_number }}=5"
+              --to-revisions="${LATEST_REVISION}=5"
             echo "✅ 5% canary traffic routed to new revision"
             sleep 60
 
@@ -588,7 +792,7 @@ jobs:
               echo "📈 Rolling out to ${PERCENTAGE}%..."
               gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
                 --region=$REGION \
-                --to-revisions="${{ github.sha }}-${{ github.run_number }}=${PERCENTAGE}"
+                --to-revisions="${LATEST_REVISION}=${PERCENTAGE}"
               echo "✅ ${PERCENTAGE}% traffic routed to new revision"
 
               if [ "$PERCENTAGE" != "100" ]; then
@@ -600,7 +804,7 @@ jobs:
             # Staging - immediate full rollout
             gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
               --region=$REGION \
-              --to-revisions="${{ github.sha }}-${{ github.run_number }}=100"
+              --to-revisions="${LATEST_REVISION}=100"
             echo "✅ All traffic routed to new revision in staging"
           fi
 
@@ -659,10 +863,13 @@ jobs:
     name: Smart Rollback (${{ matrix.app }})
     runs-on: ubuntu-latest
     needs: [detect-changes, build-and-deploy]
-    if: failure() && needs.detect-changes.outputs.environment == 'production'
-    environment: production
+    if: failure()
+    environment: ${{ needs.detect-changes.outputs.environment }}
     strategy:
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+    env:
+      REGION: europe-west1
+      PROJECT_ID: skillforge-ai-mvp-25
     steps:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -677,7 +884,8 @@ jobs:
       - name: Smart rollback to previous revision
         run: |
           echo "🔄 Smart rollback initiated for ${{ matrix.app }}..."
-          SERVICE_NAME="skillforge-frontend-${{ matrix.app }}-production"
+          ENV="${{ needs.detect-changes.outputs.environment }}"
+          SERVICE_NAME="skillforge-frontend-${{ matrix.app }}-${ENV}"
 
           # Get the last stable revision (2nd most recent)
           PREVIOUS_REVISION=$(gcloud run revisions list \
@@ -722,11 +930,24 @@ jobs:
           echo "- Rollback Time: $(date -Iseconds)"
           echo "- Trigger: Deployment failure detected"
 
+  # Smoke tests after deployment (shell app)
+  smoke-tests-shell:
+    name: Post-Deployment Smoke Tests (shell)
+    needs: [detect-changes, build-and-deploy]
+    if: success() && contains(fromJson(needs.detect-changes.outputs.matrix).include[*].app, 'shell')
+    uses: ./.github/workflows/smoke-tests.yml
+    with:
+      environment: ${{ needs.detect-changes.outputs.environment }}
+      service_url: https://skillforge-ai.emacsah.com
+      app_name: shell
+    secrets:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
   # Deployment summary and notifications
   deployment-summary:
     name: Deployment Summary & Notifications
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-and-deploy]
+    needs: [detect-changes, build-and-deploy, smoke-tests-shell]
     if: always() && fromJson(needs.detect-changes.outputs.matrix).include[0] != null
     steps:
       - name: Calculate deployment metrics
@@ -734,7 +955,10 @@ jobs:
           echo "📊 Deployment Summary"
           echo "Environment: ${{ needs.detect-changes.outputs.environment }}"
           echo "Commit: ${{ github.sha }}"
-          echo "Apps processed: ${{ toJson(fromJson(needs.detect-changes.outputs.matrix).include[*].app) }}"
+
+          # Extract app names from matrix
+          APPS_JSON='${{ needs.detect-changes.outputs.matrix }}'
+          echo "APPS_JSON=$APPS_JSON" >> $GITHUB_ENV
 
           if [[ "${{ needs.build-and-deploy.result }}" == "success" ]]; then
             echo "STATUS=✅ SUCCESS" >> $GITHUB_ENV
@@ -767,7 +991,10 @@ jobs:
             const status = process.env.STATUS;
             const buildStatus = process.env.BUILD_STATUS;
             const environment = '${{ needs.detect-changes.outputs.environment }}';
-            const apps = JSON.parse('${{ toJson(fromJson(needs.detect-changes.outputs.matrix).include[*].app) }}');
+
+            // Parse matrix to extract app names
+            const matrix = JSON.parse(process.env.APPS_JSON);
+            const apps = matrix.include.map(item => item.app);
 
             const body = `
             ## 🚀 Frontend Deployment Summary

@@ -260,7 +260,7 @@ export function useProjectsState() {
 
 // Permission hooks
 export function usePermissions() {
-  const { permissions } = useAppSelector((state) => state.auth);
+  const permissions = useAppSelector((state) => state.auth?.permissions || []);
 
   const hasPermission = useCallback(
     (permission: string) => permissions.includes(permission),
@@ -287,8 +287,8 @@ export function usePermissions() {
 
 // Loading state hooks
 export function useLoadingStates() {
-  const usersLoading = useAppSelector((state) => state.users.loading);
-  const projectsLoading = useAppSelector((state) => state.projects.loading);
+  const usersLoading = useAppSelector((state) => state.users?.loading || false);
+  const projectsLoading = useAppSelector((state) => state.projects?.loading || false);
 
   return {
     usersLoading,
@@ -299,8 +299,8 @@ export function useLoadingStates() {
 
 // Error state hooks
 export function useErrorStates() {
-  const usersError = useAppSelector((state) => state.users.error);
-  const projectsError = useAppSelector((state) => state.projects.error);
+  const usersError = useAppSelector((state) => state.users?.error || null);
+  const projectsError = useAppSelector((state) => state.projects?.error || null);
 
   return {
     usersError,

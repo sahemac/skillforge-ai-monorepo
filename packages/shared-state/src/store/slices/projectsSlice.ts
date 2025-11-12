@@ -12,8 +12,7 @@ import type {
 
 // Entity adapter for normalized project storage
 const projectsAdapter = createEntityAdapter<Project>({
-  selectId: (project) => project.id,
-  sortComparer: (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  sortComparer: (a: Project, b: Project) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
 });
 
 // Initial state

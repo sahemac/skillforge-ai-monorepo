@@ -1,0 +1,488 @@
+# ============================================================================
+# TEMPLATE: Frontend React Service Deployment
+# ============================================================================
+#
+# This template deploys a React TypeScript SPA to Google Cloud Run with Nginx.
+#
+# 📝 HOW TO USE:
+# 1. Copy this file to .github/workflows/deploy-{{APP_NAME}}.yml
+# 2. Replace ALL {{PLACEHOLDERS}} with actual values:
+#    - {{APP_NAME}}: e.g., shell, admin, company, learner
+#    - {{APP_PATH}}: e.g., apps/frontend/shell
+#    - {{APP_PORT}}: e.g., 8080, 8081
+#    - {{APP_DESCRIPTION}}: e.g., "Main Shell Application"
+#    - {{BUILD_OUTPUT}}: e.g., dist, build
+# 3. Configure environment variables in .env.example
+# 4. Create service account in GCP (see templates/README.md)
+# 5. Test and commit!
+#
+# ============================================================================
+
+name: Deploy - {{APP_DESCRIPTION}}
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - '{{APP_PATH}}/**'
+      - 'packages/**'
+      - '.github/workflows/deploy-{{APP_NAME}}.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '{{APP_PATH}}/**'
+      - 'packages/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      skip_tests:
+        description: 'Skip tests'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
+
+env:
+  PROJECT_ID: skillforge-ai-mvp-25
+  REGION: europe-west1
+  APP_NAME: '{{APP_NAME}}'
+  APP_PATH: '{{APP_PATH}}'
+
+jobs:
+  # ============================================================================
+  # JOB 1: BUILD & TEST
+  # ============================================================================
+  build:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Node.js Setup with pnpm
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      # Install dependencies
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Run tests (if not skipped)
+      - name: Run tests
+        if: ${{ !inputs.skip_tests }}
+        run: |
+          cd ${{ env.APP_PATH }}
+          pnpm test
+
+      # Type checking
+      - name: TypeScript type check
+        run: |
+          cd ${{ env.APP_PATH }}
+          pnpm tsc --noEmit
+
+      # Linting
+      - name: Run ESLint
+        run: |
+          cd ${{ env.APP_PATH }}
+          pnpm lint
+
+      # Build the application
+      - name: Build application
+        env:
+          NODE_ENV: production
+          VITE_API_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'production' && 'https://api.skillforge-ai.com' || 'https://api-staging.skillforge-ai.com' }}
+          VITE_ENVIRONMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
+        run: |
+          cd ${{ env.APP_PATH }}
+          pnpm build
+
+      # Upload build artifacts
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: ${{ env.APP_PATH }}/{{BUILD_OUTPUT}}
+          retention-days: 1
+
+  # ============================================================================
+  # JOB 2: SECURITY SCAN
+  # ============================================================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: ${{ env.APP_PATH }}/{{BUILD_OUTPUT}}
+
+      # Create Dockerfile for scanning
+      - name: Create production Dockerfile
+        run: |
+          cat > ${{ env.APP_PATH }}/Dockerfile.production <<'EOF'
+          FROM nginx:alpine
+          COPY {{BUILD_OUTPUT}} /usr/share/nginx/html
+          COPY nginx.conf /etc/nginx/nginx.conf
+          EXPOSE {{APP_PORT}}
+          CMD ["nginx", "-g", "daemon off;"]
+          EOF
+
+      # Build Docker image
+      - name: Build Docker image
+        run: |
+          cd ${{ env.APP_PATH }}
+          docker build -f Dockerfile.production -t ${{ env.APP_NAME }}:scan .
+
+      # Run Trivy security scan
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.APP_NAME }}:scan'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # ============================================================================
+  # JOB 3: DEPLOY TO CLOUD RUN
+  # ============================================================================
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    needs: [build, security]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: ${{ env.APP_PATH }}/{{BUILD_OUTPUT}}
+
+      # Authenticate to Google Cloud
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Configure Docker for Artifact Registry
+      - name: Configure Docker
+        run: |
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      # Determine environment
+      - name: Set environment variables
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENV="${{ inputs.environment }}"
+          else
+            ENV="staging"
+          fi
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          echo "service_name=$ENV-${{ env.APP_NAME }}" >> $GITHUB_OUTPUT
+          echo "image_name=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/skillforge-services/$ENV-${{ env.APP_NAME }}" >> $GITHUB_OUTPUT
+
+      # Create nginx.conf
+      - name: Create Nginx configuration
+        run: |
+          cat > ${{ env.APP_PATH }}/nginx.conf <<'EOF'
+          events {
+            worker_connections 1024;
+          }
+
+          http {
+            include /etc/nginx/mime.types;
+            default_type application/octet-stream;
+
+            sendfile on;
+            keepalive_timeout 65;
+            gzip on;
+            gzip_vary on;
+            gzip_min_length 1024;
+            gzip_types text/plain text/css text/xml text/javascript application/javascript application/json application/xml+rss;
+
+            server {
+              listen {{APP_PORT}};
+              server_name _;
+              root /usr/share/nginx/html;
+              index index.html;
+
+              # Security headers
+              add_header X-Frame-Options "SAMEORIGIN" always;
+              add_header X-Content-Type-Options "nosniff" always;
+              add_header X-XSS-Protection "1; mode=block" always;
+              add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+              # SPA routing - all routes go to index.html
+              location / {
+                try_files $uri $uri/ /index.html;
+              }
+
+              # Cache static assets
+              location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+                expires 1y;
+                add_header Cache-Control "public, immutable";
+              }
+
+              # Health check endpoint
+              location /health {
+                access_log off;
+                return 200 "OK\n";
+                add_header Content-Type text/plain;
+              }
+            }
+          }
+          EOF
+
+      # Create production Dockerfile
+      - name: Create production Dockerfile
+        run: |
+          cat > ${{ env.APP_PATH }}/Dockerfile.production <<'EOF'
+          FROM nginx:alpine
+
+          # Copy built application
+          COPY {{BUILD_OUTPUT}} /usr/share/nginx/html
+
+          # Copy nginx configuration
+          COPY nginx.conf /etc/nginx/nginx.conf
+
+          # Expose port
+          EXPOSE {{APP_PORT}}
+
+          # Run nginx
+          CMD ["nginx", "-g", "daemon off;"]
+          EOF
+
+      # Build and push Docker image
+      - name: Build and push Docker image
+        run: |
+          cd ${{ env.APP_PATH }}
+          docker build \
+            -f Dockerfile.production \
+            -t ${{ steps.env.outputs.image_name }}:${{ github.sha }} \
+            -t ${{ steps.env.outputs.image_name }}:latest \
+            .
+          docker push ${{ steps.env.outputs.image_name }}:${{ github.sha }}
+          docker push ${{ steps.env.outputs.image_name }}:latest
+
+      # Deploy to Cloud Run
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ steps.env.outputs.service_name }} \
+            --image=${{ steps.env.outputs.image_name }}:${{ github.sha }} \
+            --platform=managed \
+            --region=${{ env.REGION }} \
+            --port={{APP_PORT}} \
+            --memory=512Mi \
+            --cpu=1 \
+            --min-instances=0 \
+            --max-instances=10 \
+            --timeout=300 \
+            --allow-unauthenticated \
+            --service-account=sa-${{ env.APP_NAME }}-${{ steps.env.outputs.environment }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --set-env-vars="NODE_ENV=production,ENVIRONMENT=${{ steps.env.outputs.environment }}" \
+            --labels="environment=${{ steps.env.outputs.environment }},app=${{ env.APP_NAME }},managed-by=github-actions"
+
+      # Get service URL
+      - name: Get service URL
+        id: service
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ steps.env.outputs.service_name }} \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+          echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
+          echo "### Deployment Successful! :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "Service URL: $SERVICE_URL" >> $GITHUB_STEP_SUMMARY
+
+      # Health check
+      - name: Health check
+        run: |
+          echo "Waiting for service to be ready..."
+          sleep 10
+
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.service.outputs.url }}/health || echo "000")
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Health check passed! Service is healthy."
+              exit 0
+            fi
+
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "Health check failed (attempt $RETRY_COUNT/$MAX_RETRIES). Retrying..."
+            sleep 5
+          done
+
+          echo "Health check failed after $MAX_RETRIES attempts"
+          exit 1
+
+# ============================================================================
+# CONFIGURATION REFERENCE
+# ============================================================================
+#
+# This workflow deploys a React frontend application with:
+# - TypeScript support
+# - Vite build system
+# - pnpm package manager
+# - Nginx serving
+# - Security scanning with Trivy
+# - Automated testing
+# - Health checks
+# - Module federation support (optional)
+#
+# ============================================================================
+# REQUIRED SETUP (Before first deployment)
+# ============================================================================
+#
+# 1. Service Account:
+#    gcloud iam service-accounts create sa-{{APP_NAME}}-staging \
+#      --display-name="Service account for {{APP_NAME}} frontend (staging)" \
+#      --project=skillforge-ai-mvp-25
+#
+# 2. IAM Permissions (minimal for frontend):
+#    gcloud projects add-iam-policy-binding skillforge-ai-mvp-25 \
+#      --member="serviceAccount:sa-{{APP_NAME}}-staging@skillforge-ai-mvp-25.iam.gserviceaccount.com" \
+#      --role="roles/logging.logWriter"
+#
+# 3. Environment Variables:
+#    Create {{APP_PATH}}/.env.example with:
+#      VITE_API_BASE_URL=https://api-staging.skillforge-ai.com
+#      VITE_ENVIRONMENT=staging
+#      VITE_APP_VERSION=1.0.0
+#
+# 4. Nginx Configuration (handled by workflow):
+#    - SPA routing support
+#    - Static asset caching
+#    - Security headers
+#    - Health check endpoint
+#
+# ============================================================================
+# DEPLOYMENT CHECKLIST
+# ============================================================================
+#
+# Before merging this workflow:
+# [ ] All {{PLACEHOLDERS}} replaced
+# [ ] App name matches directory: {{APP_PATH}}
+# [ ] Service account created: sa-{{APP_NAME}}-staging
+# [ ] IAM permissions granted (logging)
+# [ ] package.json exists: {{APP_PATH}}/package.json
+# [ ] TypeScript config: {{APP_PATH}}/tsconfig.json
+# [ ] Vite config: {{APP_PATH}}/vite.config.ts
+# [ ] Tests pass locally: cd {{APP_PATH}} && pnpm test
+# [ ] Build succeeds locally: cd {{APP_PATH}} && pnpm build
+# [ ] Environment variables documented in .env.example
+# [ ] Health check endpoint accessible: /health
+# [ ] Port number correct: {{APP_PORT}}
+# [ ] Build output directory correct: {{BUILD_OUTPUT}}
+#
+# ============================================================================
+# TESTING LOCALLY
+# ============================================================================
+#
+# Test the frontend before deploying:
+#
+#   # Install dependencies
+#   pnpm install
+#
+#   # Run development server
+#   cd {{APP_PATH}}
+#   pnpm dev
+#
+#   # Run tests
+#   pnpm test
+#
+#   # Type checking
+#   pnpm tsc --noEmit
+#
+#   # Build production
+#   pnpm build
+#
+#   # Preview production build
+#   pnpm preview
+#
+# Test with Docker:
+#   cd {{APP_PATH}}
+#   docker build -f Dockerfile.production -t {{APP_NAME}}:test .
+#   docker run -p {{APP_PORT}}:{{APP_PORT}} {{APP_NAME}}:test
+#
+# ============================================================================
+# MODULE FEDERATION (Optional)
+# ============================================================================
+#
+# If using Module Federation for micro-frontends, add to vite.config.ts:
+#
+#   import federation from '@originjs/vite-plugin-federation'
+#
+#   export default defineConfig({
+#     plugins: [
+#       react(),
+#       federation({
+#         name: '{{APP_NAME}}',
+#         filename: 'remoteEntry.js',
+#         exposes: {
+#           './App': './src/App'
+#         },
+#         shared: ['react', 'react-dom', 'react-router-dom']
+#       })
+#     ]
+#   })
+#
+# ============================================================================

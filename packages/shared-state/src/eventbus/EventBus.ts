@@ -4,7 +4,7 @@
  */
 
 import mitt, { Emitter } from 'mitt';
-import type { DomainEvent, SystemEvent } from '../types';
+import type { DomainEvent } from '../types';
 
 // Event bus type with all possible events
 type EventMap = {
@@ -61,7 +61,7 @@ class EventBusClass {
    * Emit a domain event to all listeners
    */
   emit<T extends keyof EventMap>(type: T, payload: EventMap[T]['payload'], source = 'unknown'): void {
-    const event: DomainEvent = {
+    const event: DomainEvent<typeof payload> = {
       type: type as string,
       payload,
       timestamp: Date.now(),
@@ -70,7 +70,7 @@ class EventBusClass {
     };
 
     console.debug(`[EventBus] Emitting event: ${type}`, event);
-    this.emitter.emit(type, event);
+    this.emitter.emit(type, event as any);
   }
 
   /**
