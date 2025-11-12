@@ -15,75 +15,73 @@ class Settings(BaseSettings):
     # Basic App Configuration
     PROJECT_NAME: str = "SkillForge AI User Service"
     API_V1_STR: str = "/api/v1"
-    ENVIRONMENT: str = Field(default="development", env="ENVIRONMENT")
-    DEBUG: bool = Field(default=True, env="DEBUG")
-    
+    ENVIRONMENT: str = Field(default="development")
+    DEBUG: bool = Field(default=True)
+
     # Security
-    SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32), env="SECRET_KEY")
-    ALGORITHM: str = Field(default="HS256", env="ALGORITHM")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
-    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7, env="REFRESH_TOKEN_EXPIRE_DAYS")
+    SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
+    ALGORITHM: str = Field(default="HS256")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30)
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7)
     
     # CORS
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = Field(
-        default=["http://localhost:3000", "http://localhost:8080"],
-        env="BACKEND_CORS_ORIGINS"
+        default=["http://localhost:3000", "http://localhost:8080"]
     )
     ALLOWED_HOSTS: List[str] = Field(
-        default=["localhost", "127.0.0.1"], 
-        env="ALLOWED_HOSTS"
+        default=["localhost", "127.0.0.1"]
     )
     
     # Database - NO DEFAULTS FOR PRODUCTION SECRETS
-    DATABASE_URL: Optional[str] = Field(default=None, env="DATABASE_URL")
-    POSTGRES_USER: str = Field(default="skillforge_user", env="POSTGRES_USER")
-    POSTGRES_PASSWORD: Optional[str] = Field(default=None, env="POSTGRES_PASSWORD") 
-    POSTGRES_DB: str = Field(default="skillforge_db", env="POSTGRES_DB")
-    POSTGRES_HOST: str = Field(default="localhost", env="POSTGRES_HOST")
-    POSTGRES_PORT: int = Field(default=5432, env="POSTGRES_PORT")
+    DATABASE_URL: Optional[str] = Field(default=None)
+    POSTGRES_USER: str = Field(default="skillforge_user")
+    POSTGRES_PASSWORD: Optional[str] = Field(default=None)
+    POSTGRES_DB: str = Field(default="skillforge_db")
+    POSTGRES_HOST: str = Field(default="localhost")
+    POSTGRES_PORT: int = Field(default=5432)
     
     # Redis Configuration
-    REDIS_URL: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
-    REDIS_HOST: str = Field(default="localhost", env="REDIS_HOST")
-    REDIS_PORT: int = Field(default=6379, env="REDIS_PORT")
-    REDIS_PASSWORD: Optional[str] = Field(default=None, env="REDIS_PASSWORD")
-    REDIS_DB: int = Field(default=0, env="REDIS_DB")
-    CACHE_TTL: int = Field(default=300, env="CACHE_TTL")  # 5 minutes
+    REDIS_URL: str = Field(default="redis://localhost:6379/0")
+    REDIS_HOST: str = Field(default="localhost")
+    REDIS_PORT: int = Field(default=6379)
+    REDIS_PASSWORD: Optional[str] = Field(default=None)
+    REDIS_DB: int = Field(default=0)
+    CACHE_TTL: int = Field(default=300)  # 5 minutes
     
     # Email Configuration (emacsah.com domain)
-    SMTP_TLS: bool = Field(default=True, env="SMTP_TLS")
-    SMTP_PORT: Optional[int] = Field(default=587, env="SMTP_PORT")
-    SMTP_HOST: Optional[str] = Field(default="mail.emacsah.com", env="SMTP_HOST")
-    SMTP_USER: Optional[str] = Field(default="sah@emacsah.com", env="SMTP_USER")
-    SMTP_PASSWORD: Optional[str] = Field(default=None, env="SMTP_PASSWORD")
-    EMAILS_FROM_EMAIL: Optional[EmailStr] = Field(default="sah@emacsah.com", env="EMAILS_FROM_EMAIL")
-    EMAILS_FROM_NAME: Optional[str] = Field(default="SkillForge AI", env="EMAILS_FROM_NAME")
+    SMTP_TLS: bool = Field(default=True)
+    SMTP_PORT: Optional[int] = Field(default=587)
+    SMTP_HOST: Optional[str] = Field(default="mail.emacsah.com")
+    SMTP_USER: Optional[str] = Field(default="sah@emacsah.com")
+    SMTP_PASSWORD: Optional[str] = Field(default=None)
+    EMAILS_FROM_EMAIL: Optional[EmailStr] = Field(default="sah@emacsah.com")
+    EMAILS_FROM_NAME: Optional[str] = Field(default="SkillForge AI")
     
     # First Superuser
-    FIRST_SUPERUSER: Optional[EmailStr] = Field(default=None, env="FIRST_SUPERUSER")
-    FIRST_SUPERUSER_PASSWORD: Optional[str] = Field(default=None, env="FIRST_SUPERUSER_PASSWORD")
-    
+    FIRST_SUPERUSER: Optional[EmailStr] = Field(default=None)
+    FIRST_SUPERUSER_PASSWORD: Optional[str] = Field(default=None)
+
     # Logging
-    LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
-    LOG_FORMAT: str = Field(default="json", env="LOG_FORMAT")
+    LOG_LEVEL: str = Field(default="INFO")
+    LOG_FORMAT: str = Field(default="json")
     
     # Rate Limiting
-    RATE_LIMIT_PER_MINUTE: int = Field(default=60, env="RATE_LIMIT_PER_MINUTE")
-    
+    RATE_LIMIT_PER_MINUTE: int = Field(default=60)
+
     # File Upload
-    MAX_FILE_SIZE_MB: int = Field(default=10, env="MAX_FILE_SIZE_MB")
-    UPLOAD_PATH: str = Field(default="/tmp/uploads", env="UPLOAD_PATH")
+    MAX_FILE_SIZE_MB: int = Field(default=10)
+    UPLOAD_PATH: str = Field(default="/tmp/uploads")
     
     # External Services
-    NOTIFICATION_SERVICE_URL: Optional[str] = Field(default=None, env="NOTIFICATION_SERVICE_URL")
-    EMAIL_SERVICE_URL: Optional[str] = Field(default=None, env="EMAIL_SERVICE_URL")
-    
+    NOTIFICATION_SERVICE_URL: Optional[str] = Field(default=None)
+    EMAIL_SERVICE_URL: Optional[str] = Field(default=None)
+
     # Monitoring
-    ENABLE_METRICS: bool = Field(default=True, env="ENABLE_METRICS")
-    METRICS_PORT: int = Field(default=9090, env="METRICS_PORT")
-    
+    ENABLE_METRICS: bool = Field(default=True)
+    METRICS_PORT: int = Field(default=9090)
+
     # Testing
-    TEST_DATABASE_URL: Optional[str] = Field(default=None, env="TEST_DATABASE_URL")
+    TEST_DATABASE_URL: Optional[str] = Field(default=None)
     
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
