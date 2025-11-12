@@ -352,14 +352,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache
-          key: ${{ needs.setup-environment.outputs.cache-key-base }}-docker-${{ matrix.name }}
+          key: ${{ needs.setup-environment.outputs.cache-key-base }}-docker-${{ matrix.service.name }}
           restore-keys: |
             ${{ env.SECURITY_CACHE_VERSION }}-${{ runner.os }}-docker
 
       - name: Create optimized Dockerfile
-        working-directory: ${{ matrix.path }}
+        working-directory: ${{ matrix.service.path }}
         run: |
-          if [[ "${{ matrix.type }}" == "frontend" ]]; then
+          if [[ "${{ matrix.service.type }}" == "frontend" ]]; then
             cat > Dockerfile.scan << 'EOF'
           FROM node:20-alpine AS base
           RUN npm install -g pnpm@9.0.0
@@ -367,18 +367,18 @@ jobs:
 
           FROM base AS deps
           COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
-          COPY ${{ matrix.path }}/package.json ./${{ matrix.path }}/
+          COPY ${{ matrix.service.path }}/package.json ./${{ matrix.service.path }}/
           RUN pnpm install --frozen-lockfile --prod
 
           FROM base AS builder
           COPY --from=deps /app/node_modules ./node_modules
           COPY . .
-          RUN cd ${{ matrix.path }} && pnpm run build
+          RUN cd ${{ matrix.service.path }} && pnpm run build
 
           FROM nginx:alpine-slim
           RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
-          COPY --from=builder /app/${{ matrix.path }}/dist /usr/share/nginx/html
-          COPY ${{ matrix.path }}/nginx.conf /etc/nginx/nginx.conf
+          COPY --from=builder /app/${{ matrix.service.path }}/dist /usr/share/nginx/html
+          COPY ${{ matrix.service.path }}/nginx.conf /etc/nginx/nginx.conf
           USER nodejs
           EXPOSE 8080
           EOF
@@ -405,12 +405,12 @@ jobs:
           fi
 
       - name: Build and scan container
-        working-directory: ${{ matrix.path }}
+        working-directory: ${{ matrix.service.path }}
         run: |
           # Build with cache
           docker buildx build \
             --file Dockerfile.scan \
-            --tag skillforge-${{ matrix.name }}:scan \
+            --tag skillforge-${{ matrix.service.name }}:scan \
             --cache-from type=local,src=/tmp/.buildx-cache \
             --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
             --load \
@@ -426,14 +426,14 @@ jobs:
           (
             echo "🔍 Running Trivy container scan..."
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-              aquasec/trivy:latest image skillforge-${{ matrix.name }}:scan \
-              --format sarif --output security-reports/trivy-${{ matrix.name }}.sarif
+              aquasec/trivy:latest image skillforge-${{ matrix.service.name }}:scan \
+              --format sarif --output security-reports/trivy-${{ matrix.service.name }}.sarif
           ) &
 
           (
             echo "🔍 Running Grype vulnerability scan..."
             curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
-            grype skillforge-${{ matrix.name }}:scan -o json > security-reports/grype-${{ matrix.name }}.json
+            grype skillforge-${{ matrix.service.name }}:scan -o json > security-reports/grype-${{ matrix.service.name }}.json
           ) &
 
           wait
@@ -442,13 +442,13 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif_file: '${{ matrix.path }}/security-reports/trivy-${{ matrix.name }}.sarif'
+          sarif_file: '${{ matrix.service.path }}/security-reports/trivy-${{ matrix.service.name }}.sarif'
 
       - name: Upload container security reports
         uses: actions/upload-artifact@v4
         with:
-          name: container-security-${{ matrix.name }}
-          path: ${{ matrix.path }}/security-reports/
+          name: container-security-${{ matrix.service.name }}
+          path: ${{ matrix.service.path }}/security-reports/
           retention-days: 30
 
   infrastructure-security-scan:
@@ -714,15 +714,6 @@ jobs:
                       "details": "; ".join(header_results),
                       "expected": "Security headers present"
                   })
-
-              except requests.exceptions.RequestException as e:
-                  results["tests"].append({
-                      "name": "Service Connectivity",
-                      "status": "ERROR",
-                      "details": str(e),
-                      "expected": "Service reachable"
-                  })
-                  results["overall_status"] = "ERROR"
 
               # Test 4: IAP-specific header detection
               try:
