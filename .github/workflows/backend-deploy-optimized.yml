@@ -305,7 +305,7 @@ jobs:
     name: Build Containers
     runs-on: ubuntu-latest
     needs: [setup, security-and-quality]
-    if: needs.setup.outputs.deploy-needed == 'true' && fromJson(needs.setup.outputs.matrix).service[0] != null
+    if: always() && needs.setup.outputs.deploy-needed == 'true' && fromJson(needs.setup.outputs.matrix).service[0] != null
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
@@ -417,7 +417,7 @@ jobs:
     name: Database Migrations
     runs-on: ubuntu-latest
     needs: [setup, security-and-quality]
-    if: needs.setup.outputs.run_migrations == 'true' && needs.setup.outputs.deploy-needed == 'true'
+    if: always() && needs.setup.outputs.run_migrations == 'true' && needs.setup.outputs.deploy-needed == 'true'
     environment: ${{ needs.setup.outputs.environment }}
     strategy:
       matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
