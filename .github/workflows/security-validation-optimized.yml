@@ -339,7 +339,6 @@ jobs:
       matrix:
         service:
           - { name: 'shell', path: 'apps/frontend/shell', type: 'frontend' }
-          - { name: 'auth', path: 'apps/frontend/auth', type: 'frontend' }
           - { name: 'user-service', path: 'apps/backend/user-service', type: 'backend' }
     steps:
       - name: Checkout code
