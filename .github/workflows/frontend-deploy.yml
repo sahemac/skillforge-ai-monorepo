@@ -15,6 +15,7 @@ on:
       - 'packages/shared/**'
       - 'packages/core/**'
       - '.github/workflows/frontend-deploy.yml'
+  workflow_call:
   workflow_dispatch:
     inputs:
       environment:
