@@ -594,10 +594,12 @@ jobs:
           ENVIRONMENT="${{ github.event.inputs.environment || 'staging' }}"
 
           if [[ -z "$SERVICE_URL" ]]; then
+            # Use the actual frontend shell service URLs
+            # Frontend is deployed to Cloud Storage + Load Balancer, not Cloud Run directly
             if [[ "$ENVIRONMENT" == "production" ]]; then
-              SERVICE_URL="https://skillforge-ai-shell.europe-west1.run.app"
+              SERVICE_URL="https://skillforge-ai.emacsah.com"
             else
-              SERVICE_URL="https://skillforge-ai-shell-staging.europe-west1.run.app"
+              SERVICE_URL="https://skillforge-ai.emacsah.com"
             fi
           fi
 
