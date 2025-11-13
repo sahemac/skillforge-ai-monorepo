@@ -216,7 +216,8 @@ jobs:
           # First install shared-models package if exists (must be sequential for editable install)
           if grep -q "shared-models" requirements.txt 2>/dev/null; then
             echo "📦 Installing shared-models package..."
-            pip install -e ../../packages/shared-models
+            # Use absolute path from workspace root
+            pip install -e $GITHUB_WORKSPACE/packages/shared-models
           fi
 
           # Then install remaining dependencies in parallel
