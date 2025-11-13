@@ -1,0 +1,48 @@
+fastapi==0.115.5
+uvicorn[standard]==0.34.0
+sqlmodel==0.0.22
+asyncpg==0.30.0
+psycopg2-binary==2.9.10
+alembic==1.14.0
+pydantic==2.10.3
+pydantic-settings==2.6.1
+python-jose[cryptography]==3.3.0
+pyjwt==2.10.1
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.20
+email-validator==2.2.0
+redis==5.2.1
+slowapi==0.1.9
+python-dateutil==2.9.0
+httpx==0.28.1
+
+# Monitoring and logging
+prometheus-fastapi-instrumentator==7.0.0
+structlog==24.4.0
+
+# Google Cloud
+google-cloud-secret-manager==2.21.1
+google-cloud-logging==3.11.3
+
+# Email
+aiosmtplib==3.0.2
+jinja2==3.1.5
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+httpx==0.28.1
+
+# 2FA / TOTP
+pyotp==2.9.0
+qrcode[pil]==8.0
+
+# Security - Input sanitization
+bleach==6.2.0
+
+# Google Cloud Pub/Sub for inter-service communication
+google-cloud-pubsub==2.18.4
+
+# Shared models package (single source of truth)
+-e ../../packages/shared-models

@@ -1,5 +1,5 @@
 """
-Models package for SkillForge AI User Service
+Models package for SkillForge AI Auth Service
 NOW USING SHARED MODELS - Single Source of Truth
 """
 
@@ -9,13 +9,15 @@ from skillforge_models import (
     Base,
     TimestampMixin,
     UUIDMixin,
-    # User models (READ/WRITE - owned by user-service)
+    # User models (READ-ONLY for auth-service)
     User,
     UserRole,
     UserStatus,
     UserSkillLevel,
     UserSession,
     UserSettings,
+    # 2FA models (READ/WRITE - owned by auth-service)
+    UserTwoFactor,
 )
 
 __all__ = [
@@ -23,11 +25,13 @@ __all__ = [
     "Base",
     "TimestampMixin",
     "UUIDMixin",
-    # User models (owned by user-service)
+    # User models
     "User",
     "UserRole",
     "UserStatus",
     "UserSkillLevel",
     "UserSession",
     "UserSettings",
+    # 2FA models
+    "UserTwoFactor",
 ]

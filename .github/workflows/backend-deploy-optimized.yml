@@ -4,12 +4,14 @@ on:
   push:
     branches: [main, develop]
     paths:
+      - 'apps/backend/auth-service/**'
       - 'apps/backend/user-service/**'
       - 'apps/backend/company-service/**'
       - '.github/workflows/backend-deploy.yml'
   pull_request:
     branches: [main, develop]
     paths:
+      - 'apps/backend/auth-service/**'
       - 'apps/backend/user-service/**'
       - 'apps/backend/company-service/**'
       - '.github/workflows/backend-deploy.yml'
@@ -52,6 +54,7 @@ jobs:
     name: Setup & Detection
     runs-on: ubuntu-latest
     outputs:
+      auth-service: ${{ steps.changes.outputs.auth-service }}
       user-service: ${{ steps.changes.outputs.user-service }}
       company-service: ${{ steps.changes.outputs.company-service }}
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -70,6 +73,8 @@ jobs:
         id: changes
         with:
           filters: |
+            auth-service:
+              - 'apps/backend/auth-service/**'
             user-service:
               - 'apps/backend/user-service/**'
             company-service:
@@ -104,16 +109,17 @@ jobs:
             IFS=',' read -ra REQUESTED_SERVICES <<< "${{ github.event.inputs.services }}"
             for service in "${REQUESTED_SERVICES[@]}"; do
               service=$(echo $service | xargs)
-              [[ "$service" =~ ^(user-service|company-service)$ ]] && services+=("$service")
+              [[ "$service" =~ ^(auth-service|user-service|company-service)$ ]] && services+=("$service")
             done
           else
             # Auto-detect changed services or deploy all
+            [[ "${{ steps.changes.outputs.auth-service }}" == "true" || "${{ github.event.inputs.services }}" == "all" ]] && services+=("auth-service")
             [[ "${{ steps.changes.outputs.user-service }}" == "true" || "${{ github.event.inputs.services }}" == "all" ]] && services+=("user-service")
             [[ "${{ steps.changes.outputs.company-service }}" == "true" || "${{ github.event.inputs.services }}" == "all" ]] && services+=("company-service")
           fi
 
-          # Default to user-service if no services detected
-          [[ ${#services[@]} -eq 0 ]] && services=("user-service")
+          # Default to all services if no services detected
+          [[ ${#services[@]} -eq 0 ]] && services=("auth-service" "user-service" "company-service")
 
           # Build JSON matrix - properly formatted for GitHub Actions
           matrix_json=$(printf '%s\n' "${services[@]}" | jq -R . | jq -sc '{"service": .}')
