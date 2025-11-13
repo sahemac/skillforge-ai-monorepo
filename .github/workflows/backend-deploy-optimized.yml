@@ -34,6 +34,14 @@ on:
         default: true
         type: boolean
   workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      run_migrations:
+        required: false
+        type: boolean
+        default: true
 
 env:
   REGISTRY: europe-west1-docker.pkg.dev
