@@ -10,7 +10,6 @@ on:
       - 'packages/**'
       - '.github/workflows/backend-deploy-optimized.yml'
       - '.github/workflows/frontend-deploy.yml'
-      - '.github/workflows/deploy-staging-auto.yml'
 
 # Prevent concurrent deployments to staging
 concurrency:
