@@ -91,9 +91,9 @@ jobs:
       - name: Set environment and flags
         id: set-env
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
-            echo "run_migrations=${{ github.event.inputs.run_migrations }}" >> $GITHUB_OUTPUT
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] || [[ "${{ github.event_name }}" == "workflow_call" ]]; then
+            echo "environment=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+            echo "run_migrations=${{ inputs.run_migrations }}" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "environment=production" >> $GITHUB_OUTPUT
             echo "run_migrations=true" >> $GITHUB_OUTPUT
@@ -112,17 +112,17 @@ jobs:
         run: |
           services=()
 
-          # Handle workflow dispatch with specific services
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.services }}" != "all" ]]; then
-            IFS=',' read -ra REQUESTED_SERVICES <<< "${{ github.event.inputs.services }}"
+          # Handle workflow dispatch/call with specific services
+          if [[ ("${{ github.event_name }}" == "workflow_dispatch" || "${{ github.event_name }}" == "workflow_call") && "${{ inputs.services }}" != "all" ]]; then
+            IFS=',' read -ra REQUESTED_SERVICES <<< "${{ inputs.services }}"
             for service in "${REQUESTED_SERVICES[@]}"; do
               service=$(echo $service | xargs)
               [[ "$service" =~ ^(user-service|company-service)$ ]] && services+=("$service")
             done
           else
             # Auto-detect changed services or deploy all
-            [[ "${{ steps.changes.outputs.user-service }}" == "true" || "${{ github.event.inputs.services }}" == "all" ]] && services+=("user-service")
-            [[ "${{ steps.changes.outputs.company-service }}" == "true" || "${{ github.event.inputs.services }}" == "all" ]] && services+=("company-service")
+            [[ "${{ steps.changes.outputs.user-service }}" == "true" || "${{ inputs.services }}" == "all" ]] && services+=("user-service")
+            [[ "${{ steps.changes.outputs.company-service }}" == "true" || "${{ inputs.services }}" == "all" ]] && services+=("company-service")
           fi
 
           # Default to user-service if no services detected
@@ -152,7 +152,7 @@ jobs:
         id: deploy-check
         run: |
           # Skip deployment for PR events unless explicitly requested
-          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.inputs.services }}" == "" ]]; then
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ inputs.services }}" == "" ]]; then
             echo "needed=false" >> $GITHUB_OUTPUT
           else
             echo "needed=true" >> $GITHUB_OUTPUT
