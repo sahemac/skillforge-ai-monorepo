@@ -38,13 +38,12 @@ def upgrade() -> None:
 
     # Conditionally add FK constraint only if users table exists
     # This allows the migration to run in test environments where users table might not exist
+    # Using EXECUTE to prevent PostgreSQL from parsing the FK reference before the IF check
     op.execute("""
         DO $$
         BEGIN
             IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'users') THEN
-                ALTER TABLE user_two_factor
-                ADD CONSTRAINT user_two_factor_user_id_fkey
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+                EXECUTE 'ALTER TABLE user_two_factor ADD CONSTRAINT user_two_factor_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE';
             END IF;
         END $$;
     """)
@@ -52,7 +51,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop user_two_factor table."""
-    # Drop FK constraint if it exists
+    # Drop FK constraint if it exists - using EXECUTE to prevent parsing issues
     op.execute("""
         DO $$
         BEGIN
@@ -60,7 +59,7 @@ def downgrade() -> None:
                 SELECT 1 FROM pg_constraint
                 WHERE conname = 'user_two_factor_user_id_fkey'
             ) THEN
-                ALTER TABLE user_two_factor DROP CONSTRAINT user_two_factor_user_id_fkey;
+                EXECUTE 'ALTER TABLE user_two_factor DROP CONSTRAINT user_two_factor_user_id_fkey';
             END IF;
         END $$;
     """)
