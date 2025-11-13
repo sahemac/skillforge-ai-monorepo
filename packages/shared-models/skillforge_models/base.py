@@ -5,11 +5,10 @@ Base model classes for SkillForge AI User Service
 from datetime import datetime
 from typing import Optional
 from sqlmodel import Field, SQLModel
-from sqlalchemy.orm import declarative_base
 import uuid
 
-# Create declarative base for all models
-Base = declarative_base()
+# Use SQLModel as Base (SQLModel already provides declarative base functionality)
+Base = SQLModel
 
 
 class TimestampMixin:
