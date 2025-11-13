@@ -38,6 +38,10 @@ on:
       environment:
         required: true
         type: string
+      services:
+        required: false
+        type: string
+        default: 'all'
       run_migrations:
         required: false
         type: boolean
