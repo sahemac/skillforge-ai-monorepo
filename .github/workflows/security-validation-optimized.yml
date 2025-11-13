@@ -427,20 +427,22 @@ jobs:
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
-          mkdir -p security-reports
+          # Create security-reports directory in service path
+          mkdir -p ${{ matrix.service.path }}/security-reports
 
           # Parallel container security scans
           (
             echo "🔍 Running Trivy container scan..."
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "$(pwd)/${{ matrix.service.path }}/security-reports:/output" \
               aquasec/trivy:latest image skillforge-${{ matrix.service.name }}:scan \
-              --format sarif --output security-reports/trivy-${{ matrix.service.name }}.sarif
+              --format sarif --output /output/trivy-${{ matrix.service.name }}.sarif
           ) &
 
           (
             echo "🔍 Running Grype vulnerability scan..."
             curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
-            grype skillforge-${{ matrix.service.name }}:scan -o json > security-reports/grype-${{ matrix.service.name }}.json
+            grype skillforge-${{ matrix.service.name }}:scan -o json > ${{ matrix.service.path }}/security-reports/grype-${{ matrix.service.name }}.json
           ) &
 
           wait
