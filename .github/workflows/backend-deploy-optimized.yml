@@ -218,10 +218,16 @@ jobs:
             echo "📦 Installing shared-models package..."
             # Use absolute path from workspace root
             pip install -e $GITHUB_WORKSPACE/packages/shared-models
+
+            # Create a temporary requirements file without shared-models to avoid duplicate installation
+            grep -v "shared-models" requirements.txt > requirements-temp.txt
+            REQUIREMENTS_FILE="requirements-temp.txt"
+          else
+            REQUIREMENTS_FILE="requirements.txt"
           fi
 
           # Then install remaining dependencies in parallel
-          pip install -r requirements.txt &
+          pip install -r $REQUIREMENTS_FILE &
           pip install bandit safety semgrep pytest-cov black flake8 mypy psycopg2-binary &
           wait
 
