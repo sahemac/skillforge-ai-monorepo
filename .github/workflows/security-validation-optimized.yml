@@ -404,11 +404,10 @@ jobs:
           fi
 
       - name: Build and scan container
-        working-directory: ${{ matrix.service.path }}
         run: |
-          # Build with cache
+          # Build with cache (build context is monorepo root)
           docker buildx build \
-            --file Dockerfile.scan \
+            --file ${{ matrix.service.path }}/Dockerfile.scan \
             --tag skillforge-${{ matrix.service.name }}:scan \
             --cache-from type=local,src=/tmp/.buildx-cache \
             --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
