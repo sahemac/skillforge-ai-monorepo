@@ -10,8 +10,6 @@ import sys
 # Add the app directory to the Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from app.core.config import Settings
-
 # Import Base from shared models
 from skillforge_models import Base
 
