@@ -212,7 +212,14 @@ jobs:
         working-directory: apps/backend/${{ matrix.service }}
         run: |
           python -m pip install --upgrade pip
-          # Install all tools in parallel
+
+          # First install shared-models package if exists (must be sequential for editable install)
+          if grep -q "shared-models" requirements.txt 2>/dev/null; then
+            echo "📦 Installing shared-models package..."
+            pip install -e ../../packages/shared-models
+          fi
+
+          # Then install remaining dependencies in parallel
           pip install -r requirements.txt &
           pip install bandit safety semgrep pytest-cov black flake8 mypy psycopg2-binary &
           wait
