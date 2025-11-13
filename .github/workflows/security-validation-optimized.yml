@@ -355,53 +355,62 @@ jobs:
           restore-keys: |
             ${{ env.SECURITY_CACHE_VERSION }}-${{ runner.os }}-docker
 
-      - name: Create optimized Dockerfile
-        working-directory: ${{ matrix.service.path }}
+      - name: Create simplified Dockerfile for security scanning
         run: |
-          if [[ "${{ matrix.service.type }}" == "frontend" ]]; then
-            cat > Dockerfile.scan << 'EOF'
-          FROM node:20-alpine AS base
-          RUN npm install -g pnpm@9.0.0
+          SERVICE_PATH="${{ matrix.service.path }}"
+          SERVICE_TYPE="${{ matrix.service.type }}"
+
+          # Create Dockerfile in service directory for scanning
+          # (simpler approach: just copy dependencies and source, no multi-stage)
+
+          if [[ "$SERVICE_TYPE" == "frontend" ]]; then
+            # Frontend: Simple Node image with dependencies
+            cat > "${SERVICE_PATH}/Dockerfile.scan" << EOF
+          FROM node:20-alpine
           WORKDIR /app
 
-          FROM base AS deps
-          COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
-          COPY ${{ matrix.service.path }}/package.json ./${{ matrix.service.path }}/
-          RUN pnpm install --frozen-lockfile --prod
+          # Install pnpm
+          RUN npm install -g pnpm@9.0.0
 
-          FROM base AS builder
-          COPY --from=deps /app/node_modules ./node_modules
-          COPY . .
-          RUN cd ${{ matrix.service.path }} && pnpm run build
+          # Copy workspace files
+          COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
+          COPY packages/ ./packages/
 
-          FROM nginx:alpine-slim
-          RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
-          COPY --from=builder /app/${{ matrix.service.path }}/dist /usr/share/nginx/html
-          COPY ${{ matrix.service.path }}/nginx.conf /etc/nginx/nginx.conf
-          USER nodejs
+          # Copy service-specific files
+          COPY ${SERVICE_PATH}/package.json ./${SERVICE_PATH}/
+          COPY ${SERVICE_PATH}/ ./${SERVICE_PATH}/
+
+          # Install dependencies (focus on node_modules for vulnerability scanning)
+          RUN pnpm install --frozen-lockfile || pnpm install
+
+          WORKDIR /app/${SERVICE_PATH}
           EXPOSE 8080
           EOF
           else
-            cat > Dockerfile.scan << 'EOF'
-          FROM python:3.11-alpine AS base
-          RUN apk add --no-cache gcc musl-dev
-
-          FROM base AS deps
+            # Backend: Simple Python image with dependencies
+            cat > "${SERVICE_PATH}/Dockerfile.scan" << EOF
+          FROM python:3.11-slim
           WORKDIR /app
-          COPY requirements.txt .
+
+          # Install system dependencies for Python packages
+          RUN apt-get update && apt-get install -y --no-install-recommends \
+              gcc \
+              && rm -rf /var/lib/apt/lists/*
+
+          # Copy requirements and install dependencies
+          COPY ${SERVICE_PATH}/requirements.txt ./requirements.txt
           RUN pip install --no-cache-dir -r requirements.txt
 
-          FROM python:3.11-alpine
-          RUN addgroup -g 1001 appgroup && adduser -u 1001 -G appgroup -s /bin/sh -D appuser
-          WORKDIR /app
-          COPY --from=deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-          COPY --from=deps /usr/local/bin /usr/local/bin
-          COPY app/ ./app/
-          USER appuser
+          # Copy application code
+          COPY ${SERVICE_PATH}/app/ ./app/
+
           EXPOSE 8000
-          CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+          CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
           EOF
           fi
+
+          echo "Created Dockerfile.scan at ${SERVICE_PATH}/Dockerfile.scan"
+          cat "${SERVICE_PATH}/Dockerfile.scan"
 
       - name: Build and scan container
         run: |
