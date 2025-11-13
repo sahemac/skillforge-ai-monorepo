@@ -113,7 +113,7 @@ jobs:
           services=()
 
           # Handle workflow dispatch/call with specific services
-          if [[ ("${{ github.event_name }}" == "workflow_dispatch" || "${{ github.event_name }}" == "workflow_call") && "${{ inputs.services }}" != "all" ]]; then
+          if ( [[ "${{ github.event_name }}" == "workflow_dispatch" ]] || [[ "${{ github.event_name }}" == "workflow_call" ]] ) && [[ "${{ inputs.services }}" != "all" ]]; then
             IFS=',' read -ra REQUESTED_SERVICES <<< "${{ inputs.services }}"
             for service in "${REQUESTED_SERVICES[@]}"; do
               service=$(echo $service | xargs)
