@@ -4,12 +4,14 @@ on:
   push:
     branches: [main, develop]
     paths:
+      - 'apps/backend/auth-service/**'
       - 'apps/backend/user-service/**'
       - 'apps/backend/company-service/**'
       - '.github/workflows/backend-deploy.yml'
   pull_request:
     branches: [main, develop]
     paths:
+      - 'apps/backend/auth-service/**'
       - 'apps/backend/user-service/**'
       - 'apps/backend/company-service/**'
       - '.github/workflows/backend-deploy.yml'
@@ -52,6 +54,7 @@ jobs:
     name: Setup & Detection
     runs-on: ubuntu-latest
     outputs:
+      auth-service: ${{ steps.changes.outputs.auth-service }}
       user-service: ${{ steps.changes.outputs.user-service }}
       company-service: ${{ steps.changes.outputs.company-service }}
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -70,6 +73,8 @@ jobs:
         id: changes
         with:
           filters: |
+            auth-service:
+              - 'apps/backend/auth-service/**'
             user-service:
               - 'apps/backend/user-service/**'
             company-service:
@@ -104,16 +109,17 @@ jobs:
             IFS=',' read -ra REQUESTED_SERVICES <<< "${{ github.event.inputs.services }}"
             for service in "${REQUESTED_SERVICES[@]}"; do
               service=$(echo $service | xargs)
-              [[ "$service" =~ ^(user-service|company-service)$ ]] && services+=("$service")
+              [[ "$service" =~ ^(auth-service|user-service|company-service)$ ]] && services+=("$service")
             done
           else
             # Auto-detect changed services or deploy all
+            [[ "${{ steps.changes.outputs.auth-service }}" == "true" || "${{ github.event.inputs.services }}" == "all" ]] && services+=("auth-service")
             [[ "${{ steps.changes.outputs.user-service }}" == "true" || "${{ github.event.inputs.services }}" == "all" ]] && services+=("user-service")
             [[ "${{ steps.changes.outputs.company-service }}" == "true" || "${{ github.event.inputs.services }}" == "all" ]] && services+=("company-service")
           fi
 
-          # Default to user-service if no services detected
-          [[ ${#services[@]} -eq 0 ]] && services=("user-service")
+          # Default to all services if no services detected
+          [[ ${#services[@]} -eq 0 ]] && services=("auth-service" "user-service" "company-service")
 
           # Build JSON matrix - properly formatted for GitHub Actions
           matrix_json=$(printf '%s\n' "${services[@]}" | jq -R . | jq -sc '{"service": .}')
@@ -206,8 +212,22 @@ jobs:
         working-directory: apps/backend/${{ matrix.service }}
         run: |
           python -m pip install --upgrade pip
-          # Install all tools in parallel
-          pip install -r requirements.txt &
+
+          # First install shared-models package if exists (must be sequential for editable install)
+          if grep -q "shared-models" requirements.txt 2>/dev/null; then
+            echo "📦 Installing shared-models package..."
+            # Use absolute path from workspace root
+            pip install -e $GITHUB_WORKSPACE/packages/shared-models
+
+            # Create a temporary requirements file without shared-models to avoid duplicate installation
+            grep -v "shared-models" requirements.txt > requirements-temp.txt
+            REQUIREMENTS_FILE="requirements-temp.txt"
+          else
+            REQUIREMENTS_FILE="requirements.txt"
+          fi
+
+          # Then install remaining dependencies in parallel
+          pip install -r $REQUIREMENTS_FILE &
           pip install bandit safety semgrep pytest-cov black flake8 mypy psycopg2-binary &
           wait
 
@@ -305,7 +325,7 @@ jobs:
     name: Build Containers
     runs-on: ubuntu-latest
     needs: [setup, security-and-quality]
-    if: needs.setup.outputs.deploy-needed == 'true' && fromJson(needs.setup.outputs.matrix).service[0] != null
+    if: always() && needs.setup.outputs.deploy-needed == 'true' && fromJson(needs.setup.outputs.matrix).service[0] != null
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
@@ -417,7 +437,7 @@ jobs:
     name: Database Migrations
     runs-on: ubuntu-latest
     needs: [setup, security-and-quality]
-    if: needs.setup.outputs.run_migrations == 'true' && needs.setup.outputs.deploy-needed == 'true'
+    if: always() && needs.setup.outputs.run_migrations == 'true' && needs.setup.outputs.deploy-needed == 'true'
     environment: ${{ needs.setup.outputs.environment }}
     strategy:
       matrix: ${{ fromJson(needs.setup.outputs.matrix) }}

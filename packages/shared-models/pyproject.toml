@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools-scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "skillforge-models"
+version = "1.0.0"
+description = "Shared database models for SkillForge AI microservices"
+authors = [
+    {name = "SkillForge AI Team"}
+]
+requires-python = ">=3.9"
+dependencies = [
+    "sqlmodel>=0.0.14",
+    "sqlalchemy>=2.0.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=22.0.0",
+    "mypy>=0.991",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["skillforge_models*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
