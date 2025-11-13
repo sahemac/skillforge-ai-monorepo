@@ -1,5 +1,5 @@
 """
-Models package for SkillForge AI User Service
+Models package for SkillForge AI Auth Service
 Re-exports from shared-models package
 """
 
@@ -8,13 +8,15 @@ from skillforge_models import (
     # Base classes
     TimestampMixin,
     UUIDMixin,
-    # User models
+    # User models (read-only)
     User,
     UserRole,
     UserStatus,
     UserSkillLevel,
     UserSession,
     UserSettings,
+    # Two-factor models (owned by auth-service)
+    UserTwoFactor,
 )
 
 __all__ = [
@@ -22,11 +24,14 @@ __all__ = [
     "TimestampMixin",
     "UUIDMixin",
 
-    # User models
+    # User models (read-only)
     "User",
     "UserRole",
     "UserStatus",
     "UserSkillLevel",
     "UserSession",
     "UserSettings",
+
+    # Two-factor models (owned by auth-service)
+    "UserTwoFactor",
 ]
