@@ -103,6 +103,7 @@ jobs:
     secrets: inherit
     with:
       environment: staging
+      services: 'all'
       run_migrations: true
 
   # ===== Déploiement Frontend =====
