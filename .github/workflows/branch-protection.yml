@@ -303,21 +303,46 @@ jobs:
       - name: Comment PR with results
         if: always()
         uses: actions/github-script@v7
+        env:
+          VALIDATE_PR_RESULT: ${{ needs.validate-pr.result }}
+          BACKEND_TESTS_RESULT: ${{ needs.backend-tests.result }}
+          FRONTEND_TESTS_RESULT: ${{ needs.frontend-tests.result }}
+          SECURITY_SCAN_RESULT: ${{ needs.security-scan.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
+            // Get results from environment variables
+            const validatePr = process.env.VALIDATE_PR_RESULT;
+            const backendTests = process.env.BACKEND_TESTS_RESULT;
+            const frontendTests = process.env.FRONTEND_TESTS_RESULT;
+            const securityScan = process.env.SECURITY_SCAN_RESULT;
+            const runUrl = process.env.RUN_URL;
+
+            // Determine status icons
+            const prStatus = validatePr === 'success' ? '✅' : '❌';
+            const backendStatus = backendTests === 'success' ? '✅' : backendTests === 'skipped' ? '⏭️' : '❌';
+            const frontendStatus = frontendTests === 'success' ? '✅' : '❌';
+            const securityStatus = securityScan === 'success' ? '✅' : '❌';
+
+            // Determine overall message
+            const allPassed = validatePr === 'success' && frontendTests === 'success' && securityScan === 'success';
+            const overallMessage = allPassed
+              ? '✅ **All checks passed!** This PR is ready for review.'
+              : '❌ **Some checks failed.** Please review and fix the issues.';
+
             const summary = `
-            ## 🔍 Automated PR Validation Results
+## 🔍 Automated PR Validation Results
 
-            | Check | Status |
-            |-------|--------|
-            | PR Requirements | ${{ needs.validate-pr.result == 'success' ? '✅' : '❌' }} |
-            | Backend Tests | ${{ needs.backend-tests.result == 'success' ? '✅' : needs.backend-tests.result == 'skipped' ? '⏭️' : '❌' }} |
-            | Frontend Tests | ${{ needs.frontend-tests.result == 'success' ? '✅' : '❌' }} |
-            | Security Scan | ${{ needs.security-scan.result == 'success' ? '✅' : '❌' }} |
+| Check | Status |
+|-------|--------|
+| PR Requirements | ${prStatus} |
+| Backend Tests | ${backendStatus} |
+| Frontend Tests | ${frontendStatus} |
+| Security Scan | ${securityStatus} |
 
-            ${{ needs.validate-pr.result == 'success' && needs.frontend-tests.result == 'success' && needs.security-scan.result == 'success' ? '✅ **All checks passed!** This PR is ready for review.' : '❌ **Some checks failed.** Please review and fix the issues.' }}
+${overallMessage}
 
-            [View detailed results](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+[View detailed results](${runUrl})
             `;
 
             github.rest.issues.createComment({
