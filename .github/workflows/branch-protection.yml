@@ -9,7 +9,7 @@ on:
 
 # Prevent running on draft PRs
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ format('{0}-{1}', github.workflow, github.ref) }}
   cancel-in-progress: true
 
 permissions:
@@ -213,9 +213,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: ${{ format('{0}-pnpm-store-{1}', runner.os, hashFiles('**/pnpm-lock.yaml')) }}
           restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+            ${{ format('{0}-pnpm-store-', runner.os) }}
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
