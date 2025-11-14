@@ -282,18 +282,54 @@ jobs:
 
     steps:
       - name: Check all validations passed
+        env:
+          VALIDATE_PR_STATUS: ${{ needs.validate-pr.result }}
+          BACKEND_TESTS_STATUS: ${{ needs.backend-tests.result }}
+          FRONTEND_TESTS_STATUS: ${{ needs.frontend-tests.result }}
+          SECURITY_SCAN_STATUS: ${{ needs.security-scan.result }}
         run: |
           echo "## 📋 PR Validation Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| PR Requirements | ${{ needs.validate-pr.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Backend Tests | ${{ needs.backend-tests.result == 'success' && '✅ Passed' || needs.backend-tests.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Frontend Tests | ${{ needs.frontend-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Security Scan | ${{ needs.security-scan.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+
+          # Determine PR Requirements status
+          if [ "$VALIDATE_PR_STATUS" = "success" ]; then
+            echo "| PR Requirements | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| PR Requirements | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Determine Backend Tests status
+          if [ "$BACKEND_TESTS_STATUS" = "success" ]; then
+            echo "| Backend Tests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          elif [ "$BACKEND_TESTS_STATUS" = "skipped" ]; then
+            echo "| Backend Tests | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Backend Tests | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Determine Frontend Tests status
+          if [ "$FRONTEND_TESTS_STATUS" = "success" ]; then
+            echo "| Frontend Tests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Frontend Tests | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Determine Security Scan status
+          if [ "$SECURITY_SCAN_STATUS" = "success" ]; then
+            echo "| Security Scan | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Security Scan | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [[ "${{ needs.validate-pr.result }}" == "failure" || "${{ needs.backend-tests.result }}" == "failure" || "${{ needs.frontend-tests.result }}" == "failure" || "${{ needs.security-scan.result }}" == "failure" ]]; then
+          # Check for failures
+          if [[ "$VALIDATE_PR_STATUS" == "failure" ]] || \
+             [[ "$BACKEND_TESTS_STATUS" == "failure" ]] || \
+             [[ "$FRONTEND_TESTS_STATUS" == "failure" ]] || \
+             [[ "$SECURITY_SCAN_STATUS" == "failure" ]]; then
             echo "❌ Some validations failed. Please fix the issues before merging." >> $GITHUB_STEP_SUMMARY
             exit 1
           else
