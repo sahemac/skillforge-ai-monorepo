@@ -180,6 +180,13 @@ jobs:
     needs: [detect-changes, deploy-backend, deploy-frontend, smoke-tests-backend, smoke-tests-frontend, e2e-tests]
     if: always() && needs.detect-changes.outputs.deployment_needed == 'true'
 
+    env:
+      WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      COMMIT_SHA: ${{ needs.detect-changes.outputs.commit_sha }}
+      COMMIT_MESSAGE: ${{ needs.detect-changes.outputs.commit_message }}
+      GITHUB_ACTOR: ${{ github.actor }}
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+
     steps:
       - name: Generate deployment summary
         run: |
@@ -187,8 +194,8 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Environment**: Staging" >> $GITHUB_STEP_SUMMARY
           echo "**Branch**: develop" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit**: ${{ needs.detect-changes.outputs.commit_sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Message**: ${{ needs.detect-changes.outputs.commit_message }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit**: ${COMMIT_SHA}" >> $GITHUB_STEP_SUMMARY
+          echo "**Message**: ${COMMIT_MESSAGE}" >> $GITHUB_STEP_SUMMARY
           echo "**Timestamp**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 📦 Deployment Results" >> $GITHUB_STEP_SUMMARY
@@ -235,8 +242,8 @@ jobs:
       - name: Notify on Slack (Failure)
         if: failure()
         run: |
-          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
-            curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+          if [ -n "$SLACK_WEBHOOK" ]; then
+            curl -X POST "$SLACK_WEBHOOK" \
             -H 'Content-Type: application/json' \
             -d "{
               \"text\": \"❌ Staging deployment failed\",
@@ -253,15 +260,15 @@ jobs:
                   \"fields\": [
                     {\"type\": \"mrkdwn\", \"text\": \"*Branch:*\\ndevelop\"},
                     {\"type\": \"mrkdwn\", \"text\": \"*Environment:*\\nStaging\"},
-                    {\"type\": \"mrkdwn\", \"text\": \"*Commit:*\\n${{ needs.detect-changes.outputs.commit_sha }}\"},
-                    {\"type\": \"mrkdwn\", \"text\": \"*Author:*\\n${{ github.actor }}\"}
+                    {\"type\": \"mrkdwn\", \"text\": \"*Commit:*\\n${COMMIT_SHA}\"},
+                    {\"type\": \"mrkdwn\", \"text\": \"*Author:*\\n${GITHUB_ACTOR}\"}
                   ]
                 },
                 {
                   \"type\": \"section\",
                   \"text\": {
                     \"type\": \"mrkdwn\",
-                    \"text\": \"*Message:* ${{ needs.detect-changes.outputs.commit_message }}\"
+                    \"text\": \"*Message:* ${COMMIT_MESSAGE}\"
                   }
                 },
                 {
@@ -270,7 +277,7 @@ jobs:
                     {
                       \"type\": \"button\",
                       \"text\": {\"type\": \"plain_text\", \"text\": \"View Workflow\"},
-                      \"url\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"
+                      \"url\": \"${WORKFLOW_URL}\"
                     }
                   ]
                 }
@@ -281,8 +288,8 @@ jobs:
       - name: Notify on Slack (Success)
         if: success()
         run: |
-          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
-            curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+          if [ -n "$SLACK_WEBHOOK" ]; then
+            curl -X POST "$SLACK_WEBHOOK" \
             -H 'Content-Type: application/json' \
             -d "{
               \"text\": \"✅ Staging deployment successful\",
@@ -299,15 +306,15 @@ jobs:
                   \"fields\": [
                     {\"type\": \"mrkdwn\", \"text\": \"*Branch:*\\ndevelop\"},
                     {\"type\": \"mrkdwn\", \"text\": \"*Environment:*\\nStaging\"},
-                    {\"type\": \"mrkdwn\", \"text\": \"*Commit:*\\n${{ needs.detect-changes.outputs.commit_sha }}\"},
-                    {\"type\": \"mrkdwn\", \"text\": \"*Author:*\\n${{ github.actor }}\"}
+                    {\"type\": \"mrkdwn\", \"text\": \"*Commit:*\\n${COMMIT_SHA}\"},
+                    {\"type\": \"mrkdwn\", \"text\": \"*Author:*\\n${GITHUB_ACTOR}\"}
                   ]
                 },
                 {
                   \"type\": \"section\",
                   \"text\": {
                     \"type\": \"mrkdwn\",
-                    \"text\": \"*Message:* ${{ needs.detect-changes.outputs.commit_message }}\\n\\n🌐 *Frontend:* https://skillforge-ai.emacsah.com\"
+                    \"text\": \"*Message:* ${COMMIT_MESSAGE}\\n\\n🌐 *Frontend:* https://skillforge-ai.emacsah.com\"
                   }
                 },
                 {
@@ -316,7 +323,7 @@ jobs:
                     {
                       \"type\": \"button\",
                       \"text\": {\"type\": \"plain_text\", \"text\": \"View Workflow\"},
-                      \"url\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"
+                      \"url\": \"${WORKFLOW_URL}\"
                     }
                   ]
                 }
