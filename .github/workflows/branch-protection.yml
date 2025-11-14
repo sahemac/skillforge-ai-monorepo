@@ -344,7 +344,9 @@ jobs:
           BACKEND_TESTS_RESULT: ${{ needs.backend-tests.result }}
           FRONTEND_TESTS_RESULT: ${{ needs.frontend-tests.result }}
           SECURITY_SCAN_RESULT: ${{ needs.security-scan.result }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
         with:
           script: |
             // Get results from environment variables
@@ -352,7 +354,9 @@ jobs:
             const backendTests = process.env.BACKEND_TESTS_RESULT;
             const frontendTests = process.env.FRONTEND_TESTS_RESULT;
             const securityScan = process.env.SECURITY_SCAN_RESULT;
-            const runUrl = process.env.RUN_URL;
+
+            // Construct run URL from components
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
 
             // Determine status icons
             const prStatus = validatePr === 'success' ? '✅' : '❌';
